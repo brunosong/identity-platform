@@ -1,0 +1,13 @@
+# 스키마는 엔티티에서 만든다(ddl-auto). authz_*/identity_* 테이블의 제약·인덱스 검증은
+# infrastructure/db-migration 의 마이그레이션 테스트가 맡는다.
+# 여기서 보는 것은 어댑터/매퍼/쿼리의 동작(신원 왕복, 역할-권한 조인, URL 규칙 조립)이다.
+spring:
+  flyway:
+    enabled: false
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

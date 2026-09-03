@@ -11,8 +11,13 @@
     <groupId>com.brunosong</groupId>
     <artifactId>identity-platform</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>identity-platform</name>
     <description>identity-platform</description>
+
+    <modules>
+        <module>auth-service</module>
+    </modules>
     <url/>
     <licenses>
         <license/>
@@ -49,10 +54,10 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
+            <!--
+              spring-boot-maven-plugin(repackage)은 실행 가능한 모듈에서만 선언한다.
+              루트에 두면 레이어 모듈까지 상속받아 repackage 가 실패한다.
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

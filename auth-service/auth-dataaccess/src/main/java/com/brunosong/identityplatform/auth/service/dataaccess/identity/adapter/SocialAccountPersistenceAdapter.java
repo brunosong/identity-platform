@@ -1,0 +1,47 @@
+package com.brunosong.identityplatform.auth.service.dataaccess.identity.adapter;
+
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialAccountRepository;
+import com.brunosong.identityplatform.auth.service.dataaccess.identity.entity.SocialAccountJpaEntity;
+import com.brunosong.identityplatform.auth.service.dataaccess.identity.repository.SocialAccountJpaRepository;
+import com.brunosong.identityplatform.auth.service.domain.identity.SocialAccount;
+import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
+import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+
+/**
+ * {@link SocialAccountRepository} 영속성 어댑터.
+ */
+@Component
+@RequiredArgsConstructor
+public class SocialAccountPersistenceAdapter implements SocialAccountRepository {
+
+    private final SocialAccountJpaRepository repository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<SocialAccount> findByProvider(SocialProvider provider, String providerUid) {
+        return repository.findByProviderAndProviderUid(provider.name(), providerUid)
+                .map(SocialAccountPersistenceAdapter::toDomain);
+    }
+
+    @Override
+    @Transactional
+    public SocialAccount save(SocialAccount account) {
+        SocialAccountJpaEntity e = new SocialAccountJpaEntity();
+        e.setSocialAccountId(account.getSocialAccountId());
+        e.setPrincipalId(account.getPrincipalId().value());
+        e.setProvider(account.getProvider().name());
+        e.setProviderUid(account.getProviderUid());
+        e.setCreatedAt(account.getCreatedAt());
+        return toDomain(repository.save(e));
+    }
+
+    private static SocialAccount toDomain(SocialAccountJpaEntity e) {
+        return SocialAccount.restore(e.getSocialAccountId(), new PrincipalId(e.getPrincipalId()),
+                SocialProvider.valueOf(e.getProvider()), e.getProviderUid(), e.getCreatedAt());
+    }
+}
