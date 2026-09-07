@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# 실행 모듈 빌드 산출물
+**/target/

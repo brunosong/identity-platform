@@ -13,13 +13,22 @@
     <name>auth-service</name>
     <description>auth-service</description>
 
-    <!-- 헥사고날 레이어 모듈을 묶어 빌드 순서만 잡는 집계자(jar 아님). -->
+    <properties>
+        <!-- dataaccess 와 bootstrap 의 통합 테스트가 같은 버전을 쓴다. -->
+        <testcontainers.version>1.21.4</testcontainers.version>
+    </properties>
+
+    <!--
+      헥사고날 레이어 모듈을 묶어 빌드 순서만 잡는 집계자(jar 아님).
+      auth-bootstrap 만 실행 가능한 모듈이고, 나머지는 그것이 묶는 레이어다.
+    -->
     <modules>
         <module>auth-domain</module>
         <module>auth-application</module>
         <module>auth-dataaccess</module>
         <module>auth-web</module>
         <module>auth-messaging</module>
+        <module>auth-bootstrap</module>
     </modules>
 
 </project>

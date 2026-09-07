@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.brunosong</groupId>
+        <artifactId>auth-service</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>auth-bootstrap</artifactId>
+
+    <!--
+      실행 모듈. 레이어 모듈들을 한 프로세스로 묶어 띄운다.
+      코드는 @SpringBootApplication 하나와 설정뿐이다 — 로직이 여기 들어오면 레이어 경계가 무너진다.
+
+      다른 레이어는 이 모듈을 의존하지 않는다(의존은 여기로만 모인다). 그래서 어댑터를 갈아끼우거나
+      실행 형태를 바꾸는 일이 이 모듈 안에서 끝난다.
+    -->
+
+    <dependencies>
+        <!-- 인바운드 어댑터(컨트롤러) -->
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>auth-web</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- 아웃바운드 어댑터(영속성) -->
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>auth-dataaccess</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- 이벤트 발행/구독 어댑터 -->
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>auth-messaging</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- 컨텍스트 로딩 테스트: 실제 PostgreSQL 로 띄운다 -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 실행 가능한 모듈에서만 선언한다(루트에 두면 레이어 모듈까지 repackage 를 상속받아 실패한다). -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
