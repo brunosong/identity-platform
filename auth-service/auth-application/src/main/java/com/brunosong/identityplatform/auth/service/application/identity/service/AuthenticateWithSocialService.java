@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 소셜 로그인. provider 검증은 호스트 아웃바운드({@link SocialIdentityVerifierPort})가, 링크/발급은 auth 가 한다.
+ * 소셜 로그인. provider 검증은 아웃바운드 어댑터({@link SocialIdentityVerifierPort})가, 링크/발급은 auth 가 한다.
  *
  * <p>이미 연결된 소셜이면 그 Principal 로 발급하고, 처음이면 verified email 로 주체를 resolve 해(없으면
  * 프로비저닝) 같은 Principal 에 SocialAccount 를 연결한다. 그래서 비밀번호로 가입했던 고객이 소셜로 처음
@@ -31,7 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthenticateWithSocialService implements AuthenticateWithSocialUseCase {
 
-    /** provider 검증기는 호스트가 제공. 없으면 소셜 로그인 미지원이라 지연 조회한다(부팅 영향 없음). */
+    /**
+     * provider 검증 어댑터. 아직 이 서비스에 구현이 없어 선택 조회로 둔다 — 어댑터가 들어오면
+     * 필수 의존으로 바꾼다(그때 이 지연 조회와 아래 예외가 함께 사라진다).
+     */
     private final ObjectProvider<SocialIdentityVerifierPort> socialVerifierProvider;
     private final SocialAccountRepository socialAccountRepository;
     private final PrincipalRepository principalRepository;
@@ -58,7 +61,7 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
     public AuthenticationResult authenticate(SocialAuthCommand command) {
         SocialIdentityVerifierPort verifier = socialVerifierProvider.getIfAvailable();
         if (verifier == null) {
-            throw new IllegalStateException("이 호스트에는 SocialIdentityVerifierPort 가 없습니다(소셜 로그인 미지원).");
+            throw new IllegalStateException("소셜 검증 어댑터가 설정되지 않았습니다(SocialIdentityVerifierPort).");
         }
         VerifiedSocialIdentity id = verifier.verify(command.provider(), command.authorizationCode());
 

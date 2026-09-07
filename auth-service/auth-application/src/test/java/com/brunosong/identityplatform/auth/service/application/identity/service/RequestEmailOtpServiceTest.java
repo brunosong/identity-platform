@@ -88,7 +88,7 @@ class RequestEmailOtpServiceTest {
     }
 
     @Test
-    @DisplayName("발송 어댑터가 없는 호스트에서는 요청이 실패한다")
+    @DisplayName("발송 어댑터가 없으면 요청이 실패한다")
     void withoutSenderFails() {
         RequestEmailOtpService noSender = new RequestEmailOtpService(
                 emailAccountRepo, otpStore, new FakePasswordEncoder(), environment,

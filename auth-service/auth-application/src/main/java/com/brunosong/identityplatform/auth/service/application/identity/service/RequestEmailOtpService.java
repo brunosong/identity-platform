@@ -23,7 +23,7 @@ import java.util.Optional;
 /**
  * 이메일 OTP 발송 요청. auth 가 코드 생성/저장을 직접 소유하고,
  * 등록 여부는 {@link EmailAccountRepository#findByEmail}(이메일 계정 존재) 로 판단한다.
- * 실제 전송은 {@link OtpEmailSenderPort}(호스트가 notification 이벤트로 구현)에 위임한다.
+ * 실제 전송은 {@link OtpEmailSenderPort} 어댑터에 위임한다 — auth 는 발송 인프라를 모른다.
  */
 @Service
 @RequiredArgsConstructor
@@ -76,7 +76,7 @@ public class RequestEmailOtpService implements RequestEmailOtpUseCase {
 
         OtpEmailSenderPort sender = emailSenderProvider.getIfAvailable();
         if (sender == null) {
-            throw new IllegalStateException("이 호스트에는 OtpEmailSenderPort 가 없습니다(OTP 발송 미지원).");
+            throw new IllegalStateException("메일 발송 어댑터가 설정되지 않았습니다(OtpEmailSenderPort).");
         }
         sender.send(email, rawCode);
     }

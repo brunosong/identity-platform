@@ -1,7 +1,6 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,7 +27,7 @@ class RefreshTokenServiceTest {
         principalRepo = new FakePrincipalRepository();
         principalRepo.seed("customer-uuid-1", SubjectType.CUSTOMER);
         tokenIssuer = new FakeTokenIssuer();
-        service = new RefreshTokenService(principalRepo, new TokenIssuance(provider(tokenIssuer)));
+        service = new RefreshTokenService(principalRepo, new TokenIssuance(tokenIssuer));
     }
 
     @Test
@@ -39,7 +38,7 @@ class RefreshTokenServiceTest {
         AuthenticationResult result = service.refresh(SubjectType.CUSTOMER, "refresh:customer-uuid-1");
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
-        assertThat(result.tokens().accessToken()).isEqualTo("access:customer-uuid-1");
+        assertThat(result.tokens().accessToken()).isEqualTo("access:CUSTOMER:customer-uuid-1");
     }
 
     @Test
@@ -52,13 +51,4 @@ class RefreshTokenServiceTest {
                 .hasMessageContaining("유효하지 않습니다");
     }
 
-    @Test
-    @DisplayName("토큰 발급기가 없는 호스트에서는 재발급을 지원하지 않는다")
-    void withoutTokenIssuerFails() {
-        RefreshTokenService noIssuer = new RefreshTokenService(principalRepo, new TokenIssuance(provider((TokenIssuerPort) null)));
-
-        assertThatThrownBy(() -> noIssuer.refresh(SubjectType.CUSTOMER, "whatever"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("TokenIssuerPort");
-    }
 }

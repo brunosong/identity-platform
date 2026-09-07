@@ -21,6 +21,7 @@ import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.P
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.TokenPair;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.ArrayList;
@@ -241,15 +242,20 @@ final class IdentityFakes {
     /** 토큰 형식은 관심 밖이라 subjectId 를 그대로 실어 준다. */
     static final class FakeTokenIssuer implements TokenIssuerPort {
         String refreshTokenSubjectId;
+        /** 마지막으로 발급을 요청받은 realm — 인증된 주체와 같은 realm 인지 보려고 남긴다. */
+        Realm issuedRealm;
+        Realm verifiedRealm;
 
         @Override
-        public TokenPair issue(Principal principal) {
-            return new TokenPair("access:" + principal.getSubjectId().value(),
+        public TokenPair issue(Realm realm, Principal principal) {
+            this.issuedRealm = realm;
+            return new TokenPair("access:" + realm + ":" + principal.getSubjectId().value(),
                     "refresh:" + principal.getSubjectId().value());
         }
 
         @Override
-        public String subjectIdFromRefreshToken(String refreshToken) {
+        public String subjectIdFromRefreshToken(Realm realm, String refreshToken) {
+            this.verifiedRealm = realm;
             return refreshTokenSubjectId;
         }
     }

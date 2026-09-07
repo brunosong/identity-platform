@@ -1,12 +1,12 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,7 @@ class AuthenticateWithPasswordServiceTest {
                 principalRepo,
                 new PasswordCredentialVerifier(accountRepo, encoder),
                 new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(provider(new FakeTokenIssuer()))));
+                        new TokenIssuance(new FakeTokenIssuer())));
     }
 
     @Test
@@ -61,7 +61,7 @@ class AuthenticateWithPasswordServiceTest {
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
         assertThat(result.subjectType()).isEqualTo(SubjectType.CUSTOMER);
-        assertThat(result.tokens().accessToken()).isEqualTo("access:customer-uuid-1");
+        assertThat(result.tokens().accessToken()).isEqualTo("access:CUSTOMER:customer-uuid-1");
         assertThat(eventPublisher.published).hasSize(1);
         assertThat(eventPublisher.published.get(0).subjectId()).isEqualTo("customer-uuid-1");
     }
@@ -84,6 +84,21 @@ class AuthenticateWithPasswordServiceTest {
         assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(SubjectType.CUSTOMER, LOGIN_ID, "wrong")))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAIL);
+    }
+
+    @Test
+    @DisplayName("토큰은 인증된 주체의 realm 으로 발급된다")
+    void tokenIsIssuedForTheAuthenticatedRealm() {
+        FakeTokenIssuer issuer = new FakeTokenIssuer();
+        AuthenticateWithPasswordService svc = new AuthenticateWithPasswordService(
+                principalRepo,
+                new PasswordCredentialVerifier(accountRepo, new FakePasswordEncoder()),
+                new AuthenticationCompletion(principalRepo, eventPublisher, new TokenIssuance(issuer)));
+
+        svc.authenticate(new PasswordAuthCommand(SubjectType.CUSTOMER, LOGIN_ID, PASSWORD));
+
+        // 한 프로세스가 두 realm 의 키를 모두 쥐므로, 발급 realm 이 어긋나면 상대 realm 토큰이 나간다.
+        assertThat(issuer.issuedRealm).isEqualTo(Realm.CUSTOMER);
     }
 
     @Test
@@ -148,17 +163,4 @@ class AuthenticateWithPasswordServiceTest {
         assertThat(account.getLockedUntil()).isNull();
     }
 
-    @Test
-    @DisplayName("토큰 발급기가 없는 호스트에서는 로그인할 수 없다")
-    void withoutTokenIssuerFails() {
-        AuthenticateWithPasswordService noIssuer = new AuthenticateWithPasswordService(
-                principalRepo,
-                new PasswordCredentialVerifier(accountRepo, new FakePasswordEncoder()),
-                new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(provider((TokenIssuerPort) null))));
-
-        assertThatThrownBy(() -> noIssuer.authenticate(new PasswordAuthCommand(SubjectType.CUSTOMER, LOGIN_ID, PASSWORD)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("TokenIssuerPort");
-    }
 }

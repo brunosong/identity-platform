@@ -53,7 +53,7 @@ class AuthenticateWithSocialServiceTest {
                 provider(verifier), socialRepo, principalRepo, emailAccountRepo,
                 registeredPublisher,
                 new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(provider(new FakeTokenIssuer()))));
+                        new TokenIssuance(new FakeTokenIssuer())));
     }
 
     private SocialAuthCommand command() {
@@ -111,13 +111,13 @@ class AuthenticateWithSocialServiceTest {
     }
 
     @Test
-    @DisplayName("소셜 검증기가 없는 호스트에서는 소셜 로그인을 지원하지 않는다")
+    @DisplayName("소셜 검증 어댑터가 없으면 소셜 로그인을 지원하지 않는다")
     void withoutVerifierFails() {
         AuthenticateWithSocialService noVerifier = new AuthenticateWithSocialService(
                 provider((SocialIdentityVerifierPort) null), socialRepo, principalRepo, emailAccountRepo,
                 registeredPublisher,
                 new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(provider(new FakeTokenIssuer()))));
+                        new TokenIssuance(new FakeTokenIssuer())));
 
         assertThatThrownBy(() -> noVerifier.authenticate(command()))
                 .isInstanceOf(IllegalStateException.class)

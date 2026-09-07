@@ -53,7 +53,7 @@ class AuthenticateWithEmailOtpServiceTest {
         service = new AuthenticateWithEmailOtpService(
                 emailAccountRepo, principalRepo, otpStore, encoder,
                 new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(provider(new FakeTokenIssuer()))));
+                        new TokenIssuance(new FakeTokenIssuer())));
     }
 
     private EmailOtpChallenge issueOtp() {

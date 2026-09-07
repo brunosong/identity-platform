@@ -3,7 +3,6 @@ package com.brunosong.identityplatform.auth.service.web.identity;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.SingleSessionUseCase;
 import com.brunosong.identityplatform.auth.service.web.support.AuthCookies;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticatedCaller;
-import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,8 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
  * 그 주체의 세션을 끊었다 — 남의 식별자만 알면 누구든 그 사람을 로그아웃시킬 수 있었다.
  * 지금은 호출자의 access 토큰을 검증해 거기 실린 주체만 무효화한다.
  *
- * <p>realm 은 호스트 설정에서 온다({@link AuthenticationRealm}). 한 호스트 프로세스는 자기 realm 만
- * 시행하므로 요청이 정할 값이 아니다 — 로그인도 같은 곳을 본다.
+ * <p>무효화할 realm 은 호출자의 access 토큰에 실려 온다. 한 서비스가 두 realm 을 담당하므로 설정으로는
+ * 알 수 없고, 요청이 정하게 두면 남의 realm 세션을 지목할 수 있다.
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -33,7 +32,6 @@ public class AuthLogoutApiController {
     private final ObjectProvider<SingleSessionUseCase> singleSessionProvider;
     private final AuthenticatedCaller caller;
     private final AuthCookies authCookies;
-    private final AuthenticationRealm authenticationRealm;
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -41,7 +39,7 @@ public class AuthLogoutApiController {
 
         SingleSessionUseCase singleSession = singleSessionProvider.getIfAvailable();
         if (singleSession != null) {
-            singleSession.invalidate(authenticationRealm.realm(), caller.subjectId(claims));
+            singleSession.invalidate(caller.realmOf(claims), caller.subjectId(claims));
         }
 
         authCookies.clear(response);

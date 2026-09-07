@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.web.support;
 
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class AuthenticatedCaller {
     /** access 토큰에 실린 권한 코드 목록(쉼표 구분). */
     private static final String PERMISSIONS_CLAIM = "authLs";
     private static final String SUBJECT_ID_CLAIM = "userId";
+    private static final String REALM_CLAIM = "realm";
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final AccessTokenReader accessTokenReader;
@@ -52,6 +54,22 @@ public class AuthenticatedCaller {
 
     public String subjectId(Claims claims) {
         return claims.get(SUBJECT_ID_CLAIM, String.class);
+    }
+
+    /**
+     * 호출자가 속한 realm — 토큰에 실려 온다. 한 서비스가 두 realm 을 담당하므로 설정으로는 알 수 없고,
+     * 요청 본문이 정하게 두면 남의 realm 을 지목할 수 있다. 서명된 토큰이 유일하게 믿을 수 있는 출처다.
+     */
+    public Realm realmOf(Claims claims) {
+        String realm = claims.get(REALM_CLAIM, String.class);
+        if (!StringUtils.hasText(realm)) {
+            throw new UnauthorizedException("토큰에 realm 이 없습니다.");
+        }
+        try {
+            return Realm.valueOf(realm);
+        } catch (IllegalArgumentException e) {
+            throw new UnauthorizedException("토큰의 realm 을 알 수 없습니다.");
+        }
     }
 
     public List<String> permissionsOf(Claims claims) {
