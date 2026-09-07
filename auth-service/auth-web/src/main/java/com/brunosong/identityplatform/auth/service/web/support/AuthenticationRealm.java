@@ -1,44 +1,55 @@
 package com.brunosong.identityplatform.auth.service.web.support;
 
+import com.brunosong.identityplatform.auth.service.application.identity.SubjectRealm;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 /**
- * 이 호스트가 시행하는 realm — 설정({@code authorization.realm}) 한 곳에서 읽어 웹 계층에 넘긴다.
+ * 요청 경로의 realm 세그먼트를 {@link Realm} 으로 옮긴다 — {@code /api/auth/realms/{realm}/...}.
  *
- * <p>realm 은 요청이 정할 값이 아니다. 한 호스트 프로세스는 자기 realm 만 시행하고, 토큰 발급기도
- * 같은 프로퍼티로 realm 별 키페어를 잡는다({@code RbacJwtTokenIssuer}). 그런데 로그인 컨트롤러들은
- * 각자 다른 방식으로 realm 을 정하고 있었다 — OTP 는 URL 경로(/employee/login)로, 소셜은 컨트롤러
- * 상수로. 인증하는 쪽과 발급하는 쪽이 서로 다른 걸 보고 있었으므로 둘이 어긋날 수 있었다.
- * (실제로 고객 호스트에도 직원 OTP 로그인 URL 이 떠 있어서, 직원이 그 경로로 고객 realm 토큰을 받을 수 있었다.)
+ * <p>이 서비스는 두 realm 을 모두 담당하므로 realm 을 설정에서 알 수 없다. 전에는 프로세스마다
+ * {@code authorization.realm} 이 하나 박혀 있었고 요청은 realm 을 말하지 않았다. 이제 요청이 지목한다.
  *
- * <p>설정이 없으면 부팅이 실패한다(기본값 없음). realm 을 모르는 호스트는 어차피 토큰을 발급할 수 없고,
- * 조용히 아무 realm 으로 도는 것보다 뜨지 않는 편이 낫다.
+ * <p><b>realm 은 비밀이 아니라 어느 서랍을 열지 고르는 값이다.</b> 아무나 employee 를 지목할 수 있지만,
+ * 그 서랍에 자기 계정이 없으면 로그인은 실패한다 — 자격증명 조회가 모두 주체 유형으로 좁혀져 있기
+ * 때문이다. 그 전제가 깨지면(전역 조회로 되돌아가면) 이 설계도 함께 깨진다.
  *
- * <p>{@link Realm}(인가 정책)과 {@link SubjectType}(주체 식별자 의미)은 관심사가 달라 도메인에서 일부러
- * 분리돼 있다. 그 둘을 잇는 변환은 여기 한 군데에만 둔다.
+ * <p>발급된 토큰의 realm 은 이 값이 아니라 인증된 Principal 에서 나온다. 그래서 요청이 realm 을
+ * 잘못 지목해도 남의 realm 토큰이 나가지 않는다 — 애초에 인증이 성립하지 않는다.
+ *
+ * <p>모르는 값은 404 다. 그런 realm 은 이 서비스에 없다.
  */
 @Component
 public class AuthenticationRealm {
 
-    private final Realm realm;
-
-    public AuthenticationRealm(@Value("${authorization.realm}") Realm realm) {
-        this.realm = realm;
-    }
-
-    /** 인가(역할/권한/URL규칙) 조회에 쓰는 realm. */
-    public Realm realm() {
-        return realm;
+    /** 경로에 적힌 realm. 대소문자는 가리지 않는다(URL 은 소문자가 자연스럽다). */
+    public Realm of(String pathValue) {
+        if (!StringUtils.hasText(pathValue)) {
+            throw new NotFoundException("realm 이 지정되지 않았습니다.");
+        }
+        try {
+            return Realm.valueOf(pathValue.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new NotFoundException("알 수 없는 realm 입니다: " + pathValue);
+        }
     }
 
     /** 신원(Principal/자격증명) 조회에 쓰는 주체 유형. */
-    public SubjectType subjectType() {
-        return switch (realm) {
-            case EMPLOYEE -> SubjectType.EMPLOYEE;
-            case CUSTOMER -> SubjectType.CUSTOMER;
-        };
+    public SubjectType subjectTypeOf(String pathValue) {
+        return SubjectRealm.subjectTypeOf(of(pathValue));
+    }
+
+    /**
+     * 그 realm 에서만 열리는 인증수단을 위한 확인. 다른 realm 에서는 그 경로가 없는 것으로 다룬다 —
+     * 전에는 컨트롤러를 프로퍼티로 껐지만, 한 프로세스가 두 realm 을 담당하면 빈을 껐다 켤 수 없다.
+     */
+    public Realm requireRealm(String pathValue, Realm expected) {
+        Realm realm = of(pathValue);
+        if (realm != expected) {
+            throw new NotFoundException("이 realm 에서는 지원하지 않는 로그인 방식입니다.");
+        }
+        return realm;
     }
 }

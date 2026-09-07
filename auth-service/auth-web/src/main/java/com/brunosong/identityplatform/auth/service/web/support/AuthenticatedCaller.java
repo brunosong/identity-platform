@@ -16,12 +16,12 @@ import java.util.Optional;
  * 요청에서 호출자를 확인한다 — auth 가 발급한 access 토큰을 auth 가 직접 검증한다.
  *
  * <p>운영 API(역할·권한 편집, 캐시 리로드, 로그아웃)는 자기 신원을 밝힌 호출자만 부를 수 있어야 한다.
- * 예전에는 그 확인을 "호스트 게이트웨이가 앞단에서 해준다"고 두고 auth 자신은 아무것도 보지 않았는데,
+ * 예전에는 그 확인을 "게이트웨이가 앞단에서 해준다"고 두고 auth 자신은 아무것도 보지 않았는데,
  * 그러면 auth 를 독립 배포하는 순간(설계상 목표다) 인증 없는 관리 API 가 그대로 열린다.
  * 서명키를 쥔 쪽이 검증도 할 수 있으므로 여기서 확인한다.
  *
- * <p>토큰은 쿠키에서 읽고, 없으면 {@code Authorization: Bearer} 헤더에서 읽는다 — 브라우저 화면과
- * 서버 간 호출이 같은 엔드포인트를 쓴다.
+ * <p>토큰은 {@code Authorization: Bearer} 헤더에서만 읽는다. 쿠키 경로는 없앴다 — 인증 서버와
+ * 프론트엔드의 도메인이 달라 쿠키가 전달되지 않는다({@link IssuedTokens} 참고).
  */
 @Component
 @RequiredArgsConstructor
@@ -34,13 +34,15 @@ public class AuthenticatedCaller {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final AccessTokenReader accessTokenReader;
-    private final AuthCookies authCookies;
+
+    /** 토큰이 있고 유효하면 claims. 없거나 무효면 비어 있다(비로그인을 정상 흐름으로 다루는 쪽에서 쓴다). */
+    public Optional<Claims> read(HttpServletRequest request) {
+        return bearerToken(request).flatMap(accessTokenReader::read);
+    }
 
     /** 토큰이 유효하면 claims, 아니면 401. */
     public Claims require(HttpServletRequest request) {
-        return readToken(request)
-                .flatMap(accessTokenReader::read)
-                .orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
+        return read(request).orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
     }
 
     /** 토큰이 유효하고 그 권한을 갖고 있으면 claims, 없으면 403. */
@@ -83,15 +85,12 @@ public class AuthenticatedCaller {
                 .toList();
     }
 
-    private Optional<String> readToken(HttpServletRequest request) {
-        Optional<String> fromCookie = authCookies.readAccessToken(request);
-        if (fromCookie.isPresent()) {
-            return fromCookie;
-        }
+    private Optional<String> bearerToken(HttpServletRequest request) {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header != null && header.startsWith(BEARER_PREFIX)) {
-            return Optional.of(header.substring(BEARER_PREFIX.length()).trim());
+        if (header == null || !header.startsWith(BEARER_PREFIX)) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        String token = header.substring(BEARER_PREFIX.length()).trim();
+        return StringUtils.hasText(token) ? Optional.of(token) : Optional.empty();
     }
 }

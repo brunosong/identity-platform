@@ -45,6 +45,12 @@ public class AuthApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(e.getMessage()));
     }
 
+    /** 없는 경로/realm — 그 realm 에서 지원하지 않는 로그인 방식도 여기로 온다. */
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ApiError> onNotFound(NotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(e.getMessage()));
+    }
+
     /** 잘못된 입력값 — 도메인 불변식 위반과 응용 계층의 인자 검증이 여기로 온다. */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> onIllegalArgument(IllegalArgumentException e) {

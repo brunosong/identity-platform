@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,14 +21,16 @@ import java.util.List;
 
 /**
  * 직원 등록 API — auth 가 직원 계정을 만들고(esntlId 채번 + Principal) 어드민이 고른 초기 역할을 배정한다.
- * 직원 전용이라 EMPLOYEE realm 호스트에서만 활성화한다.
+ *
+ * <p>경로에 realm 이 없다. 이 API 가 만드는 것은 언제나 EMPLOYEE 신원이라 고를 여지가 없다 —
+ * 고르게 두면 같은 API 로 고객 신원까지 만들 수 있게 된다. 전에는 realm 프로퍼티로 이 컨트롤러를
+ * 껐지만, 한 서비스가 두 realm 을 담당하면 그렇게 가를 수 없다.
  *
  * <p>운영자만 부를 수 있다. 계정을 만들고 역할까지 배정하는 API 라서 열려 있으면 누구나 자기 자신에게
  * 직원 권한을 줄 수 있다. RBAC 편집과 같은 관리 권한을 요구한다.
  */
 @RestController
 @RequestMapping("/api/auth")
-@ConditionalOnProperty(name = "authorization.realm", havingValue = "EMPLOYEE")
 public class AuthEmployeeRegistrationApiController {
 
     private final RegisterEmployeeAccountUseCase registerEmployeeAccount;

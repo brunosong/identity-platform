@@ -3,12 +3,12 @@ package com.brunosong.identityplatform.auth.service.web.identity;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.AuthenticateWithPasswordUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
-import com.brunosong.identityplatform.auth.service.web.support.AuthCookies;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
-import jakarta.servlet.http.HttpServletResponse;
+import com.brunosong.identityplatform.auth.service.web.support.IssuedTokens;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,39 +17,36 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 아이디/비밀번호 로그인 API.
  *
- * <p>자격증명을 받아 인증하고 발급된 토큰을 쿠키로 실어 내려준다. 토큰 전송(쿠키 이름·만료·속성)은
- * {@link AuthCookies} 한곳에서 정한다 — 로그인·재발급·로그아웃이 같은 규칙을 써야 한다.
+ * <p>어느 realm 의 자격증명을 확인할지는 경로가 정한다({@link AuthenticationRealm}). 이 서비스가 두 realm 을
+ * 모두 담당하므로 설정으로는 알 수 없다. realm 을 잘못 지목해도 그 realm 에 계정이 없으면 인증이
+ * 성립하지 않는다 — 조회가 주체 유형으로 좁혀져 있기 때문이다.
  *
- * <p>응답 본문에는 토큰을 담지 않는다. 쿠키로 이미 내려갔고, 본문에도 실으면 스크립트가 읽을 수 있는
- * 자리에 한 벌이 더 생긴다({@code httpOnly} 를 두는 이유가 사라진다).
+ * <p>토큰은 응답 본문으로 내린다. 이후 요청은 {@code Authorization: Bearer} 로 싣는다.
+ * 쿠키를 쓰지 않는 이유와 그 대가는 {@link IssuedTokens} 에 적어 뒀다.
  *
  * <p>실패 매핑은 {@code AuthApiExceptionHandler} 가 맡는다 — 자격증명 실패는 401 이고,
  * 아이디 미존재와 비밀번호 불일치는 같은 메시지로 나간다(계정 열거 방지).
- *
- * <p>어느 realm 의 자격증명을 확인할지는 {@link AuthenticationRealm} 이 정한다. 요청 본문은 realm 을 담지
- * 않는다 — loginId 만 받아 전역에서 찾으면 상대 realm 계정으로도 로그인이 통과한다.
  */
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/auth/realms/{realm}/login")
 @RequiredArgsConstructor
 public class AuthLoginApiController {
 
     private final AuthenticateWithPasswordUseCase authenticateWithPassword;
-    private final AuthCookies authCookies;
     private final AuthenticationRealm authenticationRealm;
 
-    @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+    @PostMapping
+    public LoginResponse login(@PathVariable String realm, @Valid @RequestBody LoginRequest request) {
         AuthenticationResult result = authenticateWithPassword.authenticate(new PasswordAuthCommand(
-                authenticationRealm.subjectType(), request.loginId(), request.password()));
-        authCookies.write(response, result.tokens());
-        return new LoginResponse(result.subjectId(),
-                result.subjectType() == null ? null : result.subjectType().name());
+                authenticationRealm.subjectTypeOf(realm), request.loginId(), request.password()));
+
+        return new LoginResponse(result.subjectId(), result.subjectType().name(),
+                IssuedTokens.of(result.tokens()));
     }
 
     public record LoginRequest(@NotBlank String loginId, @NotBlank String password) {
     }
 
-    public record LoginResponse(String subjectId, String subjectType) {
+    public record LoginResponse(String subjectId, String subjectType, IssuedTokens tokens) {
     }
 }
