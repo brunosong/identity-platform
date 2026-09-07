@@ -99,9 +99,9 @@ final class IdentityFakes {
         }
 
         @Override
-        public Optional<Principal> findBySubjectId(SubjectId subjectId) {
+        public Optional<Principal> findBySubjectId(SubjectType subjectType, SubjectId subjectId) {
             return byId.values().stream()
-                    .filter(p -> p.getSubjectId().equals(subjectId))
+                    .filter(p -> p.getSubjectType() == subjectType && p.getSubjectId().equals(subjectId))
                     .findFirst();
         }
 
@@ -113,29 +113,34 @@ final class IdentityFakes {
     }
 
     static final class FakePasswordAccountRepository implements PasswordAccountRepository {
+        /** 키가 유형+아이디다. 같은 loginId 가 realm 별로 따로 설 수 있다는 것이 이 저장소의 규칙이다. */
         final Map<String, PasswordAccount> byLoginId = new HashMap<>();
         int loginStateUpdates;
 
-        @Override
-        public Optional<PasswordAccount> findByLoginId(String loginId) {
-            return Optional.ofNullable(byLoginId.get(loginId));
+        private static String key(SubjectType subjectType, String loginId) {
+            return subjectType + "|" + loginId;
         }
 
         @Override
-        public boolean existsByLoginId(String loginId) {
-            return byLoginId.containsKey(loginId);
+        public Optional<PasswordAccount> findByLoginId(SubjectType subjectType, String loginId) {
+            return Optional.ofNullable(byLoginId.get(key(subjectType, loginId)));
+        }
+
+        @Override
+        public boolean existsByLoginId(SubjectType subjectType, String loginId) {
+            return byLoginId.containsKey(key(subjectType, loginId));
         }
 
         @Override
         public PasswordAccount save(PasswordAccount account) {
-            byLoginId.put(account.getLoginId(), account);
+            byLoginId.put(key(account.getSubjectType(), account.getLoginId()), account);
             return account;
         }
 
         @Override
         public void updateLoginState(PasswordAccount account) {
             loginStateUpdates++;
-            byLoginId.put(account.getLoginId(), account);
+            byLoginId.put(key(account.getSubjectType(), account.getLoginId()), account);
         }
     }
 
@@ -204,9 +209,11 @@ final class IdentityFakes {
         final List<SocialAccount> saved = new ArrayList<>();
 
         @Override
-        public Optional<SocialAccount> findByProvider(SocialProvider provider, String providerUid) {
+        public Optional<SocialAccount> findByProvider(SubjectType subjectType, SocialProvider provider,
+                                                     String providerUid) {
             return saved.stream()
-                    .filter(a -> a.getProvider() == provider && a.getProviderUid().equals(providerUid))
+                    .filter(a -> a.getSubjectType() == subjectType && a.getProvider() == provider
+                            && a.getProviderUid().equals(providerUid))
                     .findFirst();
         }
 

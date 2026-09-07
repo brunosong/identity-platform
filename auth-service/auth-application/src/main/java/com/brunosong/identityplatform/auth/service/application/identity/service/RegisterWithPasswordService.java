@@ -55,7 +55,8 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
     @Override
     @Transactional
     public String register(RegisterWithPasswordCommand command) {
-        if (passwordAccountRepository.existsByLoginId(command.loginId())) {
+        // 아이디 중복은 같은 주체 유형 안에서만 따진다 — 직원 "hong" 과 고객 "hong" 은 다른 계정이다.
+        if (passwordAccountRepository.existsByLoginId(command.subjectType(), command.loginId())) {
             throw new IllegalArgumentException("이미 존재하는 아이디입니다: " + command.loginId());
         }
 
@@ -66,7 +67,8 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
                 .orElseGet(() -> createPrincipal(command));
 
         passwordAccountRepository.save(PasswordAccount.create(
-                principal.getPrincipalId(), command.loginId(), passwordEncoder.encode(command.password())));
+                principal.getPrincipalId(), command.subjectType(), command.loginId(),
+                passwordEncoder.encode(command.password())));
 
         // 인가 역할(authz)은 등록 이벤트를 받은 realm 별 리스너가 authz_subject_role 에 부여한다.
         // 신원(Principal)은 역할을 소유하지 않는다.

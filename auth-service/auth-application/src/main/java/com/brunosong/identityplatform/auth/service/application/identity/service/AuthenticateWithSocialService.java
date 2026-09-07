@@ -63,7 +63,8 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
         VerifiedSocialIdentity id = verifier.verify(command.provider(), command.authorizationCode());
 
         // 이미 연결된 소셜이면 그 Principal, 아니면 verified email 로 주체 resolve 후 링크/생성
-        Principal principal = socialAccountRepository.findByProvider(command.provider(), id.providerUid())
+        Principal principal = socialAccountRepository
+                .findByProvider(command.subjectType(), command.provider(), id.providerUid())
                 .map(sa -> principalRepository.findById(sa.getPrincipalId())
                         .orElseThrow(() -> new IllegalStateException(
                                 "Principal not found for socialAccount=" + sa.getSocialAccountId())))
@@ -91,7 +92,8 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
                     return created;
                 });
 
-        socialAccountRepository.save(SocialAccount.create(principal.getPrincipalId(), provider, id.providerUid()));
+        socialAccountRepository.save(SocialAccount.create(
+                principal.getPrincipalId(), subjectType, provider, id.providerUid()));
         return principal;
     }
 }

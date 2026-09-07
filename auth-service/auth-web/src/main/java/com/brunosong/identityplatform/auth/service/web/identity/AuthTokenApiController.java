@@ -3,6 +3,7 @@ package com.brunosong.identityplatform.auth.service.web.identity;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RefreshTokenUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.web.support.AuthCookies;
+import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.brunosong.identityplatform.auth.service.web.support.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,6 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>refresh 토큰은 쿠키에서 읽는 것이 기본이고, 본문으로도 받을 수 있다 — 쿠키를 쓰지 않는
  * 서버 간 호출을 위해 남겨둔다. 둘 다 없으면 401 이다.
+ *
+ * <p>어느 realm 의 주체를 되살릴지는 {@link AuthenticationRealm} 이 정한다 — 로그인과 같은 출처다.
+ * refresh 토큰에는 subjectId 만 실려 있어 그것만으로는 주체가 특정되지 않는다.
  */
 @RestController
 @RequestMapping("/api/auth/token")
@@ -27,6 +31,7 @@ public class AuthTokenApiController {
 
     private final RefreshTokenUseCase refreshToken;
     private final AuthCookies authCookies;
+    private final AuthenticationRealm authenticationRealm;
 
     @PostMapping("/refresh")
     public RefreshResponse refresh(@RequestBody(required = false) RefreshRequest body,
@@ -37,7 +42,7 @@ public class AuthTokenApiController {
                 : authCookies.readRefreshToken(request)
                         .orElseThrow(() -> new UnauthorizedException("리프레시 토큰이 없습니다."));
 
-        AuthenticationResult result = refreshToken.refresh(token);
+        AuthenticationResult result = refreshToken.refresh(authenticationRealm.subjectType(), token);
         authCookies.write(response, result.tokens());
         return new RefreshResponse(result.subjectId(),
                 result.subjectType() == null ? null : result.subjectType().name());

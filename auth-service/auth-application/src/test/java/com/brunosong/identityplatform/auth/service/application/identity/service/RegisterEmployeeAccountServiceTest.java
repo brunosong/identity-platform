@@ -47,7 +47,7 @@ class RegisterEmployeeAccountServiceTest {
     void registerSharesEssentialId() {
         String essentialId = service.register(command("gildong@example.com"));
 
-        Principal principal = principalRepo.findBySubjectId(new SubjectId(essentialId)).orElseThrow();
+        Principal principal = principalRepo.findBySubjectId(SubjectType.EMPLOYEE, new SubjectId(essentialId)).orElseThrow();
         assertThat(principal.getSubjectType()).isEqualTo(SubjectType.EMPLOYEE);
         assertThat(registeredPublisher.published).hasSize(1);
         assertThat(registeredPublisher.published.get(0).essentialId()).isEqualTo(essentialId);

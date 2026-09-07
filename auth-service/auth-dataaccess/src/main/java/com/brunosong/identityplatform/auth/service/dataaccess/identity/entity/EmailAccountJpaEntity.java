@@ -13,7 +13,10 @@ import java.time.Instant;
  * <p>email 은 전역이 아니라 (subject_type, email) 로 유일하다. 같은 사람이 직원이면서 포탈 고객일 수 있다.
  */
 @Entity
-@Table(name = "identity_email_account")
+@Table(name = "identity_email_account",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_identity_email_account_subject_type_email",
+                columnNames = {"subject_type", "email"}))
 @Getter
 @Setter
 @NoArgsConstructor

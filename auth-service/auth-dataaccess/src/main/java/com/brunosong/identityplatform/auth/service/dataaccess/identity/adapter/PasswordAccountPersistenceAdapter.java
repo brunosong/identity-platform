@@ -5,6 +5,7 @@ import com.brunosong.identityplatform.auth.service.dataaccess.identity.entity.Pa
 import com.brunosong.identityplatform.auth.service.dataaccess.identity.repository.PasswordAccountJpaRepository;
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
+import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -23,14 +24,15 @@ public class PasswordAccountPersistenceAdapter implements PasswordAccountReposit
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<PasswordAccount> findByLoginId(String loginId) {
-        return repository.findByLoginId(loginId).map(PasswordAccountPersistenceAdapter::toDomain);
+    public Optional<PasswordAccount> findByLoginId(SubjectType subjectType, String loginId) {
+        return repository.findBySubjectTypeAndLoginId(subjectType.name(), loginId)
+                .map(PasswordAccountPersistenceAdapter::toDomain);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public boolean existsByLoginId(String loginId) {
-        return repository.existsByLoginId(loginId);
+    public boolean existsByLoginId(SubjectType subjectType, String loginId) {
+        return repository.existsBySubjectTypeAndLoginId(subjectType.name(), loginId);
     }
 
     @Override
@@ -53,6 +55,7 @@ public class PasswordAccountPersistenceAdapter implements PasswordAccountReposit
         PasswordAccountJpaEntity e = new PasswordAccountJpaEntity();
         e.setPasswordAccountId(account.getPasswordAccountId());
         e.setPrincipalId(account.getPrincipalId().value());
+        e.setSubjectType(account.getSubjectType().name());
         e.setLoginId(account.getLoginId());
         e.setPasswordHash(account.getPasswordHash());
         e.setCreatedAt(account.getCreatedAt());
@@ -63,7 +66,7 @@ public class PasswordAccountPersistenceAdapter implements PasswordAccountReposit
 
     private static PasswordAccount toDomain(PasswordAccountJpaEntity e) {
         return PasswordAccount.restore(e.getPasswordAccountId(), new PrincipalId(e.getPrincipalId()),
-                e.getLoginId(), e.getPasswordHash(), e.getCreatedAt(),
-                e.getFailedAttempts(), e.getLockedUntil());
+                SubjectType.valueOf(e.getSubjectType()), e.getLoginId(), e.getPasswordHash(),
+                e.getCreatedAt(), e.getFailedAttempts(), e.getLockedUntil());
     }
 }

@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.domain.identity;
 
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
+import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ class PasswordAccountTest {
     private static final Duration LOCK = Duration.ofMinutes(10);
 
     private static PasswordAccount account() {
-        return PasswordAccount.create(PRINCIPAL_ID, "user01", "hashed");
+        return PasswordAccount.create(PRINCIPAL_ID, SubjectType.CUSTOMER, "user01", "hashed");
     }
 
     @Nested
@@ -37,7 +38,7 @@ class PasswordAccountTest {
         @Test
         @DisplayName("연결할 신원 없이는 만들 수 없다")
         void requiresPrincipal() {
-            assertThatThrownBy(() -> PasswordAccount.create(null, "user01", "hashed"))
+            assertThatThrownBy(() -> PasswordAccount.create(null, SubjectType.CUSTOMER, "user01", "hashed"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("principalId");
         }
@@ -45,7 +46,7 @@ class PasswordAccountTest {
         @Test
         @DisplayName("로그인ID 가 비어 있으면 만들 수 없다")
         void requiresLoginId() {
-            assertThatThrownBy(() -> PasswordAccount.create(PRINCIPAL_ID, "  ", "hashed"))
+            assertThatThrownBy(() -> PasswordAccount.create(PRINCIPAL_ID, SubjectType.CUSTOMER, "  ", "hashed"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("loginId");
         }
@@ -54,7 +55,7 @@ class PasswordAccountTest {
         @DisplayName("비밀번호 해시가 비어 있으면 만들 수 없다")
         void requiresPasswordHash() {
             // 원문을 받지 않는다는 뜻이기도 하다. 해시는 호출자가 만들어 넘긴다.
-            assertThatThrownBy(() -> PasswordAccount.create(PRINCIPAL_ID, "user01", ""))
+            assertThatThrownBy(() -> PasswordAccount.create(PRINCIPAL_ID, SubjectType.CUSTOMER, "user01", ""))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("passwordHash");
         }

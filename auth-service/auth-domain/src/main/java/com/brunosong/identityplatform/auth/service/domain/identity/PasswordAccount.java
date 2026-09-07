@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.domain.identity;
 
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
+import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import lombok.Getter;
 
 import java.time.Duration;
@@ -12,12 +13,18 @@ import java.util.UUID;
  * 이메일 OTP({@link EmailAccount})·소셜 등 다른 수단과 나란한 수단별 계정 애그리거트.
  *
  * <p>brute-force 방어를 위해 연속 실패 카운트와 잠금 만료 시각을 갖는다(이메일 OTP 의 시도횟수 잠금과 대칭).
+ *
+ * <p>loginId 는 전역이 아니라 {@code (subjectType, loginId)} 로 유일하다 — {@link EmailAccount} 와 같은 규칙이다.
+ * 전에는 loginId 가 전역 유일이었고 조회도 loginId 만으로 했다. 그러면 한 auth 프로세스가 두 realm 을
+ * 담당할 때(realm 을 요청이 지정하는 구성) 고객 자격증명으로 직원 realm 로그인을 통과시킬 수 있다 —
+ * 자격증명은 맞고, 어느 realm 것인지는 아무도 확인하지 않기 때문이다. 조회 자체를 유형으로 좁혀서 막는다.
  */
 @Getter
 public class PasswordAccount {
 
     private final String passwordAccountId;
     private final PrincipalId principalId;
+    private final SubjectType subjectType;
     private final String loginId;
     private final String passwordHash;
     private final Instant createdAt;
@@ -25,10 +32,12 @@ public class PasswordAccount {
     private int failedAttempts;
     private Instant lockedUntil;
 
-    private PasswordAccount(String passwordAccountId, PrincipalId principalId, String loginId,
-                            String passwordHash, Instant createdAt, int failedAttempts, Instant lockedUntil) {
+    private PasswordAccount(String passwordAccountId, PrincipalId principalId, SubjectType subjectType,
+                            String loginId, String passwordHash, Instant createdAt,
+                            int failedAttempts, Instant lockedUntil) {
         this.passwordAccountId = passwordAccountId;
         this.principalId = principalId;
+        this.subjectType = subjectType;
         this.loginId = loginId;
         this.passwordHash = passwordHash;
         this.createdAt = createdAt;
@@ -36,21 +45,24 @@ public class PasswordAccount {
         this.lockedUntil = lockedUntil;
     }
 
-    public static PasswordAccount create(PrincipalId principalId, String loginId, String passwordHash) {
+    public static PasswordAccount create(PrincipalId principalId, SubjectType subjectType,
+                                         String loginId, String passwordHash) {
         if (principalId == null) throw new IllegalArgumentException("principalId must not be null");
+        if (subjectType == null) throw new IllegalArgumentException("subjectType must not be null");
         if (loginId == null || loginId.isBlank()) throw new IllegalArgumentException("loginId must not be blank");
         if (passwordHash == null || passwordHash.isBlank()) {
             throw new IllegalArgumentException("passwordHash must not be blank");
         }
-        return new PasswordAccount(UUID.randomUUID().toString(), principalId, loginId, passwordHash,
-                Instant.now(), 0, null);
+        return new PasswordAccount(UUID.randomUUID().toString(), principalId, subjectType, loginId,
+                passwordHash, Instant.now(), 0, null);
     }
 
-    public static PasswordAccount restore(String passwordAccountId, PrincipalId principalId, String loginId,
+    public static PasswordAccount restore(String passwordAccountId, PrincipalId principalId,
+                                          SubjectType subjectType, String loginId,
                                           String passwordHash, Instant createdAt,
                                           int failedAttempts, Instant lockedUntil) {
-        return new PasswordAccount(passwordAccountId, principalId, loginId, passwordHash, createdAt,
-                failedAttempts, lockedUntil);
+        return new PasswordAccount(passwordAccountId, principalId, subjectType, loginId, passwordHash,
+                createdAt, failedAttempts, lockedUntil);
     }
 
     /** 현재 잠긴 상태인가(잠금 만료 시각이 아직 지나지 않았는가). */

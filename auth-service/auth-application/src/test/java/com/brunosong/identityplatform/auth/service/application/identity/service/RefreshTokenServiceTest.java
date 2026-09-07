@@ -36,7 +36,7 @@ class RefreshTokenServiceTest {
     void refreshIssuesNewTokens() {
         tokenIssuer.refreshTokenSubjectId = "customer-uuid-1";
 
-        AuthenticationResult result = service.refresh("refresh:customer-uuid-1");
+        AuthenticationResult result = service.refresh(SubjectType.CUSTOMER, "refresh:customer-uuid-1");
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
         assertThat(result.tokens().accessToken()).isEqualTo("access:customer-uuid-1");
@@ -47,7 +47,7 @@ class RefreshTokenServiceTest {
     void unknownSubjectRejected() {
         tokenIssuer.refreshTokenSubjectId = "gone-uuid";
 
-        assertThatThrownBy(() -> service.refresh("refresh:gone-uuid"))
+        assertThatThrownBy(() -> service.refresh(SubjectType.CUSTOMER, "refresh:gone-uuid"))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("유효하지 않습니다");
     }
@@ -57,7 +57,7 @@ class RefreshTokenServiceTest {
     void withoutTokenIssuerFails() {
         RefreshTokenService noIssuer = new RefreshTokenService(principalRepo, new TokenIssuance(provider((TokenIssuerPort) null)));
 
-        assertThatThrownBy(() -> noIssuer.refresh("whatever"))
+        assertThatThrownBy(() -> noIssuer.refresh(SubjectType.CUSTOMER, "whatever"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("TokenIssuerPort");
     }

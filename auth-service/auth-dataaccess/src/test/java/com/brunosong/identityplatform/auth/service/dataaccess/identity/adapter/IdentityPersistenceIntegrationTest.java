@@ -86,14 +86,19 @@ class IdentityPersistenceIntegrationTest {
         }
 
         @Test
-        @DisplayName("주체 식별자로도 찾는다")
+        @DisplayName("주체 식별자로도 찾는다 — 유형이 다르면 없는 것과 같다")
         void findBySubjectId() {
             Principal principal = Principal.create(new SubjectId("EMP-ESNTL-1"), SubjectType.EMPLOYEE);
             principalAdapter.save(principal);
             flushClear();
 
-            assertThat(principalAdapter.findBySubjectId(new SubjectId("EMP-ESNTL-1"))).isPresent();
-            assertThat(principalAdapter.findBySubjectId(new SubjectId("EMP-NONE"))).isEmpty();
+            assertThat(principalAdapter.findBySubjectId(SubjectType.EMPLOYEE, new SubjectId("EMP-ESNTL-1")))
+                    .isPresent();
+            assertThat(principalAdapter.findBySubjectId(SubjectType.EMPLOYEE, new SubjectId("EMP-NONE")))
+                    .isEmpty();
+            // 유일키는 (subject_type, subject_id) 다. 식별자만 맞고 유형이 다르면 찾히지 않아야 한다.
+            assertThat(principalAdapter.findBySubjectId(SubjectType.CUSTOMER, new SubjectId("EMP-ESNTL-1")))
+                    .isEmpty();
         }
 
         @Test
@@ -134,11 +139,11 @@ class IdentityPersistenceIntegrationTest {
         @DisplayName("자격증명과 실패 상태가 값 그대로 복원된다")
         void accountRoundTrip() {
             PasswordAccount account = PasswordAccount.create(
-                    new PrincipalId("PRIN-1"), "hong@example.com", "{bcrypt}hash");
+                    new PrincipalId("PRIN-1"), SubjectType.CUSTOMER, "hong@example.com", "{bcrypt}hash");
             passwordAdapter.save(account);
             flushClear();
 
-            PasswordAccount loaded = passwordAdapter.findByLoginId("hong@example.com").orElseThrow();
+            PasswordAccount loaded = passwordAdapter.findByLoginId(SubjectType.CUSTOMER, "hong@example.com").orElseThrow();
             assertThat(loaded.getPasswordAccountId()).isEqualTo(account.getPasswordAccountId());
             assertThat(loaded.getPrincipalId().value()).isEqualTo("PRIN-1");
             assertThat(loaded.getPasswordHash()).isEqualTo("{bcrypt}hash");
@@ -153,12 +158,29 @@ class IdentityPersistenceIntegrationTest {
         @DisplayName("로그인 ID 중복 여부를 가린다")
         void existsByLoginId() {
             passwordAdapter.save(PasswordAccount.create(
-                    new PrincipalId("PRIN-2"), "dup@example.com", "{bcrypt}hash"));
+                    new PrincipalId("PRIN-2"), SubjectType.CUSTOMER, "dup@example.com", "{bcrypt}hash"));
             flushClear();
 
-            assertThat(passwordAdapter.existsByLoginId("dup@example.com")).isTrue();
-            assertThat(passwordAdapter.existsByLoginId("other@example.com")).isFalse();
-            assertThat(passwordAdapter.findByLoginId("other@example.com")).isEmpty();
+            assertThat(passwordAdapter.existsByLoginId(SubjectType.CUSTOMER, "dup@example.com")).isTrue();
+            assertThat(passwordAdapter.existsByLoginId(SubjectType.CUSTOMER, "other@example.com")).isFalse();
+            assertThat(passwordAdapter.findByLoginId(SubjectType.CUSTOMER, "other@example.com")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("같은 login_id 가 realm 별로 따로 저장되고 서로 섞이지 않는다")
+        void sameLoginIdPerSubjectType() {
+            String loginId = "shared@example.com";
+            passwordAdapter.save(PasswordAccount.create(
+                    new PrincipalId("PRIN-C"), SubjectType.CUSTOMER, loginId, "{bcrypt}customer"));
+            passwordAdapter.save(PasswordAccount.create(
+                    new PrincipalId("PRIN-E"), SubjectType.EMPLOYEE, loginId, "{bcrypt}employee"));
+            flushClear();
+
+            // 유니크는 (subject_type, login_id) 라 두 행이 공존한다. 조회는 유형까지 보고 고른다.
+            assertThat(passwordAdapter.findByLoginId(SubjectType.CUSTOMER, loginId).orElseThrow()
+                    .getPrincipalId().value()).isEqualTo("PRIN-C");
+            assertThat(passwordAdapter.findByLoginId(SubjectType.EMPLOYEE, loginId).orElseThrow()
+                    .getPrincipalId().value()).isEqualTo("PRIN-E");
         }
 
         @Test
@@ -166,12 +188,12 @@ class IdentityPersistenceIntegrationTest {
         void lockStateRoundTrip() {
             Instant now = Instant.parse("2026-01-01T00:00:00Z");
             PasswordAccount account = PasswordAccount.create(
-                    new PrincipalId("PRIN-3"), "locked-read@example.com", "{bcrypt}hash");
+                    new PrincipalId("PRIN-3"), SubjectType.CUSTOMER, "locked-read@example.com", "{bcrypt}hash");
             account.recordFailure(now, 1, Duration.ofMinutes(10));
             passwordAdapter.save(account);
             flushClear();
 
-            PasswordAccount loaded = passwordAdapter.findByLoginId("locked-read@example.com").orElseThrow();
+            PasswordAccount loaded = passwordAdapter.findByLoginId(SubjectType.CUSTOMER, "locked-read@example.com").orElseThrow();
             assertThat(loaded.isLocked(now)).isTrue();
             assertThat(loaded.isLocked(now.plus(Duration.ofMinutes(11)))).isFalse();
         }
@@ -186,7 +208,7 @@ class IdentityPersistenceIntegrationTest {
         void loginStateCommitsIndependently() throws Exception {
             String loginId = "locked-commit@example.com";
             PasswordAccount account = PasswordAccount.create(
-                    new PrincipalId("PRIN-4"), loginId, "{bcrypt}hash");
+                    new PrincipalId("PRIN-4"), SubjectType.CUSTOMER, loginId, "{bcrypt}hash");
             account.recordFailure(Instant.parse("2026-01-01T00:00:00Z"), 5, Duration.ofMinutes(10));
 
             try {

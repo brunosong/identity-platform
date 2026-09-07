@@ -4,6 +4,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.web.support.AuthCookies;
+import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -24,6 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>실패 매핑은 {@code AuthApiExceptionHandler} 가 맡는다 — 자격증명 실패는 401 이고,
  * 아이디 미존재와 비밀번호 불일치는 같은 메시지로 나간다(계정 열거 방지).
+ *
+ * <p>어느 realm 의 자격증명을 확인할지는 {@link AuthenticationRealm} 이 정한다. 요청 본문은 realm 을 담지
+ * 않는다 — loginId 만 받아 전역에서 찾으면 상대 realm 계정으로도 로그인이 통과한다.
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -32,11 +36,12 @@ public class AuthLoginApiController {
 
     private final AuthenticateWithPasswordUseCase authenticateWithPassword;
     private final AuthCookies authCookies;
+    private final AuthenticationRealm authenticationRealm;
 
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
-        AuthenticationResult result = authenticateWithPassword.authenticate(
-                new PasswordAuthCommand(request.loginId(), request.password()));
+        AuthenticationResult result = authenticateWithPassword.authenticate(new PasswordAuthCommand(
+                authenticationRealm.subjectType(), request.loginId(), request.password()));
         authCookies.write(response, result.tokens());
         return new LoginResponse(result.subjectId(),
                 result.subjectType() == null ? null : result.subjectType().name());

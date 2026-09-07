@@ -6,6 +6,7 @@ import com.brunosong.identityplatform.auth.service.dataaccess.identity.repositor
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
+import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,8 +31,9 @@ public class PrincipalPersistenceAdapter implements PrincipalRepository {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Principal> findBySubjectId(SubjectId subjectId) {
-        return principalRepository.findBySubjectId(subjectId.value()).map(this::toDomain);
+    public Optional<Principal> findBySubjectId(SubjectType subjectType, SubjectId subjectId) {
+        return principalRepository.findBySubjectTypeAndSubjectId(subjectType, subjectId.value())
+                .map(this::toDomain);
     }
 
     @Override

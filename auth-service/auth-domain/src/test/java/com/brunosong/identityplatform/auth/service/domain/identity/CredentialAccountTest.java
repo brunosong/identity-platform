@@ -80,7 +80,7 @@ class CredentialAccountTest {
         @Test
         @DisplayName("연결할 신원 없이는 만들 수 없다")
         void requiresPrincipal() {
-            assertThatThrownBy(() -> SocialAccount.create(null, SocialProvider.KAKAO, "uid-1"))
+            assertThatThrownBy(() -> SocialAccount.create(null, SubjectType.CUSTOMER, SocialProvider.KAKAO, "uid-1"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("principalId");
         }
@@ -88,7 +88,7 @@ class CredentialAccountTest {
         @Test
         @DisplayName("공급자 없이는 만들 수 없다")
         void requiresProvider() {
-            assertThatThrownBy(() -> SocialAccount.create(PRINCIPAL_ID, null, "uid-1"))
+            assertThatThrownBy(() -> SocialAccount.create(PRINCIPAL_ID, SubjectType.CUSTOMER, null, "uid-1"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("provider");
         }
@@ -96,7 +96,7 @@ class CredentialAccountTest {
         @Test
         @DisplayName("외부 신원 식별자가 비어 있으면 만들 수 없다")
         void requiresProviderUid() {
-            assertThatThrownBy(() -> SocialAccount.create(PRINCIPAL_ID, SocialProvider.KAKAO, ""))
+            assertThatThrownBy(() -> SocialAccount.create(PRINCIPAL_ID, SubjectType.CUSTOMER, SocialProvider.KAKAO, ""))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("providerUid");
         }
@@ -104,7 +104,7 @@ class CredentialAccountTest {
         @Test
         @DisplayName("만들면 공급자와 외부 식별자로 외부 신원을 가리킨다")
         void createsLinked() {
-            SocialAccount account = SocialAccount.create(PRINCIPAL_ID, SocialProvider.NAVER, "uid-1");
+            SocialAccount account = SocialAccount.create(PRINCIPAL_ID, SubjectType.CUSTOMER, SocialProvider.NAVER, "uid-1");
 
             assertThat(account.getSocialAccountId()).isNotBlank();
             assertThat(account.getProvider()).isEqualTo(SocialProvider.NAVER);

@@ -52,7 +52,7 @@ class RegisterWithPasswordServiceTest {
 
         assertThat(registeredPublisher.published).hasSize(1);
         assertThat(principalRepo.byId).containsKey(principalId);
-        assertThat(accountRepo.findByLoginId("gildong")).isPresent();
+        assertThat(accountRepo.findByLoginId(SubjectType.CUSTOMER, "gildong")).isPresent();
     }
 
     @Test
@@ -81,7 +81,7 @@ class RegisterWithPasswordServiceTest {
     void passwordIsEncoded() {
         service.register(command("gildong", "gildong@example.com"));
 
-        assertThat(accountRepo.findByLoginId("gildong").orElseThrow().getPasswordHash())
+        assertThat(accountRepo.findByLoginId(SubjectType.CUSTOMER, "gildong").orElseThrow().getPasswordHash())
                 .isEqualTo("hash:pw1234!")
                 .isNotEqualTo("pw1234!");
     }
@@ -106,7 +106,9 @@ class RegisterWithPasswordServiceTest {
         assertThat(second).isEqualTo(first);
         assertThat(principalRepo.byId).hasSize(1);
         assertThat(registeredPublisher.published).hasSize(1);
-        assertThat(accountRepo.byLoginId).containsKeys("gildong", "gildong2");
+        // 저장소 내부 키가 아니라 포트로 확인한다 — 아이디는 유형 안에서만 유일하다.
+        assertThat(accountRepo.findByLoginId(SubjectType.CUSTOMER, "gildong")).isPresent();
+        assertThat(accountRepo.findByLoginId(SubjectType.CUSTOMER, "gildong2")).isPresent();
     }
 
     @Test
