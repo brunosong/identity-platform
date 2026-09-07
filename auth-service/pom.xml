@@ -16,6 +16,8 @@
     <properties>
         <!-- dataaccess 와 bootstrap 의 통합 테스트가 같은 버전을 쓴다. -->
         <testcontainers.version>1.21.4</testcontainers.version>
+        <!-- 토큰을 발급하는 쪽(application)과 검증하는 쪽(client)이 같은 버전을 써야 한다. -->
+        <jjwt.version>0.12.6</jjwt.version>
     </properties>
 
     <!--
@@ -29,6 +31,7 @@
         <module>auth-web</module>
         <module>auth-messaging</module>
         <module>auth-bootstrap</module>
+        <module>auth-client</module>
     </modules>
 
 </project>

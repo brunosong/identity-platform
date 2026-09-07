@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.brunosong</groupId>
+        <artifactId>auth-service</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>auth-client</artifactId>
+
+    <!--
+      다른 서비스가 auth 토큰을 검증할 때 쓰는 라이브러리.
+
+      auth-* 레이어 모듈을 하나도 의존하지 않는다. 소비 서비스는 auth 의 도메인 모델(Principal,
+      Realm, SubjectType…)을 알 필요가 없고, 알게 되면 auth 의 내부 변경이 남의 서비스 컴파일을
+      깨뜨린다. 주고받는 것은 토큰 문자열과 그 안의 클레임뿐이다 — 그것이 이 경계의 계약이다.
+
+      auth-service 저장소 안에 두는 이유는 토큰 형식을 발급하는 쪽이 소유하기 때문이다.
+      클레임 이름이 바뀌면 발급기와 이 검증기가 같은 커밋에서 함께 바뀌어야 한다.
+    -->
+
+    <dependencies>
+        <!-- JWT 파싱/서명검증 -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- JWKS 조회(RestClient)와 @ConfigurationProperties 자동설정 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

@@ -45,6 +45,17 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!--
+          토큰 검증 라이브러리. 테스트 범위로만 건다 — auth 자신은 자기 토큰을 검증하는 데 이것을
+          쓰지 않는다(키를 직접 쥐고 있다). 여기서는 "남의 서비스" 역할을 시켜 발급-검증 전 구간을 본다.
+        -->
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>auth-client</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- 컨텍스트 로딩 테스트: 실제 PostgreSQL 로 띄운다 -->
         <dependency>
             <groupId>org.testcontainers</groupId>
