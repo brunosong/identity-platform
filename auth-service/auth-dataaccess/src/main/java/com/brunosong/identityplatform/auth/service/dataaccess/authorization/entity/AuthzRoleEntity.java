@@ -16,7 +16,10 @@ import java.util.Set;
  * 권한은 authz_role_permission(N:M)으로 연관.
  */
 @Entity
-@Table(name = "authz_role")
+@Table(name = "authz_role",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_authz_role_realm_role_code",
+                columnNames = {"realm", "role_code"}))
 @Getter
 @Setter
 @NoArgsConstructor

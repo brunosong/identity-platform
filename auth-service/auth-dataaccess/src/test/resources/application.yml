@@ -1,13 +1,18 @@
-# 스키마는 엔티티에서 만든다(ddl-auto). 여기서 보는 것은 어댑터/매퍼/쿼리의 동작
-# (신원 왕복, 역할-권한 조인, URL 규칙 조립)이다.
-# TODO 마이그레이션 스크립트는 auth-service 가 직접 소유해야 한다(Flyway). 아직 없다.
+# 영속성 테스트는 실제 마이그레이션 스키마 위에서 돈다.
+#
+# 전에는 엔티티에서 스키마를 만들었다(ddl-auto). 그러면 테스트가 통과해도 운영 스키마에서 도는지는
+# 알 수 없다 — Hibernate 가 만들어주는 것과 마이그레이션이 만드는 것이 같다는 보장이 없기 때문이다.
+# 특히 복합 외래키처럼 엔티티 매핑에서 생성되지 않는 제약은 이렇게 하지 않으면 아무도 확인하지 않는다.
+#
+# validate 는 덤이다: 마이그레이션과 엔티티가 어긋나면 테스트가 뜨지 않는다.
 spring:
   flyway:
-    enabled: false
+    enabled: true
+    clean-disabled: false
   jpa:
     show-sql: false
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect

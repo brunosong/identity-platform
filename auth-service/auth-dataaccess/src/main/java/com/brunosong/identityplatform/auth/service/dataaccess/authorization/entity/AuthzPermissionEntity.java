@@ -13,7 +13,10 @@ import java.time.LocalDateTime;
  * authz_permission — realm 으로 스코프된 권한. permission_code 는 realm 내에서 유일.
  */
 @Entity
-@Table(name = "authz_permission")
+@Table(name = "authz_permission",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_authz_permission_realm_permission_code",
+                columnNames = {"realm", "permission_code"}))
 @Getter
 @Setter
 @NoArgsConstructor
