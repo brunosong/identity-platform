@@ -1,5 +1,7 @@
 package com.brunosong.identityplatform.auth.client;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigInteger;
@@ -24,10 +26,14 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>대신 <b>재조회에 최소 간격을 둔다</b>. 그러지 않으면 아무 문자열이나 kid 로 넣어 보내는 것만으로
  * auth 에 요청을 무한히 발생시킬 수 있다(증폭 공격). 간격 안의 실패는 그냥 실패다.
  *
- * <p>조회에 실패해도 이전 키를 버리지 않는다. auth 가 잠시 죽었다고 이미 발급된 토큰까지 거부할 이유는
- * 없다 — 검증에 필요한 것은 공개키뿐이고 그 값은 auth 의 상태와 무관하다.
+ * <p>조회에 실패해도 이전 키를 버리지 않고, 실패를 밖으로 던지지도 않는다. auth 가 잠시 죽었다고
+ * 이미 발급된 토큰까지 거부할 이유는 없다 — 검증에 필요한 것은 공개키뿐이고 그 값은 auth 의 상태와
+ * 무관하다. 그리고 키를 끝내 못 구하면 그것은 <b>검증 실패(401)</b>이지 서버 오류(500)가 아니다.
+ * 여기서 예외가 새어 나가면 auth 의 장애가 소비 서비스의 500 으로 번진다.
  */
 public class JwksKeySource {
+
+    private static final Logger log = LoggerFactory.getLogger(JwksKeySource.class);
 
     /** 같은 이유로 다시 받아오기까지 최소한 이만큼 기다린다. */
     private static final Duration MIN_REFETCH_INTERVAL = Duration.ofSeconds(30);
@@ -37,7 +43,10 @@ public class JwksKeySource {
     private final Duration cacheTtl;
 
     private final Map<String, PublicKey> keysByKid = new ConcurrentHashMap<>();
+    /** 마지막으로 성공한 조회 — 캐시가 낡았는지 본다. */
     private final AtomicReference<Instant> lastFetchedAt = new AtomicReference<>(Instant.EPOCH);
+    /** 마지막으로 시도한 조회 — 실패가 이어질 때 두드리는 간격을 지킨다. */
+    private final AtomicReference<Instant> lastAttemptedAt = new AtomicReference<>(Instant.EPOCH);
 
     public JwksKeySource(RestClient restClient, String jwksUri, Duration cacheTtl) {
         this.restClient = restClient;
@@ -55,18 +64,30 @@ public class JwksKeySource {
             return cached;
         }
         if (canRefetch()) {
-            refresh();
+            // 시도한 사실부터 남긴다. 실패가 이어질 때 요청마다 auth 를 두드리지 않기 위해서다 —
+            // 성공했을 때만 기록하면 auth 가 죽어 있는 동안 모든 요청이 조회를 다시 시도한다.
+            lastAttemptedAt.set(Instant.now());
+            try {
+                refresh();
+            } catch (RuntimeException e) {
+                // auth 에 닿지 못했다. 갖고 있던 키로 계속 간다.
+                log.warn("JWKS 를 받아오지 못했습니다({}). 갖고 있는 키로 검증을 계속합니다: {}",
+                        jwksUri, e.toString());
+            }
         }
         // 재조회에 실패했어도 갖고 있던 키로 검증을 시도한다(공개키는 auth 의 가용성과 무관하다).
+        // 그 키도 없으면 null 이고, 호출자는 그것을 검증 실패로 다룬다.
         return keysByKid.get(kid);
     }
 
     /** 시작 시 미리 받아두고 싶을 때. 실패해도 던지지 않는다 — auth 보다 먼저 뜰 수 있어야 한다. */
     public void warmUp() {
+        lastAttemptedAt.set(Instant.now());
         try {
             refresh();
         } catch (RuntimeException e) {
-            // 첫 검증 때 다시 시도한다.
+            log.warn("시작 시 JWKS 를 받아오지 못했습니다({}). 첫 검증 때 다시 시도합니다: {}",
+                    jwksUri, e.toString());
         }
     }
 
@@ -79,8 +100,7 @@ public class JwksKeySource {
     }
 
     private boolean canRefetch() {
-        Instant last = lastFetchedAt.get();
-        return last.plus(MIN_REFETCH_INTERVAL).isBefore(Instant.now());
+        return lastAttemptedAt.get().plus(MIN_REFETCH_INTERVAL).isBefore(Instant.now());
     }
 
     @SuppressWarnings("unchecked")

@@ -17,6 +17,7 @@
 
     <modules>
         <module>auth-service</module>
+        <module>customer-service</module>
     </modules>
     <url/>
     <licenses>

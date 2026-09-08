@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.brunosong</groupId>
+        <artifactId>customer-service</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>customer-web</artifactId>
+
+    <!--
+      인바운드 어댑터. 여기가 auth 와 만나는 유일한 자리다.
+
+      auth-client 만 의존한다 — auth 의 도메인/응용 모듈은 알지 못한다. 이 서비스가 auth 에 대해
+      아는 것은 "토큰을 검증하는 법"과 "그 안에 무엇이 들었나"뿐이다.
+    -->
+
+    <dependencies>
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>customer-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>auth-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+    </dependencies>
+</project>

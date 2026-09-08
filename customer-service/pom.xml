@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.brunosong</groupId>
+        <artifactId>identity-platform</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>customer-service</artifactId>
+    <packaging>pom</packaging>
+    <name>customer-service</name>
+    <description>고객 프로필 서비스 — auth-service 가 발급한 토큰을 검증해 쓰는 소비 서비스</description>
+
+    <properties>
+        <testcontainers.version>1.21.4</testcontainers.version>
+    </properties>
+
+    <!--
+      auth-service 와 같은 레이어 구조를 쓴다. 다른 점은 이 서비스가 인증을 하지 않는다는 것뿐이다 —
+      토큰을 만들지 않고, 받아서 검증만 한다(auth-client).
+
+      자기 DB 를 따로 쓴다. 서비스가 남의 테이블을 직접 읽기 시작하면 나눈 의미가 없어진다.
+    -->
+    <modules>
+        <module>customer-domain</module>
+        <module>customer-application</module>
+        <module>customer-dataaccess</module>
+        <module>customer-web</module>
+        <module>customer-bootstrap</module>
+    </modules>
+
+</project>

@@ -29,7 +29,13 @@ public class CorsConfiguration implements WebMvcConfigurer {
     private final List<String> allowedOrigins;
 
     public CorsConfiguration(@Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
-        this.allowedOrigins = List.copyOf(allowedOrigins);
+        // 앞뒤 공백을 다듬는다. 출처 비교는 문자열이 정확히 같아야 하므로 공백 하나가 섞이면
+        // 그 출처의 모든 요청이 403 이 된다 — 설정 파일에서 줄을 나누다 생기기 쉬운 실수이고,
+        // 서버 로그에는 "Invalid CORS request" 만 남아 원인을 찾기 어렵다.
+        this.allowedOrigins = allowedOrigins.stream()
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
     }
 
     @Override
