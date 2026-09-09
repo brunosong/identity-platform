@@ -25,16 +25,16 @@
 - auth 가 잠시 죽어도 이미 발급된 토큰은 계속 통과한다
 - auth 가 모든 요청 경로에 놓이지 않는다
 
-이 서비스가 auth 에 대해 아는 것은 설정 두 줄뿐이다.
+이 서비스가 auth 에 대해 아는 것은 설정 한 줄뿐이다.
 
 ```yaml
 auth:
   client:
-    realm: PORTAL
-    jwks-uri: http://localhost:8080/realms/portal/.well-known/jwks.json
+    issuer: http://localhost:8080/realms/portal
 ```
 
-이 두 줄이 **이 서비스의 realm 경계 전부**다.
+**이 한 줄이 이 서비스의 경계 전부**다. realm 이 발급자 이름 안에 있고, 공개키를 받아올 주소도
+여기서 유도된다(`issuer + /.well-known/jwks.json`).
 
 `auth-domain`, `auth-application` 을 의존하지 않는다. **`auth-client` 하나뿐이다.**
 주고받는 것은 토큰 문자열과 그 안의 클레임이고, 그것이 이 경계의 계약이다.
@@ -53,15 +53,16 @@ AuthenticatedToken me = caller.require(request);   // 401 아니면 통과
 | | 무엇을 보나 | 어디서 |
 |---|---|---|
 | **서명·만료·용도** | 이 토큰이 진짜 auth 가 만든 access 토큰인가 | `auth-client` |
-| **realm** | 포털 것인가 | **설정** (`auth.client.realm` + JWKS 주소) |
+| **발급자·realm** | 우리 auth 의 포털 것인가 | **설정** (`auth.client.issuer`) |
 | **소유권** | 이 데이터가 이 사람 것인가 | 컨트롤러 |
 
 **realm 확인이 코드에 없다.** 사라진 것이 아니라 설정으로 옮겨갔다. JWKS 가 realm 별로 나뉘어 있어
 이 서비스는 어드민 공개키를 아예 갖지 못하고, 그래서 어드민 토큰은 서명 검증에서 죽는다 —
 이 서비스의 코드가 한 줄도 돌기 전에.
 
-토큰에 `realm` 클레임은 없다. realm 마다 서명키가 다르니 *어느 키로 검증됐는지가 곧 realm* 이다.
-다만 그래서 **`jwks-uri` 를 잘못 적으면 조용히 뚫린다** — 그 그물은 `iss` 검증으로 채워야 한다.
+토큰에 `realm` 클레임은 없다. realm 마다 서명키가 다르니 *어느 키로 검증됐는지가 곧 realm* 이고,
+그것을 표준 자리에서 밝히는 값이 `iss` 다. 그 `iss` 를 설정값과 대조하므로 **다른 배포**(staging 등)가
+만든 토큰도 거부한다 — 그런 토큰은 realm 도 클레임도 다 같아서 발급자 이름만이 둘을 가른다.
 
 **소유권은 토큰이 답할 수 없다.** 그래서 `/api/customers/me` 는 조회 키를 요청에서 받지 않고
 토큰의 `subjectId` 로만 찾는다. 경로나 본문으로 받으면 남의 식별자를 적어 넣는 것으로 남의
@@ -105,7 +106,7 @@ docker compose up -d
 cd customer-service/customer-bootstrap
 DB_URL=jdbc:postgresql://localhost:55433/customer \
 DB_USERNAME=customer DB_PASSWORD=customer \
-AUTH_JWKS_URI=http://localhost:8080/realms/portal/.well-known/jwks.json \
+AUTH_ISSUER=http://localhost:8080/realms/portal \
 SPRING_PROFILES_ACTIVE=local \
 java -jar target/customer-bootstrap-0.0.1-SNAPSHOT.jar
 ```

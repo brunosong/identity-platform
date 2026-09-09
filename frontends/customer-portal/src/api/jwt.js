@@ -52,7 +52,7 @@ export function formatEpoch(seconds) {
  * 클레임 이름만 봐서는 왜 거기 있는지 알 수 없기 때문이다.
  */
 export const CLAIM_NOTES = {
-    iss: ['발급자', '누가 만든 토큰인가. 표준 방식에서는 여기에 realm 이 들어간다(예: .../realms/portal). 아직 싣지 않는다.'],
+    iss: ['발급자', '누가 만든 토큰인가 — {auth 주소}/realms/{realm}. realm 이 이 안에 들어 있어서 별도의 realm 클레임이 없다. 소비 서비스는 이 값을 설정과 대조하므로, 서명이 맞아도 다른 배포(staging 등)가 만든 토큰이면 거부된다.'],
     sub: ['주체', '이 토큰이 누구에 대한 것인가. customer-service 가 이 값으로 프로필을 찾는다.'],
     aud: ['대상', '어느 서비스가 받아들여도 되는가.'],
     exp: ['만료', '이 시각이 지나면 거부된다. 짧을수록 탈취 피해가 작다.'],

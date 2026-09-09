@@ -17,24 +17,28 @@ import java.util.Optional;
  * ({@link JwksKeySource}). 그래서 요청마다 auth 로 왕복이 생기지 않고, auth 가 잠시 죽어도
  * 이미 발급된 토큰은 계속 통과한다.
  *
- * <h2>realm 은 설정이 정한다</h2>
- * 이 검증기는 <b>한 realm 만 통과시킨다.</b> 그 realm 은 생성할 때 정해지고 요청이 바꿀 수 없다.
- * 그래서 소비 서비스의 컨트롤러가 realm 을 따로 확인할 필요가 없다 — 확인이 사라진 것이 아니라
+ * <h2>발급자가 경계를 정한다</h2>
+ * 이 검증기는 <b>발급자 하나만 통과시킨다.</b> 그 값은 생성할 때 정해지고 요청이 바꿀 수 없다.
+ * 발급자 이름에 realm 이 들어 있으므로({@code .../realms/portal}) 이 한 값이 realm 경계이기도 하다.
+ * 그래서 소비 서비스의 컨트롤러에 realm 확인 코드가 없다 — 확인이 사라진 것이 아니라
  * <b>코드에서 설정으로 옮겨간 것</b>이다.
  *
- * <p>막는 것은 <b>JWKS 분리</b>다. realm 마다 주소가 다르므로 이 서비스는 다른 realm 의 공개키를
- * 애초에 갖지 못하고, 그런 토큰은 {@code kid} 를 찾지 못해 서명 검증에서 죽는다.
- *
  * <p>토큰에 {@code realm} 클레임은 없다. realm 마다 서명키가 다르므로 <b>어느 키로 검증됐는지가 곧
- * realm</b> 이고, 클레임은 그것을 한 번 더 적어둔 것이었다.
+ * realm</b> 이고, 그것을 표준 자리에서 밝히는 값이 {@code iss} 다.
  *
- * <p><b>아직 비어 있는 자리:</b> {@code jwks-uri} 를 다른 realm 주소로 잘못 적으면 그 realm 의 토큰이
- * 통과한다 — 조용히, fail-open 으로. 예전에는 클레임 대조가 그것을 잡았다. 표준 자리인 {@code iss}
- * 검증으로 되돌려 놓아야 한다(RFC 8725 도 발급자 검증을 요구한다).
+ * <h2>막는 층이 둘이다</h2>
+ * <ol>
+ *   <li><b>JWKS 분리</b> — realm 마다 주소가 다르므로 다른 realm 의 공개키를 애초에 갖지 못한다.
+ *       그런 토큰은 {@code kid} 를 찾지 못해 서명 검증에서 죽는다.</li>
+ *   <li><b>{@code iss} 대조</b> — 주소를 잘못 가리켰을 때 잡는다. 그리고 JWKS 분리가 <b>막지 못하는</b>
+ *       것을 막는다: 다른 배포(staging)의 같은 realm 토큰은 서명도 클레임도 다 맞아떨어진다.
+ *       발급자 이름만이 둘을 가른다(RFC 8725 의 cross-JWT confusion).</li>
+ * </ol>
  *
  * <h2>검증하는 것</h2>
  * <ol>
  *   <li><b>서명</b> — 헤더의 {@code kid} 로 고른 공개키로 확인한다. 이 서비스가 가진 키는 자기 realm 것뿐이다.</li>
+ *   <li><b>발급자</b> — {@code iss} 가 설정된 값과 같아야 한다.</li>
  *   <li><b>만료</b> — jjwt 가 {@code exp} 를 본다.</li>
  *   <li><b>용도</b> — {@code type=access} 여야 한다. refresh 토큰을 access 처럼 쓰지 못하게 막는다.</li>
  * </ol>
@@ -52,25 +56,24 @@ public class AuthTokenVerifier {
     private static final String REVISION_CLAIM = "rbacRev";
 
     private final JwksKeySource keySource;
-    /** 이 검증기가 상대하는 realm. 토큰에서 읽는 값이 아니라 설정이 정하는 값이다. */
-    private final String realm;
+    /** 이 검증기가 통과시키는 유일한 발급자. 토큰에서 읽는 값이 아니라 설정이 정하는 값이다. */
+    private final String issuer;
 
-    public AuthTokenVerifier(JwksKeySource keySource, String realm) {
-        if (realm == null || realm.isBlank()) {
-            // 검증에 쓰이지는 않지만, 이 서비스가 어느 realm 을 상대하는지 밝히지 않은 채 뜨면
-            // jwks-uri 를 잘못 가리켰을 때 아무도 알아채지 못한다.
-            throw new IllegalStateException("auth.client.realm 이 필요합니다.");
+    public AuthTokenVerifier(JwksKeySource keySource, String issuer) {
+        if (issuer == null || issuer.isBlank()) {
+            // 발급자 없이 뜨면 발급자 대조를 조용히 건너뛰게 된다. 그 약한 모드가 가장 위험하다.
+            throw new IllegalStateException("auth.client.issuer 가 필요합니다.");
         }
         this.keySource = keySource;
-        this.realm = realm;
+        this.issuer = issuer;
     }
 
-    /** 이 서비스가 상대하는 realm. */
-    public String realm() {
-        return realm;
+    /** 이 서비스가 상대하는 발급자. */
+    public String issuer() {
+        return issuer;
     }
 
-    /** 서명·만료·용도를 확인한다. 통과하면 호출자, 아니면 빈 값. */
+    /** 서명·발급자·만료·용도를 확인한다. 통과하면 호출자, 아니면 빈 값. */
     public Optional<AuthenticatedToken> verify(String token) {
         if (token == null || token.isBlank()) {
             return Optional.empty();
@@ -79,6 +82,7 @@ public class AuthTokenVerifier {
         try {
             claims = Jwts.parser()
                     .keyLocator(this::keyFor)
+                    .requireIssuer(issuer)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
@@ -90,8 +94,7 @@ public class AuthTokenVerifier {
             return Optional.empty();
         }
         return Optional.of(new AuthenticatedToken(
-                // 토큰이 아니라 설정에서 온다 — realm 은 서명이 증명했다.
-                realm,
+                claims.getIssuer(),
                 claims.getSubject(),
                 permissionsOf(claims),
                 revisionOf(claims)));

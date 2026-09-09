@@ -202,8 +202,8 @@ SERVER_PORT=8090 TOKEN_ISSUER=http://localhost:8090 \
 DB_URL=jdbc:postgresql://localhost:55432/identity SPRING_PROFILES_ACTIVE=local \
 java -jar target/auth-bootstrap-0.0.1-SNAPSHOT.jar
 
-# ② customer-service — 공개키를 받아올 주소 (realm 마다 다르다)
-AUTH_JWKS_URI=http://localhost:8090/realms/portal/.well-known/jwks.json \
+# ② customer-service — 상대할 발급자 (realm 이 이름 안에 있고, 공개키 주소도 여기서 유도된다)
+AUTH_ISSUER=http://localhost:8090/realms/portal \
 DB_URL=jdbc:postgresql://localhost:55433/customer \
 DB_USERNAME=customer DB_PASSWORD=customer SPRING_PROFILES_ACTIVE=local \
 java -jar target/customer-bootstrap-0.0.1-SNAPSHOT.jar
@@ -216,8 +216,9 @@ java -jar target/customer-bootstrap-0.0.1-SNAPSHOT.jar
 VITE_AUTH_BASE_URL=http://localhost:8090
 ```
 
-> 하나라도 빠뜨리면 조용히 401 이 된다. 특히 `TOKEN_ISSUER` — issuer 는 문자열 그대로
-> 비교되므로 `http://localhost:8080` 과 `http://localhost:8090` 은 다른 값이다.
+> 하나라도 빠뜨리면 조용히 401 이 된다. 특히 `TOKEN_ISSUER` 와 `AUTH_ISSUER` 는 **짝**이다 —
+> auth 가 토큰에 적는 발급자와 customer-service 가 기대하는 발급자가 같아야 한다. 문자열 그대로
+> 비교되므로 `http://localhost:8080` 과 `http://localhost:8090` 은 다른 발급자다.
 
 무엇이 8080 을 쓰고 있는지 확인하려면:
 

@@ -29,6 +29,11 @@ import java.util.Map;
 public class RbacTokenIssuerConfiguration {
 
     @Bean
+    public RealmIssuers realmIssuers(TokenProperties properties) {
+        return new RealmIssuers(properties.getIssuer());
+    }
+
+    @Bean
     public RealmSigningKeys realmSigningKeys(TokenProperties properties) {
         Map<Realm, RealmSigningKeys.RealmKey> keys = new EnumMap<>(Realm.class);
         properties.getRealms().forEach((realm, config) -> {
@@ -51,9 +56,10 @@ public class RbacTokenIssuerConfiguration {
             GetAuthorizationRevisionUseCase revision,
             ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
             RealmSigningKeys signingKeys,
+            RealmIssuers issuers,
             TokenProperties properties) {
         return new RbacJwtTokenIssuer(
-                subjectPermissions, revision, sessionRegistryProvider, signingKeys,
+                subjectPermissions, revision, sessionRegistryProvider, signingKeys, issuers,
                 properties.getAccessExpiration(), properties.getRefreshExpiration());
     }
 }

@@ -36,6 +36,10 @@ import java.util.Date;
  * 정해야 하므로(내용을 믿으려면 먼저 서명을 확인해야 한다) 그 정보는 서명 대상 밖인 헤더에 있어야 한다.
  * 다른 서비스에 공개키를 나눠줄 때(JWKS)도 이 kid 로 고른다.
  *
+ * <p><b>iss:</b> realm 별 발급자를 싣는다({@link RealmIssuers}). 서명은 "이 키를 가진 누군가"까지만
+ * 말하고 <b>어느 배포의 키인지는 말하지 않는다</b> — staging 과 prod 의 포털 토큰은 클레임이 똑같다.
+ * 소비 서비스가 JWKS 주소를 잘못 가리켰을 때 그것을 가르는 값이 이것뿐이다.
+ *
  * <p><b>realm 클레임은 싣지 않는다.</b> 넣어도 새 정보가 아니다 — realm 마다 서명키가 다르므로
  * <b>어느 키로 검증됐는지가 곧 realm</b> 이다. 토큰이 스스로 "나는 포털 것"이라고 주장하는 것보다
  * 포털 공개키로만 검증되는 편이 강하다. 그래서 모든 엔드포인트가 realm 을 경로로 받고, 검증하는 쪽은
@@ -51,6 +55,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     private final GetAuthorizationRevisionUseCase revision;
     private final ObjectProvider<SessionRegistryPort> sessionRegistryProvider;
     private final RealmSigningKeys signingKeys;
+    private final RealmIssuers issuers;
     private final long accessExpirationMillis;
     private final long refreshExpirationMillis;
 
@@ -58,11 +63,13 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
                               GetAuthorizationRevisionUseCase revision,
                               ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
                               RealmSigningKeys signingKeys,
+                              RealmIssuers issuers,
                               long accessExpirationMillis, long refreshExpirationMillis) {
         this.subjectPermissions = subjectPermissions;
         this.revision = revision;
         this.sessionRegistryProvider = sessionRegistryProvider;
         this.signingKeys = signingKeys;
+        this.issuers = issuers;
         this.accessExpirationMillis = accessExpirationMillis;
         this.refreshExpirationMillis = refreshExpirationMillis;
     }
@@ -79,8 +86,9 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         String sid = sessionRegistry == null ? null : sessionRegistry.open(realm, subjectId);
 
         RealmSigningKeys.RealmKey key = signingKeys.of(realm);
-        String access = buildAccess(key, subjectId, authLs, rbacRev, sid, accessExpirationMillis);
-        String refresh = buildRefresh(key, subjectId, sid, refreshExpirationMillis);
+        String issuer = issuers.of(realm);
+        String access = buildAccess(key, issuer, subjectId, authLs, rbacRev, sid, accessExpirationMillis);
+        String refresh = buildRefresh(key, issuer, subjectId, sid, refreshExpirationMillis);
         return new TokenPair(access, refresh);
     }
 
@@ -110,22 +118,29 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     /**
      * 요청한 realm 의 공개키로만 검증한다. kid 로 키를 고르지 않는 이유는, 여기서는 "어느 realm 의
      * 토큰인지" 가 이미 정해져 있기 때문이다 — kid 를 따라가면 상대 realm 토큰도 서명은 통과한다.
+     *
+     * <p>{@code iss} 까지 대조한다. 다른 배포(staging 등)의 같은 realm 키로 서명된 토큰을 막는다 —
+     * 그런 토큰은 서명도 realm 도 맞아떨어질 수 있다.
      */
     private Claims parse(Realm realm, String token) {
         PublicKey verifyKey = signingKeys.of(realm).publicKey();
         try {
-            return Jwts.parser().verifyWith(verifyKey).build().parseSignedClaims(token).getPayload();
+            return Jwts.parser()
+                    .verifyWith(verifyKey)
+                    .requireIssuer(issuers.of(realm))
+                    .build().parseSignedClaims(token).getPayload();
         } catch (JwtException | IllegalArgumentException e) {
             throw new AuthenticationFailedException("리프레시 토큰이 유효하지 않습니다.");
         }
     }
 
     /** access 토큰 — 게이트웨이가 요청당 인가에 쓰도록 신원 + 권한(authLs) + 리비전을 싣는다. */
-    private String buildAccess(RealmSigningKeys.RealmKey key, String subjectId,
+    private String buildAccess(RealmSigningKeys.RealmKey key, String issuer, String subjectId,
                                String authLs, long rbacRev, String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
+                .issuer(issuer)
                 .subject(subjectId)
                 .claim("type", "access")
                 .claim("authLs", authLs)
@@ -143,11 +158,12 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
      * 표시정보/권한/리비전은 재발급 때 Principal 에서 다시 실으므로 넣지 않는다(헤더 크기 절감).
      * access 와 구분되도록 {@code type=refresh} 를 박고, 재발급 시 이 타입을 검증한다.
      */
-    private String buildRefresh(RealmSigningKeys.RealmKey key, String subjectId,
+    private String buildRefresh(RealmSigningKeys.RealmKey key, String issuer, String subjectId,
                                 String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
+                .issuer(issuer)
                 .subject(subjectId)
                 .claim("type", "refresh")
                 .issuedAt(new Date(now))

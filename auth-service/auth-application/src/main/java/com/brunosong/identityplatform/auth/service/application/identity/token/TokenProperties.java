@@ -11,15 +11,16 @@ import java.util.Map;
  *
  * <pre>
  * token:
+ *   issuer: http://localhost:8080
  *   accessExpiration: 7200000
  *   refreshExpiration: 86400000
  *   realms:
- *     EMPLOYEE:
- *       kid: employee-1
+ *     ADMIN:
+ *       kid: admin-1
  *       privateKey: (base64 PKCS#8 DER)
  *       publicKey:  (base64 X.509 DER)
- *     CUSTOMER:
- *       kid: customer-1
+ *     PORTAL:
+ *       kid: portal-1
  *       ...
  * </pre>
  *
@@ -27,10 +28,16 @@ import java.util.Map;
  * realm 하나만 담당했다. 한 서비스가 두 realm 을 모두 발급하려면 키도 두 벌을 쥐어야 한다.
  *
  * <p>kid 는 생략하면 realm 이름을 소문자로 쓴다. 키 교체를 하게 되면 그때 명시적으로 준다.
+ *
+ * <p>{@code issuer} 는 이 서비스의 <b>바깥에서 보이는 주소</b>다. realm 이름이 뒤에 붙어 토큰의
+ * {@code iss} 가 된다({@link RealmIssuers}). 포트를 옮기면 이 값도 함께 옮겨야 한다 — 소비 서비스는
+ * 이 문자열을 그대로 대조하므로 {@code :8080} 과 {@code :8090} 은 다른 발급자다.
  */
 @ConfigurationProperties(prefix = "token")
 public class TokenProperties {
 
+    /** 토큰에 실릴 발급자의 기준 주소. realm 이 뒤에 붙는다. */
+    private String issuer = "http://localhost:8080";
     private long accessExpiration = 7_200_000L;
     private long refreshExpiration = 86_400_000L;
     private Map<Realm, RealmKeyProperties> realms = new EnumMap<>(Realm.class);
@@ -63,6 +70,14 @@ public class TokenProperties {
         public void setPublicKey(String publicKey) {
             this.publicKey = publicKey;
         }
+    }
+
+    public String getIssuer() {
+        return issuer;
+    }
+
+    public void setIssuer(String issuer) {
+        this.issuer = issuer;
     }
 
     public long getAccessExpiration() {

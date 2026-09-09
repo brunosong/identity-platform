@@ -10,15 +10,23 @@ import java.time.Duration;
  * <pre>
  * auth:
  *   client:
- *     realm: PORTAL
- *     jwks-uri: http://auth-service:8080/realms/portal/.well-known/jwks.json
+ *     issuer: http://auth-service:8080/realms/portal
  *     cache-ttl: 10m
  *     warm-up: false
  * </pre>
  *
- * <p><b>한 서비스는 realm 하나만 상대한다.</b> JWKS 가 realm 별로 나뉘어 있으므로 여기 적은 주소의
- * 키만 갖게 되고, 다른 realm 의 토큰은 {@code kid} 를 찾지 못해 서명 검증에서 죽는다 — 이 서비스의
- * 코드가 한 줄도 돌기 전에.
+ * <p><b>줄 하나가 realm 경계 전부다.</b> 발급자 이름에 realm 이 들어 있고, 공개키를 받아올 주소도
+ * 여기서 유도된다({@code issuer + "/.well-known/jwks.json"}). 그래서 "어느 서버의 어느 realm 인가"를
+ * 한 값이 다 말한다 — Keycloak 의 {@code issuer-uri}, Spring Security 의
+ * {@code spring.security.oauth2.resourceserver.jwt.issuer-uri} 와 같은 자리다.
+ *
+ * <p>이 값이 하는 일은 둘이다:
+ * <ol>
+ *   <li><b>키를 어디서 받나</b> — 주소로 쓴다. 그래서 다른 realm 의 공개키는 애초에 갖지 못한다.</li>
+ *   <li><b>누가 만든 토큰인가</b> — 토큰의 {@code iss} 와 문자열로 대조한다. 서명은 "이 키를 가진
+ *       누군가"까지만 말하고 어느 배포인지는 말하지 않는다. staging 과 prod 의 포털 토큰은 클레임이
+ *       완전히 같아서, 주소를 잘못 가리키면 staging 계정으로 prod 가 열린다.</li>
+ * </ol>
  *
  * <p>직원용과 고객용을 모두 제공해야 한다면 <b>같은 코드를 realm 별 설정으로 두 벌 띄우는</b> 것이
  * 표준적인 방법이다. 리소스 서버가 realm 하나에 속하는 편이 경계가 분명하다.
@@ -27,15 +35,17 @@ import java.time.Duration;
 public class AuthClientProperties {
 
     /**
-     * 이 서비스가 상대하는 realm. 토큰의 {@code realm} 클레임이 이 값이어야 통과한다.
-     *
-     * <p>JWKS 주소만으로도 다른 realm 은 걸러지지만, 이 값을 따로 두는 이유는 <b>주소를 잘못 가리켰을
-     * 때 시끄럽게 실패하게</b> 하기 위해서다. 어드민 JWKS 를 가리켜 놓고 고객 서비스라고 믿는 상황을
-     * 이 대조가 잡아낸다.
+     * 이 서비스가 상대하는 발급자 — {@code {auth 주소}/realms/{realm}}.
+     * 토큰의 {@code iss} 가 이 값이어야 통과한다.
      */
-    private String realm;
+    private String issuer;
 
-    /** auth 의 realm 별 JWKS 주소. */
+    /**
+     * JWKS 주소. 보통 비워 둔다 — {@code issuer + "/.well-known/jwks.json"} 으로 유도된다.
+     *
+     * <p>발급자 이름과 실제 주소가 다른 배치(리버스 프록시 뒤, 테스트의 랜덤 포트)에서만 명시한다.
+     * {@code iss} 는 <b>식별자</b>라 문자열로 대조하고, 이 값은 <b>주소</b>라 실제로 접속한다.
+     */
     private String jwksUri;
 
     /**
@@ -50,12 +60,23 @@ public class AuthClientProperties {
      */
     private boolean warmUp = false;
 
-    public String getRealm() {
-        return realm;
+    /** 실제로 접속할 JWKS 주소. 명시하지 않았으면 발급자에서 유도한다. */
+    public String resolveJwksUri() {
+        if (jwksUri != null && !jwksUri.isBlank()) {
+            return jwksUri;
+        }
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalStateException("auth.client.issuer 가 필요합니다.");
+        }
+        return issuer.replaceAll("/+$", "") + "/.well-known/jwks.json";
     }
 
-    public void setRealm(String realm) {
-        this.realm = realm;
+    public String getIssuer() {
+        return issuer;
+    }
+
+    public void setIssuer(String issuer) {
+        this.issuer = issuer;
     }
 
     public String getJwksUri() {

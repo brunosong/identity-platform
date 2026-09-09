@@ -32,6 +32,9 @@ authorization:
     enabled: false
 
 token:
+  # 토큰의 iss 가 되는 기준 주소. realm 이 뒤에 붙는다 — .../realms/portal
+  # 소비 서비스는 이 문자열을 그대로 대조하므로, 포트를 옮기면 이 값도 함께 옮겨야 한다.
+  issuer: ${TOKEN_ISSUER:http://localhost:8080}
   accessExpiration: 7200000      # 2시간
   refreshExpiration: 86400000    # 24시간
   # realm 마다 다른 키페어를 쓴다. kid 는 realm 전체에서 유일해야 한다 —

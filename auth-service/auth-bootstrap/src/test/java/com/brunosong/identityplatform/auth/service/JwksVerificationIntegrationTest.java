@@ -66,6 +66,12 @@ class JwksVerificationIntegrationTest {
     @Autowired
     private RegisterWithPasswordUseCase registerWithPassword;
 
+    /**
+     * 발급자는 <b>식별자</b>라 문자열로 대조하고, JWKS 주소는 <b>주소</b>라 실제로 접속한다.
+     * 이 테스트는 랜덤 포트로 뜨므로 둘이 갈린다 — 실제 배포에서는 같은 호스트라 주소가 유도된다.
+     */
+    private static final String PORTAL_ISSUER = "http://localhost:8080/realms/portal";
+
     private RestClient http;
     /** 소비 서비스가 갖게 될 검증기. auth 의 내부 빈이 아니라 JWKS 주소만 알고 있다. */
     private AuthTokenVerifier verifier;
@@ -73,10 +79,7 @@ class JwksVerificationIntegrationTest {
     @BeforeEach
     void setUp() {
         http = RestClient.create("http://localhost:" + port);
-        verifier = new AuthTokenVerifier(new JwksKeySource(
-                RestClient.create(),
-                "http://localhost:" + port + "/realms/portal/.well-known/jwks.json",
-                Duration.ofMinutes(10)), "PORTAL");
+        verifier = new AuthTokenVerifier(portalKeys(), PORTAL_ISSUER);
     }
 
     @Test
@@ -125,7 +128,7 @@ class JwksVerificationIntegrationTest {
         String accessToken = login(email);
 
         AuthenticatedToken token = verifier.verify(accessToken).orElseThrow();
-        assertThat(token.realm()).isEqualTo("PORTAL");
+        assertThat(token.issuer()).isEqualTo(PORTAL_ISSUER);
         assertThat(token.subjectId()).isNotBlank();
     }
 
@@ -188,8 +191,26 @@ class JwksVerificationIntegrationTest {
         // 적으면 토큰이 스스로 하는 주장이 생기고, 검증하는 쪽이 그걸 대조하기를 바라게 된다.
         assertThat(payloadOf(login(email)))
                 .doesNotContainKey("realm")
+                // realm 은 표준 자리인 iss 안에 있다.
+                .containsEntry("iss", PORTAL_ISSUER)
                 .containsEntry("type", "access")
                 .containsKeys("sub", "authLs", "rbacRev", "exp");
+    }
+
+    @Test
+    @DisplayName("다른 배포가 발급한 토큰은 서명이 맞아도 거부된다")
+    void tokenFromAnotherDeploymentIsRejected() {
+        String email = "issuer-" + UUID.randomUUID() + "@example.com";
+        registerCustomer(email);
+        String accessToken = login(email);
+
+        // 이 검증기는 같은 JWKS 를 보므로 서명은 통과한다. realm 도 같고 클레임도 같다.
+        // 다른 것은 발급자 이름 하나뿐이다 — staging 토큰이 prod 를 여는 상황이 정확히 이 모양이다.
+        AuthTokenVerifier otherDeployment =
+                new AuthTokenVerifier(portalKeys(), "https://auth.example.com/realms/portal");
+
+        assertThat(otherDeployment.verify(accessToken)).isEmpty();
+        assertThat(verifier.verify(accessToken)).isPresent();
     }
 
     @Test
@@ -227,6 +248,14 @@ class JwksVerificationIntegrationTest {
         assertThat(postStatusOf("/api/auth/realms/admin/logout", portalToken)).isEqualTo(401);
         assertThat(postStatusOf("/api/auth/realms/portal/logout", null)).isEqualTo(401);
         assertThat(postStatusOf("/api/auth/realms/martian/logout", portalToken)).isEqualTo(404);
+    }
+
+    /** 소비 서비스가 갖게 될 키 소스. 주소는 실제로 뜬 포트를 쓴다. */
+    private JwksKeySource portalKeys() {
+        return new JwksKeySource(
+                RestClient.create(),
+                "http://localhost:" + port + "/realms/portal/.well-known/jwks.json",
+                Duration.ofMinutes(10));
     }
 
     @SuppressWarnings("unchecked")
