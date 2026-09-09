@@ -20,7 +20,7 @@ const authUrl = () => endpoints().auth;
 
 /** 고객 가입. 이메일이 곧 로그인 아이디다(고객은 별도 아이디가 없다). */
 export function register({ email, password, name, phoneNumber }) {
-    return request(authUrl(), 'POST', '/api/auth/customer/register', {
+    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/register`, {
         body: { email, password, name, phoneNumber },
     });
 }

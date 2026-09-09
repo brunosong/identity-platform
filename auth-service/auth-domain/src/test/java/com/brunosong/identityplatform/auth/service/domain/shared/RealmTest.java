@@ -11,11 +11,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>매칭되는 URL 규칙이 없을 때 무엇을 할지가 realm 마다 반대다.
  *
  * <ul>
- *   <li>EMPLOYEE(admin) — fail-closed. 등록된 것만 허용한다. 여기가 true 로 뒤집히면 규칙을 등록하지
+ *   <li>ADMIN — fail-closed. 등록된 것만 허용한다. 여기가 true 로 뒤집히면 규칙을 등록하지
  *       않은 관리자 화면이 통째로 열린다.</li>
- *   <li>CUSTOMER(portal) — fail-open. 등록된 것만 차단한다. 여기가 false 로 뒤집히면 규칙 없는
+ *   <li>PORTAL — fail-open. 등록된 것만 차단한다. 여기가 false 로 뒤집히면 규칙 없는
  *       사용자 화면이 전부 막혀 서비스가 멈춘다.</li>
  * </ul>
+ *
+ * <p>셀프 가입도 마찬가지다. 가입 경로는 하나뿐이고 이 값이 그것을 realm 마다 열고 닫는다.
  */
 class RealmTest {
 
@@ -35,6 +37,19 @@ class RealmTest {
     @DisplayName("두 영역의 기본 결정은 서로 반대다")
     void realmsAreOpposite() {
         assertThat(Realm.ADMIN.failOpen()).isNotEqualTo(Realm.PORTAL.failOpen());
+    }
+
+    @Test
+    @DisplayName("포털은 스스로 가입할 수 있다")
+    void portalAllowsSelfRegistration() {
+        assertThat(Realm.PORTAL.allowsSelfRegistration()).isTrue();
+    }
+
+    @Test
+    @DisplayName("어드민은 스스로 가입할 수 없다")
+    void adminDeniesSelfRegistration() {
+        // 열리면 아무나 자기 자신을 직원으로 만든다. 직원 계정은 운영자가 만든다.
+        assertThat(Realm.ADMIN.allowsSelfRegistration()).isFalse();
     }
 
     @Test

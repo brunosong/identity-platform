@@ -24,8 +24,9 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p><b>고객 realm 에서만 열린다.</b> 다른 로그인과 달리 이 경로는 처음 들어온 소셜 계정에 대해 신원을
  * 새로 만든다(JIT 프로비저닝). 그래서 realm 중립으로 둘 수 없다 — 직원 realm 에서 열려 있으면 아무나
- * 소셜 로그인만으로 직원 신원을 만들 수 있다. 직원 계정은 운영자가
- * {@code /api/auth/employee/register} 로만 만든다.
+ * 소셜 로그인만으로 직원 신원을 만들 수 있다. 어드민 계정은 운영자가
+ * {@code /api/auth/admin/realms/admin/users} 로만 만든다 — 그 realm 은 셀프 가입도 닫혀 있다
+ * ({@link com.brunosong.identityplatform.auth.service.domain.shared.Realm#allowsSelfRegistration()}).
  *
  * <p>확인을 요청 시점에 한다. 전에는 {@code @ConditionalOnProperty} 로 컨트롤러 자체를 껐지만, 한
  * 프로세스가 두 realm 을 담당하면 빈을 realm 별로 껐다 켤 수 없다. 다른 realm 에서는 404 다 —

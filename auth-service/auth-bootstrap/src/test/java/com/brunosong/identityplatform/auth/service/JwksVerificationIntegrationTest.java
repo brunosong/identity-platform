@@ -72,6 +72,9 @@ class JwksVerificationIntegrationTest {
      */
     private static final String PORTAL_ISSUER = "http://localhost:8080/realms/portal";
 
+    /** 쿨다운 때문에 클래스 전체에서 한 번만 로그인한다. 컨텍스트가 같으니 토큰도 그대로 쓸 수 있다. */
+    private static String cachedAdminToken;
+
     private RestClient http;
     /** 소비 서비스가 갖게 될 검증기. auth 의 내부 빈이 아니라 JWKS 주소만 알고 있다. */
     private AuthTokenVerifier verifier;
@@ -218,6 +221,31 @@ class JwksVerificationIntegrationTest {
     void realmLessEndpointsAreGone() {
         assertThat(statusOf("/api/auth/my-permissions")).isEqualTo(404);
         assertThat(postStatusOf("/api/auth/logout", null)).isEqualTo(404);
+        assertThat(postJson("/api/auth/customer/register", selfRegisterBody(), null)).isEqualTo(404);
+        assertThat(postJson("/api/auth/employee/register", adminUserBody(), null)).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("셀프 가입은 realm 이 여는 realm 에서만 열린다")
+    void selfRegistrationIsARealmSetting() {
+        assertThat(postJson("/api/auth/realms/portal/register", selfRegisterBody(), null)).isEqualTo(201);
+
+        // 어드민에서 가입이 열리면 아무나 자기 자신을 직원으로 만든다. 403 이 아니라 404 인 이유는
+        // "여기에도 가입 API 가 있긴 한데 막혀 있다" 를 알려줄 이유가 없기 때문이다.
+        assertThat(postJson("/api/auth/realms/admin/register", selfRegisterBody(), null)).isEqualTo(404);
+        assertThat(postJson("/api/auth/realms/martian/register", selfRegisterBody(), null)).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("관리자 계정 생성은 대상 realm 이 경로에, 호출자 realm 이 토큰에 있다")
+    void adminUserCreationSeparatesTargetFromCaller() {
+        // 대상 realm 을 먼저 본다 — 포털 계정을 대신 만드는 유스케이스는 아직 없다.
+        assertThat(postJson("/api/auth/admin/realms/portal/users", adminUserBody(), null)).isEqualTo(404);
+        // 대상은 맞지만 호출자를 밝히지 않았다.
+        assertThat(postJson("/api/auth/admin/realms/admin/users", adminUserBody(), null)).isEqualTo(401);
+        // 어드민 토큰이면 통과한다.
+        assertThat(postJson("/api/auth/admin/realms/admin/users", adminUserBody(), loginAsAdmin()))
+                .isEqualTo(201);
     }
 
     @Test
@@ -248,6 +276,28 @@ class JwksVerificationIntegrationTest {
         assertThat(postStatusOf("/api/auth/realms/admin/logout", portalToken)).isEqualTo(401);
         assertThat(postStatusOf("/api/auth/realms/portal/logout", null)).isEqualTo(401);
         assertThat(postStatusOf("/api/auth/realms/martian/logout", portalToken)).isEqualTo(404);
+    }
+
+    private int postJson(String path, Map<String, Object> body, String bearerToken) {
+        RestClient.RequestBodySpec request = lenient().post().uri(path)
+                .header("Content-Type", "application/json");
+        if (bearerToken != null) {
+            request = request.header("Authorization", "Bearer " + bearerToken);
+        }
+        return request.body(body).retrieve().toBodilessEntity().getStatusCode().value();
+    }
+
+    private static Map<String, Object> selfRegisterBody() {
+        String email = "reg-" + UUID.randomUUID() + "@example.com";
+        return Map.of("email", email, "password", "pw12345678", "name", "Tester");
+    }
+
+    private static Map<String, Object> adminUserBody() {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        return Map.of(
+                "employeeId", "E" + suffix,
+                "name", "Operator",
+                "email", "op-" + suffix + "@example.com");
     }
 
     /** 소비 서비스가 갖게 될 키 소스. 주소는 실제로 뜬 포트를 쓴다. */
@@ -310,8 +360,16 @@ class JwksVerificationIntegrationTest {
     /**
      * 어드민 realm 토큰을 얻는다. 직원은 비밀번호 계정이 없어 이메일 OTP 로 로그인하고,
      * local 프로파일은 메일을 보내지 않고 고정코드를 쓴다. 계정은 시드가 심어둔 부트스트랩 관리자다.
+     *
+     * <p><b>한 번만 로그인하고 재사용한다.</b> OTP 발송에는 재발송 쿨다운이 있어
+     * ({@code RequestEmailOtpService.RESEND_COOLDOWN_SECONDS}) 짧은 간격의 두 번째 요청은 조용히
+     * 무시된다 — 첫 챌린지는 이미 소비됐으므로 그 다음 검증은 401 이 된다. 실제 사용자에게는 이것이
+     * 올바른 동작(무차별 발송 방지)이라, 테스트 쪽이 맞춰야 한다.
      */
     private String loginAsAdmin() {
+        if (cachedAdminToken != null) {
+            return cachedAdminToken;
+        }
         http.post().uri("/api/auth/realms/admin/login/email-otp/send-code")
                 .header("Content-Type", "application/json")
                 .body(Map.of("email", "admin@example.com"))
@@ -322,7 +380,8 @@ class JwksVerificationIntegrationTest {
                 .body(Map.of("email", "admin@example.com", "verificationCode", "123456"))
                 .retrieve().body(Map.class);
 
-        return (String) ((Map<?, ?>) response.get("tokens")).get("accessToken");
+        cachedAdminToken = (String) ((Map<?, ?>) response.get("tokens")).get("accessToken");
+        return cachedAdminToken;
     }
 
     /** 가입은 유스케이스로 직접 부른다 — 이 테스트가 보려는 것은 가입 API 가 아니라 토큰 검증이다. */

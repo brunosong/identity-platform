@@ -51,7 +51,7 @@ Started AuthServiceApplication
 
 | | 하는 일 | 보는 것 |
 |---|---|---|
-| 1 | 가입 | 신원(Principal) + 비밀번호 자격증명이 생기고 `CUSTOMER` 역할이 붙는다 |
+| 1 | 가입 | 신원(Principal) + 비밀번호 자격증명이 생기고 `CUSTOMER` 역할이 붙는다. **가입도 realm 경로 위에 있고**, 어드민 realm 에는 이 경로가 없다(404) |
 | 2 | 로그인 | **realm 은 경로가 정한다.** 토큰이 쿠키가 아니라 **본문**으로 온다 |
 | 3 | 내 권한 조회 | 이후 요청은 `Authorization: Bearer`. 같은 토큰을 어드민 경로에 내밀면 통하지 않는다 |
 | 4 | 직원 realm 로그인 | **같은 아이디·비밀번호인데 401** — realm 격리 |

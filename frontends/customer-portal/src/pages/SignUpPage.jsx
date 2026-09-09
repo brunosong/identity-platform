@@ -6,8 +6,9 @@ import Notice from '../components/Notice';
 /**
  * 가입 화면.
  *
- * 가입은 <b>realm 경로를 쓰지 않는다</b>(`/api/auth/customer/register`). 만드는 것이 언제나 고객
- * 신원이라 고를 여지가 없기 때문이다 — 고르게 두면 같은 API 로 직원 신원까지 만들 수 있게 된다.
+ * 가입도 <b>realm 경로 위에 있다</b>(`/api/auth/realms/portal/register`). 로그인·로그아웃과 같은
+ * 모양이다. 만들 신원의 종류는 요청이 아니라 realm 이 정하고, 어드민 realm 에서는 이 경로가 404 다 —
+ * 셀프 가입을 여는지는 realm 의 설정이기 때문이다(Keycloak 의 "User registration" 토글과 같다).
  *
  * 가입이 끝나도 토큰은 안 나온다. 가입과 로그인은 별개다.
  */
@@ -80,7 +81,7 @@ export default function SignUpPage() {
             <div className="card muted-card">
                 <h2>여기서 무슨 일이 일어나나</h2>
                 <ol className="steps">
-                    <li><code>POST /api/auth/customer/register</code> — auth-service 가 신원(Principal)과 비밀번호 자격증명을 만듭니다.</li>
+                    <li><code>POST /api/auth/realms/portal/register</code> — auth-service 가 신원(Principal)과 비밀번호 자격증명을 만듭니다.</li>
                     <li>auth 가 <code>CUSTOMER</code> 역할을 자동으로 붙입니다. 그 역할이 없으면 가입 자체가 롤백됩니다.</li>
                     <li><b>토큰은 나오지 않습니다.</b> 가입과 로그인은 별개의 요청입니다.</li>
                     <li>customer-service 에는 아직 아무것도 없습니다 — 프로필은 마이페이지에서 직접 만듭니다.</li>

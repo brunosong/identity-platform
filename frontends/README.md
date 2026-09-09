@@ -26,11 +26,17 @@ CORS 가 실제로 동작하는지 볼 수 있다 — 실제 배포에서도 두
 |---|---|---|
 | realm | `portal` | `admin` |
 | 로그인 | 비밀번호 (이메일이 아이디) | **이메일 OTP** |
-| 가입 | 스스로 가입 | 관리자가 등록 |
+| 가입 | 스스로 가입 (`/realms/portal/register`) | 관리자가 등록 (`/admin/realms/admin/users`) |
 | 기본 권한 | `CUSTOMER` 역할 자동 부여 | 없음 (관리자가 배정) |
 
 직원이 OTP 인 것은 화면의 취향이 아니라 **서버가 그렇게 생겼기 때문이다** —
 `RegisterEmployeeAccountService` 는 직원에게 이메일 계정만 만들고 비밀번호 계정을 만들지 않는다.
+
+가입 경로도 하나다. `POST /api/auth/realms/{realm}/register` 가 그 realm 이 셀프 가입을 여는지
+보고, 닫혀 있으면 **404** 다 — 어드민에서 열리면 아무나 자기 자신을 직원으로 만든다. 그 정책은
+컨트롤러가 아니라 `Realm` enum 이 들고 있다(Keycloak 의 realm 설정 "User registration" 과 같다).
+어드민 계정은 관리자가 `POST /api/auth/admin/realms/{realm}/users` 로 만든다 — 여기서는 경로의
+realm 이 **대상**이고 호출자 realm 은 토큰이 정한다.
 
 ## 띄우기
 

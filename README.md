@@ -239,7 +239,7 @@ lsof -i :8080
 | | |
 |---|---|
 | 직원 관리자 (ADMIN realm) | `admin@example.com` · 이메일 OTP, 고정코드 **`123456`** |
-| 고객 (PORTAL realm) | 없음 — 화면에서 직접 가입 |
+| 고객 (PORTAL realm) | 없음 — 화면에서 직접 가입(`POST /api/auth/realms/portal/register`) |
 
 직원 계정은 관리자만 만들 수 있어서(`AUTHZ_MANAGE` 권한 필요) **최초 한 명은 데이터로 심어야 한다** —
 닭과 달걀 문제다. 실제 운영에서도 최초 관리자는 이렇게 넣는다.

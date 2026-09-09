@@ -137,7 +137,8 @@ bind('btn-register-employee', async () => {
         return;
     }
 
-    const res = await auth.request('POST', '/api/auth/employee/register', {
+    // 대상 realm 은 경로에, 호출자 realm 은 토큰에 있다 — 서로 다른 값이다.
+    const res = await auth.request('POST', `/api/auth/admin/realms/${REALM}/users`, {
         auth: true,
         body: { employeeId, name, email },
     });

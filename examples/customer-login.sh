@@ -52,14 +52,20 @@ note "계정: $EMAIL"
 
 # ---------------------------------------------------------------------------
 step "1. 가입 — 신원(Principal)과 비밀번호 자격증명을 만든다"
+note "가입도 realm 경로 위에 있다. 만들 신원의 종류는 요청이 아니라 realm 이 정한다."
 note "고객은 별도 아이디 없이 이메일이 로그인 식별자다."
 note "가입이 끝나면 CustomerDefaultRoleGrantListener 가 CUSTOMER 역할을 붙인다."
-req "POST $API/customer/register"
+req "POST $API/realms/portal/register"
 
-REGISTER=$(curl -s -X POST "$API/customer/register" \
+REGISTER=$(curl -s -X POST "$API/realms/portal/register" \
     -H 'Content-Type: application/json' \
     -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"name\":\"Hong\",\"phoneNumber\":\"010-0000-0000\"}")
 res "$REGISTER"
+
+note "어드민 realm 에는 이 경로가 없다(404). 셀프 가입을 여는지는 realm 의 설정이다 —"
+note "열려 있으면 아무나 자기 자신을 직원으로 만든다."
+res "POST /realms/admin/register  ->  HTTP $(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/realms/admin/register" \
+    -H 'Content-Type: application/json' -d '{"email":"x@example.com","password":"pw12345678","name":"X"}')"
 
 PRINCIPAL_ID=$(echo "$REGISTER" | pluck principalId)
 if [ -z "$PRINCIPAL_ID" ]; then

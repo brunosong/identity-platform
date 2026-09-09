@@ -42,6 +42,19 @@ public class AuthenticationRealm {
     }
 
     /**
+     * 셀프 가입이 열려 있는 realm 인지 확인한다. 닫힌 realm 에서는 그 경로가 <b>없는 것</b>으로 다룬다 —
+     * 403 이 아니라 404 인 이유는, "여기에도 가입 API 가 있긴 한데 막혀 있다" 를 알려줄 이유가 없기
+     * 때문이다. 어느 realm 이 열려 있는지는 {@link Realm} 이 정한다.
+     */
+    public Realm requireSelfRegistration(String pathValue) {
+        Realm realm = of(pathValue);
+        if (!realm.allowsSelfRegistration()) {
+            throw new NotFoundException("이 realm 은 셀프 가입을 지원하지 않습니다: " + pathValue);
+        }
+        return realm;
+    }
+
+    /**
      * 그 realm 에서만 열리는 인증수단을 위한 확인. 다른 realm 에서는 그 경로가 없는 것으로 다룬다 —
      * 전에는 컨트롤러를 프로퍼티로 껐지만, 한 프로세스가 두 realm 을 담당하면 빈을 껐다 켤 수 없다.
      */
