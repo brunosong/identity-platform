@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -19,9 +18,6 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class CustomerProfileService implements CustomerProfileUseCase {
-
-    /** 목록 조회 상한. 없으면 한 번의 호출이 테이블 전체를 끌고 온다. */
-    private static final int MAX_LIMIT = 100;
 
     private final CustomerProfileRepository repository;
 
@@ -41,11 +37,5 @@ public class CustomerProfileService implements CustomerProfileUseCase {
                 })
                 .orElseGet(() -> CustomerProfile.create(customerId, name, phoneNumber, email));
         return repository.save(profile);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CustomerProfile> search(String keyword, int limit) {
-        return repository.search(keyword, Math.clamp(limit, 1, MAX_LIMIT));
     }
 }

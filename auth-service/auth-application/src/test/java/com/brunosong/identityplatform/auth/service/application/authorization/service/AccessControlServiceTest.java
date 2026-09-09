@@ -45,52 +45,52 @@ class AccessControlServiceTest {
     @Test
     @DisplayName("매칭 규칙의 권한을 하나라도 가지면 허용한다(OR)")
     void anyOfMappedPermissionsAllows() {
-        urlAccessQuery.rules(Realm.EMPLOYEE, rule("/api/resumes/**", "ALL", Set.of("RESUME_READ", "RESUME_ADMIN")));
+        urlAccessQuery.rules(Realm.ADMIN, rule("/api/resumes/**", "ALL", Set.of("RESUME_READ", "RESUME_ADMIN")));
 
-        assertThat(service.hasAccess(Realm.EMPLOYEE, "/api/resumes/1", "GET", Set.of("RESUME_ADMIN"))).isTrue();
+        assertThat(service.hasAccess(Realm.ADMIN, "/api/resumes/1", "GET", Set.of("RESUME_ADMIN"))).isTrue();
     }
 
     @Test
     @DisplayName("매칭 규칙이 있는데 권한이 없으면 거부한다")
     void matchedButUnauthorizedIsDenied() {
-        urlAccessQuery.rules(Realm.EMPLOYEE, rule("/api/resumes/**", "ALL", Set.of("RESUME_READ")));
+        urlAccessQuery.rules(Realm.ADMIN, rule("/api/resumes/**", "ALL", Set.of("RESUME_READ")));
 
-        assertThat(service.hasAccess(Realm.EMPLOYEE, "/api/resumes/1", "GET", Set.of("OTHER"))).isFalse();
+        assertThat(service.hasAccess(Realm.ADMIN, "/api/resumes/1", "GET", Set.of("OTHER"))).isFalse();
     }
 
     @Test
     @DisplayName("메서드가 지정된 규칙은 다른 메서드 요청에 적용되지 않는다")
     void methodScopedRuleIgnoresOtherMethods() {
-        urlAccessQuery.rules(Realm.CUSTOMER, rule("/api/resumes/**", "POST", Set.of("RESUME_WRITE")));
+        urlAccessQuery.rules(Realm.PORTAL, rule("/api/resumes/**", "POST", Set.of("RESUME_WRITE")));
 
-        assertThat(service.hasAccess(Realm.CUSTOMER, "/api/resumes/1", "POST", Set.of())).isFalse();
+        assertThat(service.hasAccess(Realm.PORTAL, "/api/resumes/1", "POST", Set.of())).isFalse();
         // CUSTOMER 는 fail-open — 매칭 규칙이 없는 GET 은 통과
-        assertThat(service.hasAccess(Realm.CUSTOMER, "/api/resumes/1", "GET", Set.of())).isTrue();
+        assertThat(service.hasAccess(Realm.PORTAL, "/api/resumes/1", "GET", Set.of())).isTrue();
     }
 
     @Test
     @DisplayName("ALL 규칙은 메서드를 가리지 않는다")
     void allMethodRuleMatchesEveryMethod() {
-        urlAccessQuery.rules(Realm.EMPLOYEE, rule("/api/resumes/**", "ALL", Set.of("RESUME_READ")));
+        urlAccessQuery.rules(Realm.ADMIN, rule("/api/resumes/**", "ALL", Set.of("RESUME_READ")));
 
-        assertThat(service.hasAccess(Realm.EMPLOYEE, "/api/resumes/1", "DELETE", Set.of("RESUME_READ"))).isTrue();
+        assertThat(service.hasAccess(Realm.ADMIN, "/api/resumes/1", "DELETE", Set.of("RESUME_READ"))).isTrue();
     }
 
     @Test
     @DisplayName("EMPLOYEE(fail-closed)는 규칙이 없는 보호 경로를 거부한다")
     void employeeDeniesUnmappedProtectedPath() {
-        urlAccessQuery.rules(Realm.EMPLOYEE);
+        urlAccessQuery.rules(Realm.ADMIN);
 
-        assertThat(service.hasAccess(Realm.EMPLOYEE, "/api/unknown", "GET", Set.of("ANY"))).isFalse();
-        assertThat(service.hasAccess(Realm.EMPLOYEE, "/page/unknown", "GET", Set.of("ANY"))).isFalse();
+        assertThat(service.hasAccess(Realm.ADMIN, "/api/unknown", "GET", Set.of("ANY"))).isFalse();
+        assertThat(service.hasAccess(Realm.ADMIN, "/page/unknown", "GET", Set.of("ANY"))).isFalse();
     }
 
     @Test
     @DisplayName("EMPLOYEE 라도 보호 경로가 아니면 규칙이 없어도 통과한다")
     void employeeAllowsNonProtectedPath() {
-        urlAccessQuery.rules(Realm.EMPLOYEE);
+        urlAccessQuery.rules(Realm.ADMIN);
 
-        assertThat(service.hasAccess(Realm.EMPLOYEE, "/css/app.css", "GET", Set.of())).isTrue();
+        assertThat(service.hasAccess(Realm.ADMIN, "/css/app.css", "GET", Set.of())).isTrue();
     }
 
     @Test
@@ -99,42 +99,42 @@ class AccessControlServiceTest {
         // 어떤 경로가 보호 대상인지는 호스트의 URL 설계다. 공유 커널에 박아두지 않는다.
         AccessControlService custom = new AccessControlService(
                 urlAccessQuery, new FakeSubjectRoleQuery(), NO_EXPIRY, List.of("/admin/"));
-        urlAccessQuery.rules(Realm.EMPLOYEE);
+        urlAccessQuery.rules(Realm.ADMIN);
 
-        assertThat(custom.hasAccess(Realm.EMPLOYEE, "/admin/users", "GET", Set.of())).isFalse();
-        assertThat(custom.hasAccess(Realm.EMPLOYEE, "/api/unknown", "GET", Set.of())).isTrue();
+        assertThat(custom.hasAccess(Realm.ADMIN, "/admin/users", "GET", Set.of())).isFalse();
+        assertThat(custom.hasAccess(Realm.ADMIN, "/api/unknown", "GET", Set.of())).isTrue();
     }
 
     @Test
     @DisplayName("CUSTOMER(fail-open)는 규칙이 없는 보호 경로를 허용한다")
     void customerAllowsUnmappedProtectedPath() {
-        urlAccessQuery.rules(Realm.CUSTOMER);
+        urlAccessQuery.rules(Realm.PORTAL);
 
-        assertThat(service.hasAccess(Realm.CUSTOMER, "/api/unknown", "GET", Set.of())).isTrue();
+        assertThat(service.hasAccess(Realm.PORTAL, "/api/unknown", "GET", Set.of())).isTrue();
     }
 
     @Test
     @DisplayName("규칙은 realm 별로 캐시되어 realm 하나를 조회해도 다른 realm 을 읽지 않는다")
     void rulesAreCachedPerRealm() {
-        urlAccessQuery.rules(Realm.EMPLOYEE, rule("/api/a/**", "ALL", Set.of("A")));
+        urlAccessQuery.rules(Realm.ADMIN, rule("/api/a/**", "ALL", Set.of("A")));
 
-        service.hasAccess(Realm.EMPLOYEE, "/api/a/1", "GET", Set.of("A"));
-        service.hasAccess(Realm.EMPLOYEE, "/api/a/2", "GET", Set.of("A"));
+        service.hasAccess(Realm.ADMIN, "/api/a/1", "GET", Set.of("A"));
+        service.hasAccess(Realm.ADMIN, "/api/a/2", "GET", Set.of("A"));
 
-        assertThat(urlAccessQuery.loadsFor(Realm.EMPLOYEE)).isEqualTo(1);
-        assertThat(urlAccessQuery.loadsFor(Realm.CUSTOMER)).isZero();
+        assertThat(urlAccessQuery.loadsFor(Realm.ADMIN)).isEqualTo(1);
+        assertThat(urlAccessQuery.loadsFor(Realm.PORTAL)).isZero();
     }
 
     @Test
     @DisplayName("reload 하면 바뀐 규칙이 즉시 반영된다")
     void reloadRefreshesCache() {
-        urlAccessQuery.rules(Realm.EMPLOYEE, rule("/api/a/**", "ALL", Set.of("A")));
-        assertThat(service.hasAccess(Realm.EMPLOYEE, "/api/a/1", "GET", Set.of("B"))).isFalse();
+        urlAccessQuery.rules(Realm.ADMIN, rule("/api/a/**", "ALL", Set.of("A")));
+        assertThat(service.hasAccess(Realm.ADMIN, "/api/a/1", "GET", Set.of("B"))).isFalse();
 
-        urlAccessQuery.rules(Realm.EMPLOYEE, rule("/api/a/**", "ALL", Set.of("B")));
-        service.reload(Realm.EMPLOYEE);
+        urlAccessQuery.rules(Realm.ADMIN, rule("/api/a/**", "ALL", Set.of("B")));
+        service.reload(Realm.ADMIN);
 
-        assertThat(service.hasAccess(Realm.EMPLOYEE, "/api/a/1", "GET", Set.of("B"))).isTrue();
+        assertThat(service.hasAccess(Realm.ADMIN, "/api/a/1", "GET", Set.of("B"))).isTrue();
     }
 
     @Test
@@ -143,13 +143,13 @@ class AccessControlServiceTest {
         // reload 는 그 호출을 받은 프로세스만 갱신한다. 인스턴스가 여럿이면 나머지는 TTL 로 따라잡는다.
         AccessControlService shortTtl = new AccessControlService(
                 urlAccessQuery, new FakeSubjectRoleQuery(), 1L, PROTECTED_PREFIXES);
-        urlAccessQuery.rules(Realm.EMPLOYEE, rule("/api/a/**", "ALL", Set.of("A")));
-        assertThat(shortTtl.hasAccess(Realm.EMPLOYEE, "/api/a/1", "GET", Set.of("B"))).isFalse();
+        urlAccessQuery.rules(Realm.ADMIN, rule("/api/a/**", "ALL", Set.of("A")));
+        assertThat(shortTtl.hasAccess(Realm.ADMIN, "/api/a/1", "GET", Set.of("B"))).isFalse();
 
-        urlAccessQuery.rules(Realm.EMPLOYEE, rule("/api/a/**", "ALL", Set.of("B")));
+        urlAccessQuery.rules(Realm.ADMIN, rule("/api/a/**", "ALL", Set.of("B")));
         Thread.sleep(1100);
 
-        assertThat(shortTtl.hasAccess(Realm.EMPLOYEE, "/api/a/1", "GET", Set.of("B"))).isTrue();
+        assertThat(shortTtl.hasAccess(Realm.ADMIN, "/api/a/1", "GET", Set.of("B"))).isTrue();
     }
 
     private static final class FakeUrlAccessQuery implements UrlAccessQuery {

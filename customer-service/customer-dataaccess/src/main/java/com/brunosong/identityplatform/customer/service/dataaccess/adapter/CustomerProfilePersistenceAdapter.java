@@ -5,11 +5,9 @@ import com.brunosong.identityplatform.customer.service.dataaccess.entity.Custome
 import com.brunosong.identityplatform.customer.service.dataaccess.repository.CustomerProfileJpaRepository;
 import com.brunosong.identityplatform.customer.service.domain.CustomerProfile;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 /** {@link CustomerProfileRepository} 영속성 어댑터. */
@@ -29,15 +27,6 @@ public class CustomerProfilePersistenceAdapter implements CustomerProfileReposit
     @Transactional
     public CustomerProfile save(CustomerProfile profile) {
         return toDomain(repository.save(toEntity(profile)));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CustomerProfile> search(String keyword, int limit) {
-        String normalized = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
-        return repository.search(normalized, Limit.of(limit)).stream()
-                .map(CustomerProfilePersistenceAdapter::toDomain)
-                .toList();
     }
 
     private static CustomerProfileJpaEntity toEntity(CustomerProfile profile) {

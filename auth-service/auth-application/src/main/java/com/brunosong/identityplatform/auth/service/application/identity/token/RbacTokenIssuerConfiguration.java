@@ -47,14 +47,13 @@ public class RbacTokenIssuerConfiguration {
 
     @Bean
     public TokenIssuerPort rbacJwtTokenIssuer(
-            EmailAccountRepository emailAccountRepository,
             ListSubjectPermissionsUseCase subjectPermissions,
             GetAuthorizationRevisionUseCase revision,
             ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
             RealmSigningKeys signingKeys,
             TokenProperties properties) {
         return new RbacJwtTokenIssuer(
-                emailAccountRepository, subjectPermissions, revision, sessionRegistryProvider, signingKeys,
+                subjectPermissions, revision, sessionRegistryProvider, signingKeys,
                 properties.getAccessExpiration(), properties.getRefreshExpiration());
     }
 }

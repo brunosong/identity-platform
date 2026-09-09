@@ -23,8 +23,8 @@ ON CONFLICT (subject_type, email) DO NOTHING;
 -- V9000 이 만든 EMPLOYEE/ADMIN 역할을 붙인다. 그 역할이 AUTHZ_MANAGE 권한을 갖고 있어
 -- 이 계정으로 로그인하면 RBAC 관리 API 와 직원 등록 API 를 부를 수 있다.
 INSERT INTO authz_subject_role (realm, subject_id, role_id, assigned_at)
-SELECT 'EMPLOYEE', 'admin-esntl-0001', r.role_id, now()
+SELECT 'ADMIN', 'admin-esntl-0001', r.role_id, now()
 FROM authz_role r
-WHERE r.realm = 'EMPLOYEE'
+WHERE r.realm = 'ADMIN'
   AND r.role_code = 'ADMIN'
 ON CONFLICT DO NOTHING;

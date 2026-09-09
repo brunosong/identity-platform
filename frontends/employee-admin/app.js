@@ -3,7 +3,7 @@ import { $, show, bind, notify, failed, logRequest, renderSession, renderPermiss
     from '/shared/ui.js';
 
 // 이 앱은 직원 realm 만 상대한다.
-const REALM = 'employee';
+const REALM = 'admin';
 const MANAGE_PERMISSION = 'AUTHZ_MANAGE';
 
 let auth = client();
@@ -99,7 +99,7 @@ function renderTable(columns, rows) {
 }
 
 bind('btn-roles', async () => {
-    const res = await auth.request('GET', '/api/rbac/roles', { auth: true, query: { realm: 'EMPLOYEE' } });
+    const res = await auth.request('GET', '/api/rbac/roles', { auth: true, query: { realm: 'ADMIN' } });
     if (failed(res, '역할 조회')) return;
     renderTable(
         [{ key: 'roleId', label: 'ID' }, { key: 'roleCode', label: '코드' },
@@ -109,7 +109,7 @@ bind('btn-roles', async () => {
 });
 
 bind('btn-permissions', async () => {
-    const res = await auth.request('GET', '/api/rbac/permissions', { auth: true, query: { realm: 'EMPLOYEE' } });
+    const res = await auth.request('GET', '/api/rbac/permissions', { auth: true, query: { realm: 'ADMIN' } });
     if (failed(res, '권한 조회')) return;
     renderTable(
         [{ key: 'permissionId', label: 'ID' }, { key: 'permissionCode', label: '코드' },
@@ -119,7 +119,7 @@ bind('btn-permissions', async () => {
 });
 
 bind('btn-revision', async () => {
-    const res = await auth.request('GET', '/api/rbac/revision', { auth: true, query: { realm: 'EMPLOYEE' } });
+    const res = await auth.request('GET', '/api/rbac/revision', { auth: true, query: { realm: 'ADMIN' } });
     if (failed(res, '리비전 조회')) return;
     $('rbac-result').innerHTML = `<pre>${preview(res.data)}</pre>`;
     notify(`리비전은 realm 전역 정책이 바뀔 때 올라갑니다. 발급된 토큰에 <code>rbacRev</code> 로 실려 `
@@ -153,18 +153,18 @@ bind('btn-register-employee', async () => {
 bind('btn-cross-realm', async () => {
     const email = $('email').value.trim();
 
-    // 고객 realm 으로 같은 이메일에 코드를 요청한다.
-    const customer = new AuthClient($('base').value, 'customer');
-    customer.onRequest(logRequest);
+    // 포털 realm 으로 같은 이메일에 코드를 요청한다.
+    const portal = new AuthClient($('base').value, 'portal');
+    portal.onRequest(logRequest);
 
-    const sent = await customer.sendEmailCode(email);
+    const sent = await portal.sendEmailCode(email);
     if (sent.blocked) { failed(sent, '발송'); return; }
 
-    // 로컬 고정코드로 고객 realm 로그인을 시도한다. 고객 서랍에 이 이메일이 없으므로 실패해야 한다.
-    const login = await customer.loginWithEmailCode(email, '123456');
+    // 로컬 고정코드로 포털 realm 로그인을 시도한다. 포털 서랍에 이 이메일이 없으므로 실패해야 한다.
+    const login = await portal.loginWithEmailCode(email, '123456');
 
     if (login.ok) {
-        notify('고객 realm 로그인이 통과했습니다. <b>이건 문제입니다</b> — realm 격리가 깨졌습니다.', 'err');
+        notify('포털 realm 로그인이 통과했습니다. <b>이건 문제입니다</b> — realm 격리가 깨졌습니다.', 'err');
         return;
     }
     notify(`발송은 <code>${sent.status}</code>(계정 열거 방지로 늘 같은 응답), `

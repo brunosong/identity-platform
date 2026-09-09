@@ -23,15 +23,14 @@ import org.springframework.web.bind.annotation.RestController;
  * 남의 식별자를 적어 넣는 것으로 남의 프로필을 열 수 있다. 이것이 게이트웨이가 대신해 줄 수 없는
  * 확인이다. 게이트웨이는 "이 URL 에 들어와도 되는가"까지 알지만 "이 데이터가 이 사람 것인가"는 모른다.
  *
- * <p>여기서 realm 을 CUSTOMER 로 못박는 것도 필요하다. 두 realm 의 공개키가 같은 JWKS 에 함께 있어
- * 직원 토큰도 서명은 통과하기 때문이다 — 서명이 맞다고 realm 이 맞는 것은 아니다.
+ * <p>여기에 realm 확인이 없는 것은 빠뜨린 것이 아니다. 이 서비스가 포털 realm 만 상대한다는 사실이
+ * 설정에 있고({@code auth.client.realm}), 검증기가 그 realm 만 통과시킨다 — 어드민 토큰은 여기까지
+ * 오지 못한다.
  */
 @RestController
 @RequestMapping("/api/customers/me")
 @RequiredArgsConstructor
 public class MyProfileApiController {
-
-    private static final String CUSTOMER_REALM = "CUSTOMER";
 
     private final CustomerProfileUseCase customerProfiles;
     private final AuthenticatedCaller caller;
@@ -39,7 +38,7 @@ public class MyProfileApiController {
     /** 아직 프로필을 만들지 않았으면 404 다. 빈 프로필을 지어내 돌려주지 않는다. */
     @GetMapping
     public ResponseEntity<ProfileResponse> myProfile(HttpServletRequest request) {
-        AuthenticatedToken me = caller.requireRealm(request, CUSTOMER_REALM);
+        AuthenticatedToken me = caller.require(request);
 
         return customerProfiles.find(me.subjectId())
                 .map(profile -> ResponseEntity.ok(ProfileResponse.of(profile)))
@@ -54,7 +53,7 @@ public class MyProfileApiController {
      */
     @PutMapping
     public ProfileResponse save(HttpServletRequest request, @Valid @RequestBody SaveProfileRequest body) {
-        AuthenticatedToken me = caller.requireRealm(request, CUSTOMER_REALM);
+        AuthenticatedToken me = caller.require(request);
 
         return ProfileResponse.of(customerProfiles.save(
                 me.subjectId(), body.name(), body.phoneNumber(), body.email()));

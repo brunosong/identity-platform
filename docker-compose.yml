@@ -1,0 +1,56 @@
+# 로컬 개발용 데이터베이스.
+#
+# 서비스마다 데이터베이스를 따로 둔다. 하나로 합치면 서비스는 나눴는데 스키마로 다시 묶여서,
+# 테이블 하나 바꾸려면 남의 배포를 기다려야 한다. 컨테이너를 둘로 나눈 것은 그 경계를
+# 눈에 보이게 하려는 것이다(운영이라면 애초에 다른 서버다).
+#
+# 호스트 포트를 55432/55433 으로 옮겨둔 것은, 이미 5432 를 쓰는 PostgreSQL 이 깔려 있어도
+# 부딪히지 않게 하기 위해서다.
+#
+#   docker compose up -d      띄우기
+#   docker compose ps         상태 보기
+#   docker compose down       내리기 (데이터는 남는다)
+#   docker compose down -v    내리고 데이터까지 지우기
+
+services:
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-pg
+    environment:
+      POSTGRES_DB: identity
+      POSTGRES_USER: identity
+      POSTGRES_PASSWORD: identity
+    ports:
+      - "55432:5432"
+    volumes:
+      - auth-data:/var/lib/postgresql/data
+    healthcheck:
+      # 애플리케이션이 뜨기 전에 DB 가 받을 준비가 됐는지 본다.
+      # 이게 없으면 앱이 먼저 떠서 커넥션 오류로 죽는 일이 생긴다.
+      test: ["CMD-SHELL", "pg_isready -U identity -d identity"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  customer-db:
+    image: postgres:16-alpine
+    container_name: customer-pg
+    environment:
+      POSTGRES_DB: customer
+      POSTGRES_USER: customer
+      POSTGRES_PASSWORD: customer
+    ports:
+      - "55433:5432"
+    volumes:
+      - customer-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U customer -d customer"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  # 이름 붙인 볼륨이라 `docker compose down` 만으로는 지워지지 않는다.
+  # 스키마를 갈아엎고 다시 보고 싶으면 `docker compose down -v` 로 볼륨까지 지운다.
+  auth-data:
+  customer-data:

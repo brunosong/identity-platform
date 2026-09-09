@@ -4,17 +4,19 @@ auth-service 에 브라우저에서 직접 로그인해 보는 앱 두 개.
 
 ```
 frontends/
-  customer-portal/    고객 포털   :5173   비밀번호 로그인
-  employee-admin/     직원 관리자 :5174   이메일 OTP 로그인 + RBAC 조회
-  shared/             두 앱이 함께 쓰는 코드
-  serve.py            앱 하나를 자기 포트로 띄우는 개발 서버
+  customer-portal/    고객 포털   :5173   Vite + React (npm)
+  employee-admin/     직원 관리자 :5174   정적 HTML (serve.py)
+  shared/             employee-admin 이 쓰는 공용 코드
+  serve.py            employee-admin 용 개발 서버
 ```
 
-빌드 도구가 없다. ES 모듈과 `fetch` 만 쓰므로 정적 서버만 있으면 바로 뜬다.
+두 앱의 형태가 다르다. **customer-portal 은 제대로 된 프론트엔드 프로젝트**(Vite + React,
+가입/로그인/마이페이지 라우팅)이고, employee-admin 은 아직 정적 HTML 한 장이다 —
+customer 쪽을 먼저 옮겼고 employee 는 그대로 남겨뒀다.
 
 ## 왜 앱이 둘인가
 
-**realm 이 둘이기 때문이다.** 직원(EMPLOYEE)과 고객(CUSTOMER)은 계정도, 로그인 방식도, 서명 키도
+**realm 이 둘이기 때문이다.** 어드민(ADMIN)과 포털(PORTAL)은 계정도, 로그인 방식도, 서명 키도
 다르다. 화면이 하나면 그 경계가 안 보인다.
 
 포트를 나눈 것도 의도적이다. 브라우저에게 포트가 다르면 **다른 출처(origin)** 이고, 그래야
@@ -22,7 +24,7 @@ CORS 가 실제로 동작하는지 볼 수 있다 — 실제 배포에서도 두
 
 | | 고객 포털 | 직원 관리자 |
 |---|---|---|
-| realm | `customer` | `employee` |
+| realm | `portal` | `admin` |
 | 로그인 | 비밀번호 (이메일이 아이디) | **이메일 OTP** |
 | 가입 | 스스로 가입 | 관리자가 등록 |
 | 기본 권한 | `CUSTOMER` 역할 자동 부여 | 없음 (관리자가 배정) |
@@ -34,12 +36,10 @@ CORS 가 실제로 동작하는지 볼 수 있다 — 실제 배포에서도 두
 
 ### 1. auth-service
 
-`examples/README.md` 참고. 요약하면:
+[루트 README](../README.md) 참고. 요약하면:
 
 ```bash
-docker run -d --rm --name auth-pg \
-  -e POSTGRES_DB=identity -e POSTGRES_USER=identity -e POSTGRES_PASSWORD=identity \
-  -p 55432:5432 postgres:16-alpine
+docker compose up -d          # DB 두 개
 
 ./mvnw -pl auth-service/auth-bootstrap -am install -DskipTests
 
@@ -49,12 +49,25 @@ SPRING_PROFILES_ACTIVE=local \
 java -jar target/auth-bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
-### 2. 두 앱
-
-터미널 두 개에서:
+### 2. 고객 포털 (npm)
 
 ```bash
-python frontends/serve.py customer-portal 5173
+cd frontends/customer-portal
+npm install          # 처음 한 번
+npm run dev
+```
+
+포트를 바꿔 띄웠다면 `.env.local` 을 만들어 덮어쓰거나, 화면 오른쪽 아래
+**"연결 대상"** 에서 바꿀 수 있다(브라우저에만 저장된다).
+
+```
+VITE_AUTH_BASE_URL=http://localhost:8090
+VITE_CUSTOMER_BASE_URL=http://localhost:8081
+```
+
+### 3. 직원 관리자 (정적)
+
+```bash
 python frontends/serve.py employee-admin 5174
 ```
 
@@ -68,15 +81,27 @@ python frontends/serve.py employee-admin 5174
 
 ### 고객 포털 (:5173)
 
-1. **새 이메일 채우기 → 가입 → 로그인**
-   토큰이 오고, 그 안에 실린 클레임(`realm`, `authLs`, `exp`)이 그대로 보인다.
-2. **내 권한 조회 / 재발급 / 로그아웃**
-3. **직원 realm 으로 로그인 시도** ← 여기가 핵심
-   같은 이메일·비밀번호인데 401 이다. 자격증명 조회가 `(subject_type, login_id)` 로 좁혀져 있어
+화면이 셋이다 — `/signup`, `/login`, `/me`.
+
+1. **가입** → 로그인 화면으로 넘어간다. 가입해도 토큰은 안 나온다(가입과 로그인은 별개 요청)
+2. **로그인** → 토큰을 받고 마이페이지로
+3. **마이페이지** — 여기가 본체다
+   - **프로필** (customer-service): 처음엔 404 다. auth 에만 가입했고 customer 는 아직 모른다
+   - **access / refresh 토큰**: 클레임을 하나씩 풀어서 무엇이고 왜 있는지 함께 보여준다.
+     만료까지 남은 시간이 1초마다 줄어든다
+   - **권한 조회 / 재발급 / 로그아웃**
+   - **JWKS 보기** — 다른 서비스가 검증에 쓸 공개키. **포털 키 하나만 나온다.**
+     JWKS 는 realm 마다 주소가 다르고 customer-service 는 그 주소만 알고 있어서,
+     어드민 토큰은 검증할 수조차 없다(해당 `kid` 의 공개키가 없다)
+4. **로그인 화면의 "직원 realm 으로 로그인 시도"**
+   같은 이메일·비밀번호인데 401 이다. 조회가 `(subject_type, login_id)` 로 좁혀져 있어
    직원 서랍에는 이 계정이 아예 없다.
-4. **JWKS 보기**
-   다른 서비스가 검증에 쓸 공개키. **두 realm 의 키가 함께 나온다** —
-   그래서 서명이 맞다고 realm 이 맞는 것은 아니다.
+5. **로그인 화면의 "토큰 보관 방식" 스위치**
+   기본은 메모리(새로고침하면 로그아웃)다. `localStorage` 로 바꿔보고 무엇을 내주는지 보라.
+
+화면 아래 **요청 로그**에 어느 서버(auth/customer)를 언제 불렀는지 쌓인다.
+**프로필을 부를 때 auth 가 등장하지 않는 것**을 확인해 보라 — customer-service 가
+공개키로 직접 검증하기 때문이다.
 
 ### 직원 관리자 (:5174)
 
@@ -111,6 +136,6 @@ python frontends/serve.py employee-admin 5174
 
 - **게이트웨이** — 두 앱 모두 auth-service 를 직접 부른다. URL 단위 인가
   (`authz_url_access`, `CheckAccessUseCase`)를 시행할 주체가 아직 없다.
-- **auth 가 아닌 다른 서비스** — 그래서 "토큰을 들고 다른 서비스를 부른다"는 부분이 아직 안 보인다.
-  `auth-client`(백엔드)가 그 검증을 맡지만 그것을 쓰는 소비 서비스가 없다.
+- **직원 앱에서 다른 서비스 부르기** — 고객 포털은 customer-service 를 부르지만(그래서 토큰을
+  들고 다른 서비스로 가는 흐름이 보인다) 직원 앱이 상대하는 서비스는 auth 뿐이다.
 - **소셜 로그인** — provider 검증 어댑터가 없어 호출하면 500 이다.

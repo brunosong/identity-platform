@@ -8,7 +8,7 @@
 -- 뜻으로 쓰게 되고, 한쪽에 권한을 준 것이 다른 쪽 문까지 연다.
 
 INSERT INTO authz_permission (realm, category, permission_code, permission_name, description, use_yn, created_at, updated_at)
-VALUES ('EMPLOYEE', 'CUSTOMER', 'CUSTOMER_PROFILE_READ', 'Read customer profiles',
+VALUES ('ADMIN', 'CUSTOMER', 'CUSTOMER_PROFILE_READ', 'Read customer profiles',
         'View customer profiles in customer-service', 'Y', now(), now())
 ON CONFLICT (realm, permission_code) DO NOTHING;
 
@@ -17,7 +17,7 @@ INSERT INTO authz_role_permission (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM authz_role r
          JOIN authz_permission p ON p.realm = r.realm
-WHERE r.realm = 'EMPLOYEE'
+WHERE r.realm = 'ADMIN'
   AND r.role_code = 'ADMIN'
   AND p.permission_code = 'CUSTOMER_PROFILE_READ'
 ON CONFLICT DO NOTHING;

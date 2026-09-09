@@ -94,8 +94,9 @@ export class AuthClient {
         return this.request('GET', '/api/auth/my-permissions', { auth: true });
     }
 
+    /** 이 realm 의 공개키. JWKS 는 realm 마다 주소가 다르다. */
     jwks() {
-        return this.request('GET', '/.well-known/jwks.json');
+        return this.request('GET', `/realms/${this.realm}/.well-known/jwks.json`);
     }
 
     // ── 밑바닥 ──────────────────────────────────────────────────────────────

@@ -40,6 +40,6 @@ public class CustomerDefaultRoleGrantListener {
         if (event.subjectType() != SubjectType.CUSTOMER) {
             return;
         }
-        grantRole.grant(Realm.CUSTOMER, event.subjectId(), CUSTOMER_ROLE);
+        grantRole.grant(Realm.PORTAL, event.subjectId(), CUSTOMER_ROLE);
     }
 }

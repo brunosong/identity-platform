@@ -2,7 +2,6 @@ package com.brunosong.identityplatform.customer.service.application.ports.in;
 
 import com.brunosong.identityplatform.customer.service.domain.CustomerProfile;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -17,6 +16,4 @@ public interface CustomerProfileUseCase {
 
     /** 없으면 만들고 있으면 고친다. 프로필은 주체당 하나뿐이라 생성과 수정을 가르지 않는다. */
     CustomerProfile save(String customerId, String name, String phoneNumber, String email);
-
-    List<CustomerProfile> search(String keyword, int limit);
 }

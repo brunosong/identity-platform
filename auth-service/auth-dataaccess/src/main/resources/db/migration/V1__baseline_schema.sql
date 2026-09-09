@@ -4,7 +4,7 @@
 -- 코드의 부산물이라 리뷰되지 않고 배포 순서도 정할 수 없다. 이제 엔티티는 이 스키마와 맞는지
 -- 확인만 한다(ddl-auto=validate).
 --
--- 두 realm(EMPLOYEE/CUSTOMER)이 한 저장소를 공유하되 행은 realm 으로 분리된다. 그 분리가 코드의
+-- 두 realm(ADMIN/PORTAL)이 한 저장소를 공유하되 행은 realm 으로 분리된다. 그 분리가 코드의
 -- 규율로만 서 있으면 언젠가 샌다 — 아래 유니크와 외래키가 그것을 DB 수준에서 붙든다.
 
 -- ============================================================================
@@ -130,7 +130,7 @@ CREATE TABLE authz_role
     created_at  timestamp(6),
     updated_at  timestamp(6),
 
-    CONSTRAINT ck_authz_role_realm CHECK (realm IN ('EMPLOYEE', 'CUSTOMER')),
+    CONSTRAINT ck_authz_role_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
     CONSTRAINT ck_authz_role_use_yn CHECK (use_yn IN ('Y', 'N')),
     -- 역할은 코드로 찾는다(GrantRoleUseCase). realm 안에서 유일해야 어느 것을 줄지 정해진다.
     CONSTRAINT uk_authz_role_realm_role_code UNIQUE (realm, role_code)
@@ -148,7 +148,7 @@ CREATE TABLE authz_permission
     created_at      timestamp(6),
     updated_at      timestamp(6),
 
-    CONSTRAINT ck_authz_permission_realm CHECK (realm IN ('EMPLOYEE', 'CUSTOMER')),
+    CONSTRAINT ck_authz_permission_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
     CONSTRAINT ck_authz_permission_use_yn CHECK (use_yn IN ('Y', 'N')),
     -- 권한 코드는 토큰의 authLs 에 그대로 실려 소비 서비스가 문자열로 대조한다. 같은 realm 에
     -- 같은 코드가 둘이면 어느 쪽 정책이 적용됐는지 알 수 없다.
@@ -182,7 +182,7 @@ CREATE TABLE authz_url_access
     created_at    timestamp(6),
     updated_at    timestamp(6),
 
-    CONSTRAINT ck_authz_url_access_realm CHECK (realm IN ('EMPLOYEE', 'CUSTOMER')),
+    CONSTRAINT ck_authz_url_access_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
     CONSTRAINT ck_authz_url_access_use_yn CHECK (use_yn IN ('Y', 'N'))
     -- (realm, url_pattern, http_method) 에 유니크를 걸지 않는다. 접근제어는 sort_order 순으로 훑어
     -- 먼저 맞는 규칙을 쓰므로, 같은 패턴에 여러 규칙을 두고 순서로 가르는 사용이 성립한다.
@@ -215,7 +215,7 @@ CREATE TABLE authz_subject_role
     assigned_at timestamp(6),
 
     PRIMARY KEY (realm, subject_id, role_id),
-    CONSTRAINT ck_authz_subject_role_realm CHECK (realm IN ('EMPLOYEE', 'CUSTOMER')),
+    CONSTRAINT ck_authz_subject_role_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
     CONSTRAINT fk_authz_subject_role_role
         FOREIGN KEY (role_id) REFERENCES authz_role (role_id) ON DELETE CASCADE
 );
@@ -231,5 +231,5 @@ CREATE TABLE authz_revision
     revision_no bigint NOT NULL DEFAULT 1,
     updated_at  timestamp(6),
 
-    CONSTRAINT ck_authz_revision_realm CHECK (realm IN ('EMPLOYEE', 'CUSTOMER'))
+    CONSTRAINT ck_authz_revision_realm CHECK (realm IN ('ADMIN', 'PORTAL'))
 );

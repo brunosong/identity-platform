@@ -16,6 +16,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -27,6 +29,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>키를 못 받으면 검증은 실패하고, 실패한 검증은 401 이다. 그래서 auth 가 없는 동안 이 서비스는
  * "아무도 로그인하지 않은 상태"로 동작한다 — 열린 채로 남지 않는다는 것이 중요하다.
+ *
+ * <p>이 서비스는 포털 realm 하나만 상대한다. 그 사실이 설정에 있고({@code auth.client.realm},
+ * {@code auth.client.jwks-uri}) 검증기가 그것을 강제하므로, 컨트롤러에는 realm 확인이 없다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("local")
@@ -42,7 +47,9 @@ class CustomerServiceApplicationTest {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         // 일부러 닿지 않는 주소를 준다. auth 없이도 떠야 한다.
-        registry.add("auth.client.jwks-uri", () -> "http://localhost:1/.well-known/jwks.json");
+        registry.add("auth.client.realm", () -> "PORTAL");
+        registry.add("auth.client.jwks-uri",
+                () -> "http://localhost:1/realms/portal/.well-known/jwks.json");
     }
 
     @LocalServerPort
@@ -75,8 +82,11 @@ class CustomerServiceApplicationTest {
                 .retrieve().toBodilessEntity().getStatusCode().value())
                 .isEqualTo(401);
 
-        // 직원용 API 도 마찬가지다. 권한 이전에 신원부터 막힌다.
-        assertThat(http.get().uri("/api/customers").retrieve().toBodilessEntity().getStatusCode().value())
+        // 프로필 저장도 마찬가지다. 인증 없이 남의 프로필을 만들 수 없다.
+        assertThat(http.put().uri("/api/customers/me")
+                .header("Content-Type", "application/json")
+                .body(Map.of("name", "침입자"))
+                .retrieve().toBodilessEntity().getStatusCode().value())
                 .isEqualTo(401);
     }
 }

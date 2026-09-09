@@ -3,17 +3,21 @@
 auth-service 를 실제로 띄우고 고객(CUSTOMER) 로그인을 처음부터 끝까지 밟아보는 예제.
 
 - `customer-login.sh` — 터미널에서 전 구간을 순서대로 밟는다. 각 단계가 왜 그렇게 되는지 함께 찍는다.
-- `customer-web/` — 브라우저에서 직접 눌러보는 페이지. **다른 출처**에서 부르므로 CORS 까지 포함된다.
+
+브라우저에서 눌러보려면 [`frontends/`](../frontends/README.md) 로 간다.
 
 ## 1. 띄우기
 
 ### PostgreSQL
 
+저장소 루트에서:
+
 ```bash
-docker run -d --rm --name auth-pg \
-  -e POSTGRES_DB=identity -e POSTGRES_USER=identity -e POSTGRES_PASSWORD=identity \
-  -p 55432:5432 postgres:16-alpine
+docker compose up -d
 ```
+
+`auth-pg`(55432)와 `customer-pg`(55433)가 함께 뜬다. `docker compose ps` 로 `healthy` 를
+확인한 뒤 앱을 띄운다. 자세한 것은 [루트 README](../README.md#1-데이터베이스-띄우기).
 
 ### auth-service
 
@@ -56,45 +60,16 @@ Started AuthServiceApplication
 | 7 | JWKS | 다른 서비스가 검증에 쓸 공개키 |
 | 8 | 로그아웃 | |
 
-## 3. 브라우저 예제
+## 3. 브라우저로 보기
 
-정적 페이지라 아무 정적 서버로나 띄우면 된다. **8080 이 아닌 다른 포트여야** 한다 — 출처가 달라야
-CORS 가 실제로 동작하는지 볼 수 있기 때문이다.
-
-```bash
-cd examples/customer-web
-python -m http.server 3000
-```
-
-`http://localhost:3000` 을 연다.
-
-`auth-service` 의 `local` 프로파일에 이 출처가 이미 허용돼 있다:
-
-```yaml
-app:
-  cors:
-    allowed-origins: http://localhost:3000,http://127.0.0.1:3000
-```
-
-**다른 포트로 띄우려면 이 목록에 추가해야 한다.** 없으면 브라우저가 요청을 막고, 페이지에 그
-사실이 안내된다. (허용되지 않은 출처는 서버가 403 으로 거절한다.)
-
-### 페이지에서 눌러볼 것
-
-- **가입 → 로그인** — 토큰을 받고 그 안에 실린 클레임(`realm`, `authLs`, `exp`)이 그대로 보인다
-- **직원 realm 으로 로그인 시도** — 같은 자격증명인데 거부된다
-- **내 권한 조회 / 재발급 / 로그아웃**
-- **JWKS 보기** — 두 realm 의 공개키가 함께 나온다
-
-아래 "주고받은 요청" 칸에 모든 호출과 상태코드가 쌓인다.
-
-> 토큰은 **페이지의 메모리에만** 둔다. `localStorage` 에 넣지 않는다 — 쿠키의 `httpOnly` 보호를
-> 포기한 대가로, 토큰이 오래 남는 자리에 두지 않는 것이 최소한의 완화다. 새로고침하면 로그아웃된다.
+이 예제는 터미널용이다. 화면에서 눌러보려면 [`frontends/customer-portal`](../frontends/README.md)
+(Vite + React)을 띄운다 — 가입·로그인·마이페이지가 있고, 토큰을 클레임 단위로 풀어서 보여준다.
 
 ## 4. 정리
 
 ```bash
-docker rm -f auth-pg
+docker compose down       # 데이터를 남기려면
+docker compose down -v    # 깨끗하게
 ```
 
 ## 이 예제로 보이지 않는 것

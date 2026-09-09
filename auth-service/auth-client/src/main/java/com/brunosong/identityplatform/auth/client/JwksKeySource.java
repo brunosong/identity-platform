@@ -19,9 +19,19 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * auth 의 JWKS 를 받아다 {@code kid} 로 공개키를 찾아준다.
  *
- * <p><b>모르는 kid 를 만나면 한 번 다시 받아온다.</b> 이것이 키 교체를 견디는 방식이다 — auth 가 새 키로
- * 서명하기 시작하면 소비 서비스는 처음 보는 kid 를 만나는데, 그때 JWKS 를 다시 읽으면 새 키를 얻는다.
- * 캐시가 만료되기를 기다렸다면 그 사이 모든 요청이 401 이 된다.
+ * <h2>realm 하나의 JWKS 만 본다</h2>
+ * auth 는 realm 마다 다른 주소로 공개키를 내보낸다. 이 소스는 그중 하나만 가리키므로
+ * <b>다른 realm 의 키는 아예 갖지 못한다.</b> 그런 토큰은 {@code kid} 를 찾지 못해 서명 검증에서
+ * 죽는다 — 소비 서비스의 코드가 한 줄도 돌기 전에.
+ *
+ * <p>전에는 한 문서에 모든 realm 의 키가 함께 있었다. 그러면 어느 서비스든 모든 realm 의 토큰을
+ * 검증할 수 있게 되고, realm 경계는 소비 서비스가 클레임을 확인해 주기를 바라는 것으로만 남는다 —
+ * 한 곳에서 잊으면 그대로 뚫린다. 나누면 그 경계가 <b>설정</b>이 된다.
+ * (Keycloak·Auth0·Okta·Cognito 가 모두 realm/테넌트마다 JWKS 를 나눈다.)
+ *
+ * <h2>키 교체</h2>
+ * <b>모르는 kid 를 만나면 캐시 TTL 과 무관하게 다시 받아온다.</b> auth 가 새 키로 서명하기 시작하면
+ * 소비 서비스는 처음 보는 kid 를 만나는데, TTL 만료를 기다렸다면 그 사이 모든 요청이 401 이 된다.
  *
  * <p>대신 <b>재조회에 최소 간격을 둔다</b>. 그러지 않으면 아무 문자열이나 kid 로 넣어 보내는 것만으로
  * auth 에 요청을 무한히 발생시킬 수 있다(증폭 공격). 간격 안의 실패는 그냥 실패다.
@@ -49,6 +59,11 @@ public class JwksKeySource {
     private final AtomicReference<Instant> lastAttemptedAt = new AtomicReference<>(Instant.EPOCH);
 
     public JwksKeySource(RestClient restClient, String jwksUri, Duration cacheTtl) {
+        if (jwksUri == null || jwksUri.isBlank()) {
+            // 주소가 없으면 아무 토큰도 검증할 수 없다. 조용히 모든 요청을 401 로 만드는 것보다
+            // 부팅에서 실패하는 편이 낫다.
+            throw new IllegalStateException("auth.client.jwks-uri 가 필요합니다.");
+        }
         this.restClient = restClient;
         this.jwksUri = jwksUri;
         this.cacheTtl = cacheTtl;
@@ -64,16 +79,7 @@ public class JwksKeySource {
             return cached;
         }
         if (canRefetch()) {
-            // 시도한 사실부터 남긴다. 실패가 이어질 때 요청마다 auth 를 두드리지 않기 위해서다 —
-            // 성공했을 때만 기록하면 auth 가 죽어 있는 동안 모든 요청이 조회를 다시 시도한다.
-            lastAttemptedAt.set(Instant.now());
-            try {
-                refresh();
-            } catch (RuntimeException e) {
-                // auth 에 닿지 못했다. 갖고 있던 키로 계속 간다.
-                log.warn("JWKS 를 받아오지 못했습니다({}). 갖고 있는 키로 검증을 계속합니다: {}",
-                        jwksUri, e.toString());
-            }
+            refreshQuietly();
         }
         // 재조회에 실패했어도 갖고 있던 키로 검증을 시도한다(공개키는 auth 의 가용성과 무관하다).
         // 그 키도 없으면 null 이고, 호출자는 그것을 검증 실패로 다룬다.
@@ -82,25 +88,24 @@ public class JwksKeySource {
 
     /** 시작 시 미리 받아두고 싶을 때. 실패해도 던지지 않는다 — auth 보다 먼저 뜰 수 있어야 한다. */
     public void warmUp() {
-        lastAttemptedAt.set(Instant.now());
-        try {
-            refresh();
-        } catch (RuntimeException e) {
-            log.warn("시작 시 JWKS 를 받아오지 못했습니다({}). 첫 검증 때 다시 시도합니다: {}",
-                    jwksUri, e.toString());
-        }
+        refreshQuietly();
     }
 
+    /** 지금 쥐고 있는 키 개수. 진단용. */
     public int size() {
         return keysByKid.size();
     }
 
-    private boolean isStale() {
-        return lastFetchedAt.get().plus(cacheTtl).isBefore(Instant.now());
-    }
-
-    private boolean canRefetch() {
-        return lastAttemptedAt.get().plus(MIN_REFETCH_INTERVAL).isBefore(Instant.now());
+    private void refreshQuietly() {
+        // 시도한 사실부터 남긴다. 실패가 이어질 때 요청마다 auth 를 두드리지 않기 위해서다 —
+        // 성공했을 때만 기록하면 auth 가 죽어 있는 동안 모든 요청이 조회를 다시 시도한다.
+        lastAttemptedAt.set(Instant.now());
+        try {
+            refresh();
+        } catch (RuntimeException e) {
+            log.warn("JWKS 를 받아오지 못했습니다({}). 갖고 있는 키로 검증을 계속합니다: {}",
+                    jwksUri, e.toString());
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -122,6 +127,14 @@ public class JwksKeySource {
         }
         lastFetchedAt.set(Instant.now());
         // 사라진 kid 를 지우지 않는다. 교체 중에는 옛 kid 로 서명된 토큰이 아직 만료 전이다.
+    }
+
+    private boolean isStale() {
+        return lastFetchedAt.get().plus(cacheTtl).isBefore(Instant.now());
+    }
+
+    private boolean canRefetch() {
+        return lastAttemptedAt.get().plus(MIN_REFETCH_INTERVAL).isBefore(Instant.now());
     }
 
     private static PublicKey toPublicKey(Map<String, Object> jwk) {

@@ -32,10 +32,10 @@ public class AuthMyPermissionsController {
         Optional<Claims> claims = caller.read(request);
         return claims
                 .map(c -> new MyPermissionsResponse(
-                        c.get("email", String.class), caller.realmOf(c).name(), caller.permissionsOf(c)))
-                .orElseGet(() -> new MyPermissionsResponse(null, null, List.of()));
+                        caller.realmOf(c).name(), caller.permissionsOf(c)))
+                .orElseGet(() -> new MyPermissionsResponse(null, List.of()));
     }
 
-    public record MyPermissionsResponse(String email, String realm, List<String> permissions) {
+    public record MyPermissionsResponse(String realm, List<String> permissions) {
     }
 }

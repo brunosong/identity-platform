@@ -15,16 +15,17 @@
 INSERT INTO authz_role (realm, role_code, role_name, description, use_yn, created_at, updated_at)
 VALUES
     -- 신규 고객이 가입 시 자동으로 받는 역할. 코드가 상수로 박혀 있다(CustomerDefaultRoleGrantListener).
-    ('CUSTOMER', 'CUSTOMER', 'Customer', 'Default role granted on customer sign-up', 'Y', now(), now()),
+    -- realm 은 PORTAL 이고 role_code 는 CUSTOMER 다 — 영역과 역할은 다른 것이다.
+    ('PORTAL', 'CUSTOMER', 'Customer', 'Default role granted on customer sign-up', 'Y', now(), now()),
     -- 직원 등록·RBAC 편집 API 를 부를 수 있는 역할. 직원은 운영자가 만들어야 하므로 부트스트랩용이다.
-    ('EMPLOYEE', 'ADMIN', 'Administrator', 'Can edit roles, permissions and URL rules', 'Y', now(), now())
+    ('ADMIN', 'ADMIN', 'Administrator', 'Can edit roles, permissions and URL rules', 'Y', now(), now())
 ON CONFLICT (realm, role_code) DO NOTHING;
 
 -- 권한 --------------------------------------------------------------------
 INSERT INTO authz_permission (realm, category, permission_code, permission_name, description, use_yn, created_at, updated_at)
 VALUES
     -- authorization.manage-permission 기본값과 같은 코드여야 한다.
-    ('EMPLOYEE', 'AUTHZ', 'AUTHZ_MANAGE', 'Manage authorization', 'Edit roles/permissions/URL rules', 'Y', now(), now())
+    ('ADMIN', 'AUTHZ', 'AUTHZ_MANAGE', 'Manage authorization', 'Edit roles/permissions/URL rules', 'Y', now(), now())
 ON CONFLICT (realm, permission_code) DO NOTHING;
 
 -- 역할-권한 ---------------------------------------------------------------
@@ -32,7 +33,7 @@ INSERT INTO authz_role_permission (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM authz_role r
          JOIN authz_permission p ON p.realm = r.realm
-WHERE r.realm = 'EMPLOYEE'
+WHERE r.realm = 'ADMIN'
   AND r.role_code = 'ADMIN'
   AND p.permission_code = 'AUTHZ_MANAGE'
 ON CONFLICT DO NOTHING;

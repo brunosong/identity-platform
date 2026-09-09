@@ -73,71 +73,71 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("역할을 배정하면 역할 코드와 권한 코드가 조인으로 나온다")
         void rolePermissionJoin() {
-            AuthzPermissionEntity read = permission(Realm.EMPLOYEE, "RESUME_READ", true);
-            AuthzPermissionEntity write = permission(Realm.EMPLOYEE, "RESUME_WRITE", true);
-            Long manager = role(Realm.EMPLOYEE, "ROLE_MANAGER", true, read, write).getRoleId();
-            subjectRoleRepository.addRole(Realm.EMPLOYEE, "EMP-1", manager);
+            AuthzPermissionEntity read = permission(Realm.ADMIN, "RESUME_READ", true);
+            AuthzPermissionEntity write = permission(Realm.ADMIN, "RESUME_WRITE", true);
+            Long manager = role(Realm.ADMIN, "ROLE_MANAGER", true, read, write).getRoleId();
+            subjectRoleRepository.addRole(Realm.ADMIN, "EMP-1", manager);
             flushClear();
 
-            assertThat(activeRoleCodes(Realm.EMPLOYEE, "EMP-1"))
+            assertThat(activeRoleCodes(Realm.ADMIN, "EMP-1"))
                     .containsExactly("ROLE_MANAGER");
-            assertThat(subjectRoleQuery.permissionCodes(Realm.EMPLOYEE, "EMP-1"))
+            assertThat(subjectRoleQuery.permissionCodes(Realm.ADMIN, "EMP-1"))
                     .containsExactlyInAnyOrder("RESUME_READ", "RESUME_WRITE");
         }
 
         @Test
         @DisplayName("비활성 역할과 비활성 권한은 권한 코드에서 빠진다")
         void inactiveRowsExcluded() {
-            AuthzPermissionEntity active = permission(Realm.EMPLOYEE, "ACTIVE_PERM", true);
-            AuthzPermissionEntity retired = permission(Realm.EMPLOYEE, "RETIRED_PERM", false);
-            Long liveRole = role(Realm.EMPLOYEE, "ROLE_LIVE", true, active, retired).getRoleId();
-            Long deadRole = role(Realm.EMPLOYEE, "ROLE_DEAD", false, active).getRoleId();
-            subjectRoleRepository.addRole(Realm.EMPLOYEE, "EMP-2", liveRole);
-            subjectRoleRepository.addRole(Realm.EMPLOYEE, "EMP-2", deadRole);
+            AuthzPermissionEntity active = permission(Realm.ADMIN, "ACTIVE_PERM", true);
+            AuthzPermissionEntity retired = permission(Realm.ADMIN, "RETIRED_PERM", false);
+            Long liveRole = role(Realm.ADMIN, "ROLE_LIVE", true, active, retired).getRoleId();
+            Long deadRole = role(Realm.ADMIN, "ROLE_DEAD", false, active).getRoleId();
+            subjectRoleRepository.addRole(Realm.ADMIN, "EMP-2", liveRole);
+            subjectRoleRepository.addRole(Realm.ADMIN, "EMP-2", deadRole);
             flushClear();
 
-            assertThat(activeRoleCodes(Realm.EMPLOYEE, "EMP-2"))
+            assertThat(activeRoleCodes(Realm.ADMIN, "EMP-2"))
                     .containsExactly("ROLE_LIVE");
-            assertThat(subjectRoleQuery.permissionCodes(Realm.EMPLOYEE, "EMP-2"))
+            assertThat(subjectRoleQuery.permissionCodes(Realm.ADMIN, "EMP-2"))
                     .containsExactly("ACTIVE_PERM");
         }
 
         @Test
         @DisplayName("realm 이 다르면 같은 주체 식별자라도 배정이 보이지 않는다")
         void realmScoped() {
-            Long employeeRole = role(Realm.EMPLOYEE, "ROLE_EMP", true).getRoleId();
-            subjectRoleRepository.addRole(Realm.EMPLOYEE, "SAME-ID", employeeRole);
+            Long employeeRole = role(Realm.ADMIN, "ROLE_EMP", true).getRoleId();
+            subjectRoleRepository.addRole(Realm.ADMIN, "SAME-ID", employeeRole);
             flushClear();
 
-            assertThat(activeRoleCodes(Realm.EMPLOYEE, "SAME-ID")).containsExactly("ROLE_EMP");
-            assertThat(activeRoleCodes(Realm.CUSTOMER, "SAME-ID")).isEmpty();
-            assertThat(subjectRoleQuery.assignedRoles(Realm.CUSTOMER, "SAME-ID")).isEmpty();
+            assertThat(activeRoleCodes(Realm.ADMIN, "SAME-ID")).containsExactly("ROLE_EMP");
+            assertThat(activeRoleCodes(Realm.PORTAL, "SAME-ID")).isEmpty();
+            assertThat(subjectRoleQuery.assignedRoles(Realm.PORTAL, "SAME-ID")).isEmpty();
         }
 
         @Test
         @DisplayName("같은 역할을 두 번 배정해도 한 번만 남는다")
         void addRoleIsIdempotent() {
-            Long roleId = role(Realm.CUSTOMER, "ROLE_MEMBER", true).getRoleId();
-            subjectRoleRepository.addRole(Realm.CUSTOMER, "CUST-1", roleId);
+            Long roleId = role(Realm.PORTAL, "ROLE_MEMBER", true).getRoleId();
+            subjectRoleRepository.addRole(Realm.PORTAL, "CUST-1", roleId);
             flushClear();
-            subjectRoleRepository.addRole(Realm.CUSTOMER, "CUST-1", roleId);
+            subjectRoleRepository.addRole(Realm.PORTAL, "CUST-1", roleId);
             flushClear();
 
-            assertThat(subjectRoleQuery.assignedRoles(Realm.CUSTOMER, "CUST-1")).hasSize(1);
+            assertThat(subjectRoleQuery.assignedRoles(Realm.PORTAL, "CUST-1")).hasSize(1);
         }
 
         @Test
         @DisplayName("배정된 역할이 도메인 모델로 복원된다")
         void assignedRolesMapped() {
-            Long roleId = role(Realm.CUSTOMER, "ROLE_MEMBER", true).getRoleId();
-            subjectRoleRepository.addRole(Realm.CUSTOMER, "CUST-2", roleId);
+            Long roleId = role(Realm.PORTAL, "ROLE_MEMBER", true).getRoleId();
+            subjectRoleRepository.addRole(Realm.PORTAL, "CUST-2", roleId);
             flushClear();
 
-            List<RoleView> roles = subjectRoleQuery.assignedRoles(Realm.CUSTOMER, "CUST-2");
+            List<RoleView> roles = subjectRoleQuery.assignedRoles(Realm.PORTAL, "CUST-2");
 
             assertThat(roles).singleElement().satisfies(role -> {
                 assertThat(role.roleId()).isEqualTo(roleId);
-                assertThat(role.realm()).isEqualTo(Realm.CUSTOMER);
+                assertThat(role.realm()).isEqualTo(Realm.PORTAL);
                 assertThat(role.roleCode()).isEqualTo("ROLE_MEMBER");
                 assertThat(role.active()).isTrue();
             });
@@ -146,30 +146,30 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("역할 교체는 그 주체의 배정만 갈아끼운다")
         void replaceRolesScopedToSubject() {
-            Long first = role(Realm.EMPLOYEE, "ROLE_A", true).getRoleId();
-            Long second = role(Realm.EMPLOYEE, "ROLE_B", true).getRoleId();
-            subjectRoleRepository.addRole(Realm.EMPLOYEE, "EMP-3", first);
-            subjectRoleRepository.addRole(Realm.EMPLOYEE, "EMP-4", first);
+            Long first = role(Realm.ADMIN, "ROLE_A", true).getRoleId();
+            Long second = role(Realm.ADMIN, "ROLE_B", true).getRoleId();
+            subjectRoleRepository.addRole(Realm.ADMIN, "EMP-3", first);
+            subjectRoleRepository.addRole(Realm.ADMIN, "EMP-4", first);
             flushClear();
 
-            subjectRoleRepository.replaceRoles(Realm.EMPLOYEE, "EMP-3", List.of(second));
+            subjectRoleRepository.replaceRoles(Realm.ADMIN, "EMP-3", List.of(second));
             flushClear();
 
-            assertThat(activeRoleCodes(Realm.EMPLOYEE, "EMP-3")).containsExactly("ROLE_B");
-            assertThat(activeRoleCodes(Realm.EMPLOYEE, "EMP-4")).containsExactly("ROLE_A");
+            assertThat(activeRoleCodes(Realm.ADMIN, "EMP-3")).containsExactly("ROLE_B");
+            assertThat(activeRoleCodes(Realm.ADMIN, "EMP-4")).containsExactly("ROLE_A");
         }
 
         @Test
         @DisplayName("빈 목록으로 교체하면 배정이 모두 사라진다")
         void replaceWithEmptyClearsAll() {
-            Long roleId = role(Realm.EMPLOYEE, "ROLE_C", true).getRoleId();
-            subjectRoleRepository.addRole(Realm.EMPLOYEE, "EMP-5", roleId);
+            Long roleId = role(Realm.ADMIN, "ROLE_C", true).getRoleId();
+            subjectRoleRepository.addRole(Realm.ADMIN, "EMP-5", roleId);
             flushClear();
 
-            subjectRoleRepository.replaceRoles(Realm.EMPLOYEE, "EMP-5", List.of());
+            subjectRoleRepository.replaceRoles(Realm.ADMIN, "EMP-5", List.of());
             flushClear();
 
-            assertThat(subjectRoleQuery.assignedRoles(Realm.EMPLOYEE, "EMP-5")).isEmpty();
+            assertThat(subjectRoleQuery.assignedRoles(Realm.ADMIN, "EMP-5")).isEmpty();
         }
     }
 
@@ -180,16 +180,16 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("규칙을 저장하고 realm 활성 목록에서 정렬 순서대로 읽는다")
         void activeRulesSortedWithinRealm() {
-            saveRule(Realm.EMPLOYEE, "/api/admin/**", "ALL", 2, true);
-            saveRule(Realm.EMPLOYEE, "/api/admin/resumes/**", "GET", 1, true);
-            saveRule(Realm.EMPLOYEE, "/api/admin/legacy/**", "ALL", 3, false);
-            saveRule(Realm.CUSTOMER, "/api/resumes/**", "ALL", 1, true);
+            saveRule(Realm.ADMIN, "/api/admin/**", "ALL", 2, true);
+            saveRule(Realm.ADMIN, "/api/admin/resumes/**", "GET", 1, true);
+            saveRule(Realm.ADMIN, "/api/admin/legacy/**", "ALL", 3, false);
+            saveRule(Realm.PORTAL, "/api/resumes/**", "ALL", 1, true);
             flushClear();
 
-            assertThat(urlAccessQuery.listActive(Realm.EMPLOYEE))
+            assertThat(urlAccessQuery.listActive(Realm.ADMIN))
                     .extracting(UrlAccessView::urlPattern)
                     .containsExactly("/api/admin/resumes/**", "/api/admin/**");
-            assertThat(urlAccessQuery.listActive(Realm.CUSTOMER))
+            assertThat(urlAccessQuery.listActive(Realm.PORTAL))
                     .extracting(UrlAccessView::urlPattern)
                     .containsExactly("/api/resumes/**");
         }
@@ -197,8 +197,8 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("기본 필드 수정은 권한 매핑을 보존한다")
         void saveBasicsKeepsPermissionMapping() {
-            AuthzPermissionEntity perm = permission(Realm.EMPLOYEE, "ADMIN_READ", true);
-            UrlAccess rule = saveRule(Realm.EMPLOYEE, "/api/admin/keep/**", "ALL", 1, true);
+            AuthzPermissionEntity perm = permission(Realm.ADMIN, "ADMIN_READ", true);
+            UrlAccess rule = saveRule(Realm.ADMIN, "/api/admin/keep/**", "ALL", 1, true);
             urlAccessRepository.addPermission(rule.getUrlAccessId(), perm.getPermissionId());
             flushClear();
 
@@ -215,9 +215,9 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("권한 매핑을 붙이고 뗀다")
         void addAndRemovePermission() {
-            AuthzPermissionEntity read = permission(Realm.EMPLOYEE, "MAP_READ", true);
-            AuthzPermissionEntity write = permission(Realm.EMPLOYEE, "MAP_WRITE", true);
-            UrlAccess rule = saveRule(Realm.EMPLOYEE, "/api/admin/map/**", "ALL", 1, true);
+            AuthzPermissionEntity read = permission(Realm.ADMIN, "MAP_READ", true);
+            AuthzPermissionEntity write = permission(Realm.ADMIN, "MAP_WRITE", true);
+            UrlAccess rule = saveRule(Realm.ADMIN, "/api/admin/map/**", "ALL", 1, true);
 
             urlAccessRepository.addPermission(rule.getUrlAccessId(), read.getPermissionId());
             urlAccessRepository.addPermission(rule.getUrlAccessId(), write.getPermissionId());
@@ -234,7 +234,7 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("없는 규칙·권한에 매핑하면 거부한다")
         void mappingMissingRowsRejected() {
-            UrlAccess rule = saveRule(Realm.EMPLOYEE, "/api/admin/reject/**", "ALL", 1, true);
+            UrlAccess rule = saveRule(Realm.ADMIN, "/api/admin/reject/**", "ALL", 1, true);
             flushClear();
 
             assertThatThrownBy(() -> urlAccessRepository.addPermission(999_999L, 1L))
@@ -246,16 +246,16 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("인가 캐시용 규칙은 패턴+메서드로 권한 코드를 모아 준다")
         void activeRulesGroupPermissionCodes() {
-            AuthzPermissionEntity read = permission(Realm.EMPLOYEE, "CACHE_READ", true);
-            AuthzPermissionEntity write = permission(Realm.EMPLOYEE, "CACHE_WRITE", true);
-            UrlAccess both = saveRule(Realm.EMPLOYEE, "/api/admin/cache/**", "ALL", 1, true);
+            AuthzPermissionEntity read = permission(Realm.ADMIN, "CACHE_READ", true);
+            AuthzPermissionEntity write = permission(Realm.ADMIN, "CACHE_WRITE", true);
+            UrlAccess both = saveRule(Realm.ADMIN, "/api/admin/cache/**", "ALL", 1, true);
             urlAccessRepository.addPermission(both.getUrlAccessId(), read.getPermissionId());
             urlAccessRepository.addPermission(both.getUrlAccessId(), write.getPermissionId());
             // 매핑 없는 규칙은 조인이 걸러 캐시 규칙에 나오지 않는다.
-            saveRule(Realm.EMPLOYEE, "/api/admin/unmapped/**", "ALL", 2, true);
+            saveRule(Realm.ADMIN, "/api/admin/unmapped/**", "ALL", 2, true);
             flushClear();
 
-            List<UrlRule> rules = urlAccessQuery.activeRules(Realm.EMPLOYEE);
+            List<UrlRule> rules = urlAccessQuery.activeRules(Realm.ADMIN);
 
             assertThat(rules).singleElement().satisfies(r -> {
                 assertThat(r.urlPattern()).isEqualTo("/api/admin/cache/**");
@@ -267,20 +267,20 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("비활성 규칙은 인가 캐시에서 빠진다")
         void inactiveRuleExcludedFromCache() {
-            AuthzPermissionEntity perm = permission(Realm.CUSTOMER, "OFF_PERM", true);
-            UrlAccess off = saveRule(Realm.CUSTOMER, "/api/off/**", "ALL", 1, false);
+            AuthzPermissionEntity perm = permission(Realm.PORTAL, "OFF_PERM", true);
+            UrlAccess off = saveRule(Realm.PORTAL, "/api/off/**", "ALL", 1, false);
             urlAccessRepository.addPermission(off.getUrlAccessId(), perm.getPermissionId());
             flushClear();
 
-            assertThat(urlAccessQuery.activeRules(Realm.CUSTOMER)).isEmpty();
+            assertThat(urlAccessQuery.activeRules(Realm.PORTAL)).isEmpty();
         }
 
         @Test
         @DisplayName("권한 기준 역방향 조회는 활성 규칙만 준다")
         void findByPermissionIdSkipsInactive() {
-            AuthzPermissionEntity perm = permission(Realm.EMPLOYEE, "REV_PERM", true);
-            UrlAccess live = saveRule(Realm.EMPLOYEE, "/api/admin/rev-live/**", "ALL", 1, true);
-            UrlAccess off = saveRule(Realm.EMPLOYEE, "/api/admin/rev-off/**", "ALL", 2, false);
+            AuthzPermissionEntity perm = permission(Realm.ADMIN, "REV_PERM", true);
+            UrlAccess live = saveRule(Realm.ADMIN, "/api/admin/rev-live/**", "ALL", 1, true);
+            UrlAccess off = saveRule(Realm.ADMIN, "/api/admin/rev-off/**", "ALL", 2, false);
             urlAccessRepository.addPermission(live.getUrlAccessId(), perm.getPermissionId());
             urlAccessRepository.addPermission(off.getUrlAccessId(), perm.getPermissionId());
             flushClear();
@@ -293,21 +293,21 @@ class AuthorizationStorePersistenceIntegrationTest {
         @Test
         @DisplayName("패턴+메서드 조회는 realm 안에서만 찾는다")
         void findByPatternScopedToRealm() {
-            saveRule(Realm.EMPLOYEE, "/api/shared/**", "GET", 1, true);
+            saveRule(Realm.ADMIN, "/api/shared/**", "GET", 1, true);
             flushClear();
 
-            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.EMPLOYEE, "/api/shared/**", "GET"))
+            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.ADMIN, "/api/shared/**", "GET"))
                     .hasSize(1);
-            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.CUSTOMER, "/api/shared/**", "GET"))
+            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.PORTAL, "/api/shared/**", "GET"))
                     .isEmpty();
-            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.EMPLOYEE, "/api/shared/**", "POST"))
+            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.ADMIN, "/api/shared/**", "POST"))
                     .isEmpty();
         }
 
         @Test
         @DisplayName("규칙을 지우면 활성 목록에서 사라진다")
         void deleteRule() {
-            UrlAccess rule = saveRule(Realm.CUSTOMER, "/api/delete-me/**", "ALL", 1, true);
+            UrlAccess rule = saveRule(Realm.PORTAL, "/api/delete-me/**", "ALL", 1, true);
             flushClear();
 
             urlAccessRepository.deleteById(rule.getUrlAccessId());

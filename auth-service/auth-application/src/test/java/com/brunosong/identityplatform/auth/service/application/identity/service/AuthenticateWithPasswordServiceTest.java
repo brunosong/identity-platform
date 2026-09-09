@@ -61,7 +61,7 @@ class AuthenticateWithPasswordServiceTest {
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
         assertThat(result.subjectType()).isEqualTo(SubjectType.CUSTOMER);
-        assertThat(result.tokens().accessToken()).isEqualTo("access:CUSTOMER:customer-uuid-1");
+        assertThat(result.tokens().accessToken()).isEqualTo("access:PORTAL:customer-uuid-1");
         assertThat(eventPublisher.published).hasSize(1);
         assertThat(eventPublisher.published.get(0).subjectId()).isEqualTo("customer-uuid-1");
     }
@@ -98,7 +98,7 @@ class AuthenticateWithPasswordServiceTest {
         svc.authenticate(new PasswordAuthCommand(SubjectType.CUSTOMER, LOGIN_ID, PASSWORD));
 
         // 한 프로세스가 두 realm 의 키를 모두 쥐므로, 발급 realm 이 어긋나면 상대 realm 토큰이 나간다.
-        assertThat(issuer.issuedRealm).isEqualTo(Realm.CUSTOMER);
+        assertThat(issuer.issuedRealm).isEqualTo(Realm.PORTAL);
     }
 
     @Test

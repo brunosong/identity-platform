@@ -44,7 +44,6 @@ import java.util.Date;
  */
 public class RbacJwtTokenIssuer implements TokenIssuerPort {
 
-    private final EmailAccountRepository emailAccountRepository;
     private final ListSubjectPermissionsUseCase subjectPermissions;
     private final GetAuthorizationRevisionUseCase revision;
     private final ObjectProvider<SessionRegistryPort> sessionRegistryProvider;
@@ -52,13 +51,11 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     private final long accessExpirationMillis;
     private final long refreshExpirationMillis;
 
-    public RbacJwtTokenIssuer(EmailAccountRepository emailAccountRepository,
-                              ListSubjectPermissionsUseCase subjectPermissions,
+    public RbacJwtTokenIssuer(ListSubjectPermissionsUseCase subjectPermissions,
                               GetAuthorizationRevisionUseCase revision,
                               ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
                               RealmSigningKeys signingKeys,
                               long accessExpirationMillis, long refreshExpirationMillis) {
-        this.emailAccountRepository = emailAccountRepository;
         this.subjectPermissions = subjectPermissions;
         this.revision = revision;
         this.sessionRegistryProvider = sessionRegistryProvider;
@@ -70,10 +67,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     @Override
     public TokenPair issue(Realm realm, Principal principal) {
         String subjectId = principal.getSubjectId().value();
-        // 이름 같은 표시정보는 싣지 않는다. 그것은 주체 도메인이 소유하고 값이 바뀌면 토큰이 낡는다.
-        // 필요한 화면이 그때 조회한다. 이메일은 auth 자신의 로그인 식별자(EmailAccount)라 여기서 낸다.
-        String email = emailAccountRepository.findByPrincipalId(principal.getPrincipalId())
-                .map(a -> a.getEmail()).orElse(null);
+
         String authLs = String.join(",", subjectPermissions.of(realm, subjectId));
         long rbacRev = revision.current(realm);
 
@@ -82,7 +76,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         String sid = sessionRegistry == null ? null : sessionRegistry.open(realm, subjectId);
 
         RealmSigningKeys.RealmKey key = signingKeys.of(realm);
-        String access = buildAccess(key, realm, subjectId, email, authLs, rbacRev, sid, accessExpirationMillis);
+        String access = buildAccess(key, realm, subjectId, authLs, rbacRev, sid, accessExpirationMillis);
         String refresh = buildRefresh(key, realm, subjectId, sid, refreshExpirationMillis);
         return new TokenPair(access, refresh);
     }
@@ -100,7 +94,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         if (!realm.name().equals(claims.get("realm", String.class))) {
             throw new AuthenticationFailedException("리프레시 토큰이 유효하지 않습니다.");
         }
-        String subjectId = claims.get("userId", String.class);
+        String subjectId = claims.getSubject();
         if (!StringUtils.hasText(subjectId)) {
             throw new AuthenticationFailedException("리프레시 토큰이 유효하지 않습니다.");
         }
@@ -129,17 +123,14 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     }
 
     /** access 토큰 — 게이트웨이가 요청당 인가에 쓰도록 신원 + realm + 권한(authLs) + 리비전을 싣는다. */
-    private String buildAccess(RealmSigningKeys.RealmKey key, Realm realm, String subjectId, String email,
+    private String buildAccess(RealmSigningKeys.RealmKey key, Realm realm, String subjectId,
                                String authLs, long rbacRev, String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
-                .subject("Token")
+                .subject(subjectId)
                 .claim("type", "access")
                 .claim("realm", realm.name())
-                .claim("userId", subjectId)
-                .claim("uniqId", subjectId)
-                .claim("email", email == null ? "" : email)
                 .claim("authLs", authLs)
                 .claim("rbacRev", rbacRev)
                 .issuedAt(new Date(now))
@@ -160,10 +151,9 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
-                .subject("Token")
+                .subject(subjectId)
                 .claim("type", "refresh")
                 .claim("realm", realm.name())
-                .claim("userId", subjectId)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMillis));
         if (StringUtils.hasText(sid)) {

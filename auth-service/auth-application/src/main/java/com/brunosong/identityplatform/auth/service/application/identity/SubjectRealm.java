@@ -18,17 +18,19 @@ public final class SubjectRealm {
     private SubjectRealm() {
     }
 
+    /** 이 주체가 사는 영역. 직원은 어드민에, 고객은 포털에 산다. */
     public static Realm realmOf(SubjectType subjectType) {
         return switch (subjectType) {
-            case EMPLOYEE -> Realm.EMPLOYEE;
-            case CUSTOMER -> Realm.CUSTOMER;
+            case EMPLOYEE -> Realm.ADMIN;
+            case CUSTOMER -> Realm.PORTAL;
         };
     }
 
+    /** 그 영역에 사는 주체 유형. */
     public static SubjectType subjectTypeOf(Realm realm) {
         return switch (realm) {
-            case EMPLOYEE -> SubjectType.EMPLOYEE;
-            case CUSTOMER -> SubjectType.CUSTOMER;
+            case ADMIN -> SubjectType.EMPLOYEE;
+            case PORTAL -> SubjectType.CUSTOMER;
         };
     }
 }

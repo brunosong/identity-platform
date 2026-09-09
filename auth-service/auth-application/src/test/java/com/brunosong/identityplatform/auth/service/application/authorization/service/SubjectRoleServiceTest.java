@@ -41,9 +41,9 @@ class SubjectRoleServiceTest {
     @Test
     @DisplayName("역할 코드가 있으면 그 역할 id 를 주체에 더한다")
     void grantsResolvedRole() {
-        roleRepository.add(Realm.CUSTOMER, "ROLE_USER", 10L);
+        roleRepository.add(Realm.PORTAL, "ROLE_USER", 10L);
 
-        service.grant(Realm.CUSTOMER, "customer-1", "ROLE_USER");
+        service.grant(Realm.PORTAL, "customer-1", "ROLE_USER");
 
         assertThat(subjectRoleRepository.added).containsExactly(10L);
     }
@@ -51,7 +51,7 @@ class SubjectRoleServiceTest {
     @Test
     @DisplayName("없는 역할 코드는 실패한다")
     void unknownRoleCodeFails() {
-        assertThatThrownBy(() -> service.grant(Realm.CUSTOMER, "customer-1", "ROLE_NOPE"))
+        assertThatThrownBy(() -> service.grant(Realm.PORTAL, "customer-1", "ROLE_NOPE"))
                 .isInstanceOf(AuthorizationNotFoundException.class);
 
         assertThat(subjectRoleRepository.added).isEmpty();
@@ -60,9 +60,9 @@ class SubjectRoleServiceTest {
     @Test
     @DisplayName("역할은 realm 안에서만 해석된다")
     void roleIsResolvedWithinRealm() {
-        roleRepository.add(Realm.EMPLOYEE, "ROLE_ADMIN", 20L);
+        roleRepository.add(Realm.ADMIN, "ROLE_ADMIN", 20L);
 
-        assertThatThrownBy(() -> service.grant(Realm.CUSTOMER, "customer-1", "ROLE_ADMIN"))
+        assertThatThrownBy(() -> service.grant(Realm.PORTAL, "customer-1", "ROLE_ADMIN"))
                 .isInstanceOf(AuthorizationNotFoundException.class);
 
         assertThat(subjectRoleRepository.added).isEmpty();

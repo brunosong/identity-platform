@@ -45,7 +45,7 @@ public class AuthSocialLoginApiController {
 
     @PostMapping
     public LoginResponse login(@PathVariable String realm, @Valid @RequestBody LoginRequest request) {
-        Realm resolved = authenticationRealm.requireRealm(realm, Realm.CUSTOMER);
+        Realm resolved = authenticationRealm.requireRealm(realm, Realm.PORTAL);
 
         AuthenticationResult result = authenticateWithSocial.authenticate(new SocialAuthCommand(
                 SubjectRealm.subjectTypeOf(resolved), request.provider(), request.authorizationCode()));

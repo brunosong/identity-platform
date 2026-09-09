@@ -6,13 +6,15 @@
 
 ```
                     ┌───────────────┐
-                    │  auth-service │  개인키로 서명
+                    │  auth-service │  realm 마다 다른 개인키로 서명
                     └───────┬───────┘
-                            │ GET /.well-known/jwks.json  (공개키, 인증 불필요)
+                            │ GET /realms/{realm}/.well-known/jwks.json
+                            │      (그 realm 의 공개키만, 인증 불필요)
               ┌─────────────┼─────────────┐
               ▼             ▼             ▼
         ┌──────────┐  ┌──────────┐  ┌──────────┐
         │ order-svc│  │ pay-svc  │  │ ship-svc │   각자 서명을 검증
+        │ (portal) │  │ (portal) │  │ (admin)  │   ← 서비스마다 realm 하나
         └──────────┘  └──────────┘  └──────────┘
 ```
 
@@ -38,11 +40,13 @@
 ```yaml
 auth:
   client:
-    jwks-uri: http://auth-service:8080/.well-known/jwks.json
+    realm: PORTAL
+    jwks-uri: http://auth-service:8080/realms/portal/.well-known/jwks.json
 ```
 
-이것만 있으면 `AuthTokenVerifier` 빈이 생긴다. `jwks-uri` 가 없으면 자동설정이 켜지지 않으므로,
-auth 토큰을 쓰지 않는 서비스에 이 의존이 섞여도 부팅이 깨지지 않는다.
+이 두 줄이 그 서비스의 **realm 경계 전부**다. `jwks-uri` 가 없으면 자동설정이 켜지지 않으므로,
+auth 토큰을 쓰지 않는 서비스에 이 의존이 섞여도 부팅이 깨지지 않는다. 반대로 `jwks-uri` 는 있는데
+`realm` 이 없으면 **부팅이 실패한다** — realm 대조를 조용히 건너뛰는 약한 모드가 가장 위험하다.
 
 ```java
 @RestController
@@ -54,29 +58,30 @@ class OrderController {
     @GetMapping("/api/orders")
     List<Order> myOrders(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
         AuthenticatedToken token = verifier.verifyAuthorizationHeader(authorization)
-                .filter(t -> t.isRealm("CUSTOMER"))          // ← 이 줄을 빼면 안 된다
                 .orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
 
         if (!token.hasPermission("ORDER_READ")) {
             throw new ForbiddenException("권한이 없습니다.");
         }
+        // 조회 키는 요청이 아니라 토큰에서 온다 — 이것만은 라이브러리가 대신해 줄 수 없다.
         return orders.findBySubjectId(token.subjectId());
     }
 }
 ```
 
+**realm 확인 코드가 없다.** 검증기가 설정된 realm 만 통과시키므로 여기까지 온 토큰은 이미 그 realm 이다.
+
 ## 반드시 알아야 할 것 세 가지
 
-### 1. 서명이 맞다고 realm 이 맞는 것은 아니다
+### 1. 한 서비스는 realm 하나만 상대한다
 
-두 realm(EMPLOYEE / CUSTOMER)의 공개키가 **같은 JWKS 에 함께** 들어 있다. 그래서 직원 토큰도
-고객 서비스에서 서명 검증은 통과한다. **`realm` 클레임을 반드시 확인해야 한다.**
+JWKS 가 realm 별로 나뉘어 있으므로, 설정한 realm 의 키만 갖는다. 다른 realm 의 토큰은 `kid` 를
+찾지 못해 **서명 검증에서 죽는다** — 서비스의 코드가 한 줄도 돌기 전에.
 
-```java
-verifier.verify(token, "CUSTOMER")   // 또는 token.isRealm("CUSTOMER")
-```
+그래서 realm 확인이 코드에서 사라졌다. 없어진 것이 아니라 **설정으로 옮겨간 것**이다.
 
-이 확인을 빠뜨리면 직원 토큰으로 고객 API 가 열린다.
+직원용과 고객용을 모두 제공해야 한다면 **같은 코드를 realm 별 설정으로 두 벌 띄운다.**
+한 프로세스가 두 realm 의 키를 다 쥐기 시작하면 경계는 다시 코드의 몫이 되고, 한 곳에서 잊으면 뚫린다.
 
 ### 2. subjectId 는 realm 안에서만 유일하다
 
@@ -96,6 +101,9 @@ realm 마다 다른 체계에서 발급된다(직원은 사번 성격의 값, �
 `JwksKeySource` 는 **모르는 `kid` 를 만나면 캐시 TTL 과 무관하게 한 번 다시 받아온다.** auth 가 새 키로
 서명하기 시작하면 소비 서비스는 처음 보는 kid 를 만나는데, 그때 바로 새 키를 얻는다. TTL 만료를
 기다렸다면 그 사이 모든 요청이 401 이 된다.
+
+교체 중에는 한 realm 의 JWKS 에 키가 둘 나온다(새 키와, 아직 만료되지 않은 토큰들을 위한 옛 키).
+그래서 응답이 배열이다.
 
 다만 재조회에는 최소 간격(30초)이 있다. 없으면 아무 문자열이나 kid 로 넣어 보내는 것만으로 auth 에
 요청을 무한히 발생시킬 수 있다.

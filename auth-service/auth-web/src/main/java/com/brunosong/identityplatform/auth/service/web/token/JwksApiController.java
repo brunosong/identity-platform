@@ -1,10 +1,13 @@
 package com.brunosong.identityplatform.auth.service.web.token;
 
 import com.brunosong.identityplatform.auth.service.application.identity.token.RealmSigningKeys;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
+import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigInteger;
@@ -28,9 +31,16 @@ import java.util.Map;
  * 다시 배포해야 한다. JWKS 로 두면 auth 만 바꾸고, 소비 서비스는 모르는 {@code kid} 를 만났을 때
  * 다시 받아오면 된다.
  *
- * <p>두 realm 의 키가 한 문서에 함께 나간다. 공개키는 비밀이 아니고, 어느 키로 검증할지는 토큰 헤더의
- * {@code kid} 가 정한다. 다만 <b>서명이 맞다고 realm 이 맞는 것은 아니다</b> — 소비 서비스는 서명 검증
- * 뒤에 {@code realm} 클레임까지 확인해야 한다. 그러지 않으면 직원 토큰으로 고객 API 를 통과한다.
+ * <p><b>realm 마다 주소가 다르고, 그 realm 의 키만 나간다.</b> 한 문서에 모든 realm 의 키를 담으면
+ * 어느 서비스든 모든 realm 의 토큰을 검증할 수 있게 되고, realm 경계는 소비 서비스가 클레임을
+ * 확인해 주기를 바라는 것으로만 남는다 — 한 곳에서 잊으면 그대로 뚫린다.
+ *
+ * <p>나누면 그 경계가 <b>설정</b>이 된다. 포털 주소만 아는 서비스는 어드민 키를 갖지 못하므로
+ * 어드민 토큰은 {@code kid} 를 찾지 못해 서명 검증에서 죽는다 — 그 서비스의 코드가 한 줄도 돌기 전에.
+ * (Keycloak·Auth0·Okta·Cognito 가 모두 realm/테넌트마다 JWKS 를 나눈다.)
+ *
+ * <p>한 서비스가 두 realm 을 모두 상대해야 한다면 <b>같은 코드를 realm 별 설정으로 두 벌 띄우는</b>
+ * 것이 표준적인 방법이다. 한 프로세스가 두 키를 다 쥐기 시작하면 경계는 다시 코드의 몫이 된다.
  *
  * <p>인증이 필요 없는 공개 엔드포인트다. 여기 담긴 것은 공개키뿐이라 숨길 것이 없다.
  */
@@ -42,11 +52,17 @@ public class JwksApiController {
     private static final Duration CACHE_TTL = Duration.ofMinutes(10);
 
     private final RealmSigningKeys signingKeys;
+    private final AuthenticationRealm authenticationRealm;
 
-    @GetMapping("/.well-known/jwks.json")
-    public ResponseEntity<Map<String, Object>> jwks() {
+    @GetMapping("/realms/{realm}/.well-known/jwks.json")
+    public ResponseEntity<Map<String, Object>> jwks(@PathVariable String realm) {
+
+        Realm resolved = authenticationRealm.of(realm);          // 모르는 realm 은
+
+        RealmSigningKeys.RealmKey key = signingKeys.of(resolved);
+
         List<Map<String, Object>> keys = new ArrayList<>();
-        signingKeys.verifyKeys().forEach((kid, key) -> keys.add(toJwk(kid, key)));
+        keys.add(toJwk(key.kid(), key.publicKey()));
 
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(CACHE_TTL).cachePublic())

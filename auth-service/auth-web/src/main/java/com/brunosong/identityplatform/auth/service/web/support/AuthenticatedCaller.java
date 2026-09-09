@@ -29,7 +29,6 @@ public class AuthenticatedCaller {
 
     /** access 토큰에 실린 권한 코드 목록(쉼표 구분). */
     private static final String PERMISSIONS_CLAIM = "authLs";
-    private static final String SUBJECT_ID_CLAIM = "userId";
     private static final String REALM_CLAIM = "realm";
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -55,7 +54,7 @@ public class AuthenticatedCaller {
     }
 
     public String subjectId(Claims claims) {
-        return claims.get(SUBJECT_ID_CLAIM, String.class);
+        return claims.getSubject();
     }
 
     /**

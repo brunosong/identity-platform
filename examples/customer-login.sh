@@ -69,11 +69,11 @@ fi
 
 # ---------------------------------------------------------------------------
 step "2. 로그인 — realm 은 경로가 정한다"
-note "/realms/customer/ 라서 고객 서랍에서만 계정을 찾는다."
+note "/realms/portal/ 라서 고객 서랍에서만 계정을 찾는다."
 note "토큰은 쿠키가 아니라 응답 본문으로 내려온다(도메인이 다른 프론트에 쿠키는 전달되지 않는다)."
-req "POST $API/realms/customer/login"
+req "POST $API/realms/portal/login"
 
-LOGIN=$(curl -s -X POST "$API/realms/customer/login" \
+LOGIN=$(curl -s -X POST "$API/realms/portal/login" \
     -H 'Content-Type: application/json' \
     -d "{\"loginId\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
 res "$(echo "$LOGIN" | cut -c1-120)..."
@@ -96,8 +96,8 @@ res "$(curl -s "$API/my-permissions" -H "Authorization: Bearer $ACCESS")"
 step "4. realm 격리 — 같은 자격증명으로 직원 realm 에 로그인해본다"
 note "아이디도 비밀번호도 맞지만 직원 서랍에는 이 계정이 없다."
 note "조회 자체가 (subject_type, login_id) 로 좁혀져 있어 없는 아이디와 구분되지 않는다."
-req "POST $API/realms/employee/login"
-res "$(curl -s -w ' [%{http_code}]' -X POST "$API/realms/employee/login" \
+req "POST $API/realms/admin/login"
+res "$(curl -s -w ' [%{http_code}]' -X POST "$API/realms/admin/login" \
     -H 'Content-Type: application/json' \
     -d "{\"loginId\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
 
@@ -110,35 +110,39 @@ res "$(curl -s -w ' [%{http_code}]' -X POST "$API/realms/martian/login" \
 
 note "소셜은 최초 로그인에 신원을 새로 만든다(JIT). 직원 realm 에서 열려 있으면"
 note "아무나 소셜 로그인만으로 직원 신원을 만들 수 있어 고객 realm 에서만 연다."
-req "POST $API/realms/employee/login/social"
-res "$(curl -s -w ' [%{http_code}]' -X POST "$API/realms/employee/login/social" \
+req "POST $API/realms/admin/login/social"
+res "$(curl -s -w ' [%{http_code}]' -X POST "$API/realms/admin/login/social" \
     -H 'Content-Type: application/json' -d '{"provider":"KAKAO","authorizationCode":"x"}')"
 
 # ---------------------------------------------------------------------------
 step "6. 재발급 — 권한과 리비전이 그 시점 값으로 다시 실린다"
 note "refresh 토큰에는 subjectId 만 있어 그것만으로는 주체가 특정되지 않는다(유일키는 유형+식별자)."
 note "그래서 재발급도 realm 을 경로로 받는다."
-req "POST $API/realms/customer/token/refresh"
-REFRESHED=$(curl -s -X POST "$API/realms/customer/token/refresh" \
+req "POST $API/realms/portal/token/refresh"
+REFRESHED=$(curl -s -X POST "$API/realms/portal/token/refresh" \
     -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$REFRESH\"}")
 res "$(echo "$REFRESHED" | cut -c1-120)..."
 
 note "고객 refresh 토큰을 직원 realm 에 내밀면 그 realm 의 공개키로 검증하므로 서명에서 걸린다."
-req "POST $API/realms/employee/token/refresh"
-res "$(curl -s -w ' [%{http_code}]' -X POST "$API/realms/employee/token/refresh" \
+req "POST $API/realms/admin/token/refresh"
+res "$(curl -s -w ' [%{http_code}]' -X POST "$API/realms/admin/token/refresh" \
     -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$REFRESH\"}")"
 
 # ---------------------------------------------------------------------------
 step "7. 다른 서비스는 이 공개키로 검증한다 (JWKS)"
 note "auth 에 '이 토큰 맞아?' 라고 묻지 않는다. 공개키만 받아다 각자 서명을 확인한다."
-note "kid 로 어느 키를 쓸지 고른다. 두 realm 의 키가 함께 있으므로"
-note "서명이 맞다고 realm 이 맞는 것은 아니다 — realm 클레임을 따로 확인해야 한다."
-req "GET $BASE/.well-known/jwks.json"
-curl -s "$BASE/.well-known/jwks.json" | python -c "
+note "realm 마다 주소가 다르고 그 realm 의 키만 나온다. 여럿인 것은 키 교체 중일 때이고,"
+note "그중 어느 키를 쓸지는 토큰 헤더의 kid 가 정한다."
+req "GET $BASE/realms/portal/.well-known/jwks.json"
+curl -s "$BASE/realms/portal/.well-known/jwks.json" | python -c "
 import json,sys
 for k in json.load(sys.stdin)['keys']:
     print('   kid=%-16s kty=%s alg=%s  n=%s...' % (k['kid'], k['kty'], k['alg'], k['n'][:24]))
 "
+note "합쳐진 문서는 없다. 있으면 나눈 의미가 없다 — 포털만 보는 서비스가 어드민 키까지 갖게 되고,"
+note "realm 경계는 그 서비스가 클레임을 확인해 주기만 바라는 것이 된다."
+req "GET $BASE/.well-known/jwks.json"
+res "HTTP $(curl -s -o /dev/null -w '%{http_code}' "$BASE/.well-known/jwks.json")"
 
 # ---------------------------------------------------------------------------
 step "8. 로그아웃"

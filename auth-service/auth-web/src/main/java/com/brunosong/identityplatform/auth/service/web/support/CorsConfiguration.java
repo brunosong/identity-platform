@@ -48,7 +48,7 @@ public class CorsConfiguration implements WebMvcConfigurer {
 
         // JWKS 는 누구나 읽어도 되는 공개키다. 다른 서비스가 서버에서 받아가는 것이 보통이지만,
         // 브라우저에서 토큰을 직접 검증해 보는 데모 같은 것도 막을 이유가 없다.
-        registry.addMapping("/.well-known/**")
+        registry.addMapping("/realms/*/.well-known/**")
                 .allowedOrigins("*")
                 .allowedMethods("GET")
                 .maxAge(3600);

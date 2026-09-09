@@ -60,7 +60,7 @@ public class AuthEmployeeRegistrationApiController {
                 body.positionName(), body.organizationId(), body.statusCode()));
 
         if (body.roleIds() != null && !body.roleIds().isEmpty()) {
-            assignSubjectRoles.assign(Realm.EMPLOYEE, essentialId, body.roleIds());
+            assignSubjectRoles.assign(Realm.ADMIN, essentialId, body.roleIds());
         }
         return new RegisterEmployeeResponse(essentialId);
     }

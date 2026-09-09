@@ -3,7 +3,7 @@ spring:
   application:
     name: auth-service
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/identity}
+    url: ${DB_URL:jdbc:postgresql://localhost:55432/identity}
     username: ${DB_USERNAME:identity}
     password: ${DB_PASSWORD:identity}
   jpa:
@@ -25,7 +25,7 @@ authorization:
   access-control:
     # reload 는 그 호출을 받은 인스턴스만 갱신한다. TTL 이 나머지 인스턴스의 지연 창을 유한하게 만든다.
     cache-ttl-seconds: 60
-    # 어떤 경로가 보호 대상인지 — EMPLOYEE realm 은 여기 걸린 경로를 화이트리스트로 막는다.
+    # 어떤 경로가 보호 대상인지 — ADMIN realm 은 여기 걸린 경로를 화이트리스트로 막는다.
     protected-path-prefixes: /page/,/api/
   single-session:
     # "한 곳에서 한 명". 켜면 토큰에 sid 가 실리고 재발급 때 현재성을 대조한다.
@@ -38,14 +38,14 @@ token:
   # 겹치면 상대 realm 키로 검증이 통과한다(부팅에서 막는다).
   # 키는 base64(DER): private=PKCS#8, public=X.509 SubjectPublicKeyInfo.
   realms:
-    EMPLOYEE:
-      kid: ${EMPLOYEE_KID:employee-1}
-      privateKey: ${EMPLOYEE_PRIVATE_KEY:}
-      publicKey: ${EMPLOYEE_PUBLIC_KEY:}
-    CUSTOMER:
-      kid: ${CUSTOMER_KID:customer-1}
-      privateKey: ${CUSTOMER_PRIVATE_KEY:}
-      publicKey: ${CUSTOMER_PUBLIC_KEY:}
+    ADMIN:
+      kid: ${ADMIN_KID:admin-1}
+      privateKey: ${ADMIN_PRIVATE_KEY:}
+      publicKey: ${ADMIN_PUBLIC_KEY:}
+    PORTAL:
+      kid: ${PORTAL_KID:portal-1}
+      privateKey: ${PORTAL_PRIVATE_KEY:}
+      publicKey: ${PORTAL_PUBLIC_KEY:}
 
 logging:
   level:

@@ -38,7 +38,7 @@ class RefreshTokenServiceTest {
         AuthenticationResult result = service.refresh(SubjectType.CUSTOMER, "refresh:customer-uuid-1");
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
-        assertThat(result.tokens().accessToken()).isEqualTo("access:CUSTOMER:customer-uuid-1");
+        assertThat(result.tokens().accessToken()).isEqualTo("access:PORTAL:customer-uuid-1");
     }
 
     @Test

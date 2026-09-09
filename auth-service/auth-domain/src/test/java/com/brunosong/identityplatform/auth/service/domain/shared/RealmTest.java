@@ -22,25 +22,25 @@ class RealmTest {
     @Test
     @DisplayName("직원 영역은 규칙이 없으면 거부한다")
     void employeeIsFailClosed() {
-        assertThat(Realm.EMPLOYEE.failOpen()).isFalse();
+        assertThat(Realm.ADMIN.failOpen()).isFalse();
     }
 
     @Test
     @DisplayName("고객 영역은 규칙이 없으면 허용한다")
     void customerIsFailOpen() {
-        assertThat(Realm.CUSTOMER.failOpen()).isTrue();
+        assertThat(Realm.PORTAL.failOpen()).isTrue();
     }
 
     @Test
     @DisplayName("두 영역의 기본 결정은 서로 반대다")
     void realmsAreOpposite() {
-        assertThat(Realm.EMPLOYEE.failOpen()).isNotEqualTo(Realm.CUSTOMER.failOpen());
+        assertThat(Realm.ADMIN.failOpen()).isNotEqualTo(Realm.PORTAL.failOpen());
     }
 
     @Test
     @DisplayName("영역은 둘뿐이다")
     void onlyTwoRealms() {
         // 영역이 늘면 기본 결정을 반드시 정해야 한다. 여기서 걸려 잊지 않게 한다.
-        assertThat(Realm.values()).containsExactly(Realm.EMPLOYEE, Realm.CUSTOMER);
+        assertThat(Realm.values()).containsExactly(Realm.ADMIN, Realm.PORTAL);
     }
 }

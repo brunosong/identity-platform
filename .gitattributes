@@ -1,2 +1,23 @@
-/mvnw text eol=lf
+# 저장소에는 LF 로 넣고 체크아웃도 LF 로 한다.
+# 윈도우/맥/리눅스가 섞여도 줄바꿈 때문에 diff 가 통째로 뒤집히지 않는다.
+* text=auto eol=lf
+
+# cmd.exe 는 배치 파일이 CRLF 이길 기대한다. LF 면 label/goto 가 어긋날 수 있다.
 *.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 메이븐 래퍼 셸 스크립트는 LF 여야 실행된다.
+/mvnw text eol=lf
+
+# 바이너리 — 줄바꿈 변환도, 텍스트 diff 도 하지 않는다.
+*.jar binary
+*.p12 binary
+*.jks binary
+*.keystore binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
