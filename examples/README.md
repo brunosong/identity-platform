@@ -76,6 +76,7 @@ docker compose down -v    # 깨끗하게
 
 - **소셜 로그인 / OTP 메일 발송** — provider 검증 어댑터와 메일 발송 어댑터가 아직 없어 호출하면 500 이다.
   (OTP 는 `local` 에서 발송을 건너뛰므로 고정코드로 로그인 자체는 된다.)
-- **다른 서비스가 이 토큰을 검증하는 모습** — `auth-client` 가 그 일을 하지만, 아직 그것을 쓰는
-  소비 서비스가 이 저장소에 없다. 지금은 `JwksVerificationIntegrationTest` 가 "남의 서비스" 역할을 대신한다.
+- **다른 서비스가 이 토큰을 검증하는 모습** — 이 스크립트는 auth 만 부른다. 그 부분은
+  [`customer-service`](../customer-service/README.md) 의 "직접 확인해 보기" 에 있다 —
+  같은 토큰으로 다른 서비스를 부르고, auth 는 그 호출에 등장하지 않는다.
 - **게이트웨이** — URL 단위 인가(`authz_url_access`, `CheckAccessUseCase`)를 시행할 주체가 아직 없다.

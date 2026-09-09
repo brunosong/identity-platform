@@ -1,7 +1,7 @@
 # customer-service
 
 고객 프로필 API. **auth-service 가 발급한 토큰을 검증해 쓰는 소비 서비스**이고,
-`auth-client` 를 어떻게 붙이는지 보여주는 것이 이 서비스의 목적이다.
+**Spring Security 리소스 서버**를 어떻게 붙이는지 보여주는 것이 이 서비스의 목적이다.
 
 ## auth 와 무엇을 주고받나
 
@@ -28,32 +28,47 @@
 이 서비스가 auth 에 대해 아는 것은 설정 한 줄뿐이다.
 
 ```yaml
-auth:
-  client:
-    issuer: http://localhost:8080/realms/portal
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/portal
 ```
 
-**이 한 줄이 이 서비스의 경계 전부**다. realm 이 발급자 이름 안에 있고, 공개키를 받아올 주소도
-여기서 유도된다(`issuer + /.well-known/jwks.json`).
+**이 한 줄이 이 서비스의 경계 전부**다. realm 이 발급자 이름 안에 있고, 공개키를 받아올 주소는
+발급자의 discovery 문서(`{issuer}/.well-known/openid-configuration`)가 알려준다.
 
-`auth-domain`, `auth-application` 을 의존하지 않는다. **`auth-client` 하나뿐이다.**
-주고받는 것은 토큰 문자열과 그 안의 클레임이고, 그것이 이 경계의 계약이다.
+auth 의 모듈을 하나도 의존하지 않는다. **표준 라이브러리(Spring Security 리소스 서버)뿐이다.**
+주고받는 것은 토큰 문자열과 그 안의 표준 클레임이고, 그것이 이 경계의 계약이다.
 
-## auth-client 를 붙이는 자리
+## 인증을 붙이는 자리
 
-`customer-web` 의 `AuthenticatedCaller` **한 곳**이다. 이 클래스 밖에서는 토큰이라는 말이
-나오지 않는다 — 컨트롤러는 `AuthenticatedToken` 만 받고, 응용·도메인 계층은 그것조차 모른다.
+`SecurityConfiguration` **한 곳**이다. 필터가 모든 요청 앞에 있고 기본값이 거부다.
 
 ```java
-AuthenticatedToken me = caller.require(request);   // 401 아니면 통과
+.authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
+.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+```
+
+전에는 직접 만든 `AuthenticatedCaller` 를 컨트롤러마다 불렀다(`auth-client` 모듈). 그 방식은
+**부르는 것을 잊으면 그대로 열린다** — 새 컨트롤러를 추가하면서 한 줄을 빠뜨리면 인증 없는 API 가
+조용히 생긴다. 지금은 잊었을 때의 결과가 반대다: 아무것도 안 하면 401 이고, 열려면 명시해야 한다.
+
+그래서 컨트롤러에 인증 코드가 **한 줄도 없다.** 거기 도달했다는 것이 곧 검증을 통과했다는 뜻이다.
+
+```java
+public ProfileResponse save(@AuthenticationPrincipal Jwt token, ...) {
+    return ... customerProfiles.save(token.getSubject(), ...);
+}
 ```
 
 ### 세 겹으로 막는다
 
 | | 무엇을 보나 | 어디서 |
 |---|---|---|
-| **서명·만료·용도** | 이 토큰이 진짜 auth 가 만든 access 토큰인가 | `auth-client` |
-| **발급자·realm** | 우리 auth 의 포털 것인가 | **설정** (`auth.client.issuer`) |
+| **서명·만료·용도** | 이 토큰이 진짜 auth 가 만든 access 토큰인가 | Spring Security 필터 |
+| **발급자·realm** | 우리 auth 의 포털 것인가 | **설정** (`issuer-uri`) |
 | **소유권** | 이 데이터가 이 사람 것인가 | 컨트롤러 |
 
 **realm 확인이 코드에 없다.** 사라진 것이 아니라 설정으로 옮겨갔다. JWKS 가 realm 별로 나뉘어 있어
@@ -65,7 +80,7 @@ AuthenticatedToken me = caller.require(request);   // 401 아니면 통과
 만든 토큰도 거부한다 — 그런 토큰은 realm 도 클레임도 다 같아서 발급자 이름만이 둘을 가른다.
 
 **소유권은 토큰이 답할 수 없다.** 그래서 `/api/customers/me` 는 조회 키를 요청에서 받지 않고
-토큰의 `subjectId` 로만 찾는다. 경로나 본문으로 받으면 남의 식별자를 적어 넣는 것으로 남의
+토큰의 `sub` 로만 찾는다. 경로나 본문으로 받으면 남의 식별자를 적어 넣는 것으로 남의
 프로필이 열린다. 게이트웨이가 있어도 이 확인은 대신해 줄 수 없다 — 게이트웨이는 "이 URL 에
 들어와도 되는가"까지 알지만 "이 데이터가 이 사람 것인가"는 모른다.
 
@@ -111,10 +126,12 @@ SPRING_PROFILES_ACTIVE=local \
 java -jar target/customer-bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
-**auth-service 보다 먼저 떠도 된다.** 공개키는 첫 검증 때 받아온다. 그동안 들어온 요청은
-검증에 실패해 401 이 된다 — 열린 채로 남지 않는 것이 중요하다.
+**auth-service 보다 먼저 떠도 된다.** `issuer-uri` 를 쓰면 Spring 이 디코더 생성을 첫 검증까지
+미룬다(`SupplierJwtDecoder`) — 부팅할 때 auth 를 부르지 않는다. 그동안 들어온 요청은 검증에 실패해
+401 이 된다 — 열린 채로 남지 않는 것이 중요하다.
 
-> 포트가 겹치면 `SERVER_PORT` 로 옮기고, auth 를 옮겼다면 `AUTH_JWKS_URI` 도 함께 바꾼다.
+> 포트가 겹치면 `SERVER_PORT` 로 옮기고, auth 를 옮겼다면 `AUTH_ISSUER` 도 함께 바꾼다.
+> 발급자는 문자열 그대로 대조되므로 auth 의 `TOKEN_ISSUER` 와 **짝**이어야 한다.
 
 ## 직접 확인해 보기
 
@@ -135,6 +152,13 @@ curl -s -X PUT $CUST/me -H "Authorization: Bearer $TOKEN" \
 curl -s $CUST/me -H "Authorization: Bearer $TOKEN"                       # 조회
 
 curl -s -w ' [%{http_code}]' $CUST/me                                    # 401 토큰 없음
+```
+
+토큰 없이 부르면 표준 챌린지가 온다 — 직접 만든 401 본문이 아니다.
+
+```
+HTTP/1.1 401
+WWW-Authenticate: Bearer
 ```
 
 어드민 토큰으로 불러보면 **401** 이다. 이 서비스는 어드민 공개키가 없어 서명조차 확인하지 못한다.

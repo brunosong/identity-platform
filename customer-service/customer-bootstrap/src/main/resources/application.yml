@@ -7,6 +7,22 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:55433/customer}
     username: ${DB_USERNAME:customer}
     password: ${DB_PASSWORD:customer}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # 이 서비스가 auth 에 대해 아는 전부다. 발급자 이름에 realm 이 들어 있고,
+          # Spring Security 가 여기서 discovery 문서를 받아 공개키 주소(jwks_uri)를 찾는다.
+          #
+          # 그래서 이 서비스는 포털 공개키만 갖는다 — 어드민 토큰은 서명 단계에서 죽는다.
+          # 토큰의 iss 도 이 값과 대조하므로, 서명이 맞아도 다른 배포(staging 등)가 만든
+          # 토큰이면 거부한다.
+          #
+          # 부팅할 때 auth 를 부르지 않는다. 디코더 생성이 첫 검증까지 미뤄지므로
+          # (SupplierJwtDecoder) auth 보다 먼저 떠도 된다.
+          #
+          # 직원용 API 가 필요해지면 이 서비스를 어드민 발급자로 한 벌 더 띄운다.
+          issuer-uri: ${AUTH_ISSUER:http://localhost:8080/realms/portal}
   jpa:
     open-in-view: false
     hibernate:
@@ -18,25 +34,6 @@ spring:
 
 server:
   port: ${SERVER_PORT:8081}
-
-auth:
-  client:
-    # 이 서비스가 auth 에 대해 아는 전부다. 토큰을 물어보러 가는 주소가 아니라,
-    # 검증에 쓸 공개키를 받아오는 주소다.
-    #
-    # 발급자 이름에 realm 이 들어 있고, 공개키를 받아올 주소도 여기서 유도된다
-    # (issuer + /.well-known/jwks.json). 그래서 이 서비스는 어드민 공개키를 아예 갖지 못하고,
-    # 어드민 토큰은 서명 검증에서 죽는다 — 코드가 한 줄도 돌기 전에.
-    #
-    # 그리고 토큰의 iss 를 이 값과 대조한다. 서명이 맞아도 다른 배포(staging 등)가 만든 토큰이면
-    # 거부한다 — 그런 토큰은 realm 도 클레임도 다 같아서, 발급자 이름만이 둘을 가른다.
-    #
-    # 직원용 API 가 필요해지면 이 서비스를 어드민 발급자로 한 벌 더 띄운다.
-    issuer: ${AUTH_ISSUER:http://localhost:8080/realms/portal}
-    # 모르는 kid 를 만나면 이 값과 무관하게 다시 받아온다(키 교체는 그 경로가 처리한다).
-    cache-ttl: 10m
-    # 시작할 때 미리 받지 않는다 — auth 보다 먼저 떠도 부팅이 실패하면 안 된다.
-    warm-up: false
 
 logging:
   level:

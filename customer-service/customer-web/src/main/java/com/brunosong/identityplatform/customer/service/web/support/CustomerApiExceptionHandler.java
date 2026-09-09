@@ -12,20 +12,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * 호출자가 한 가지 규칙으로 다룰 수 있다.
  *
  * <p>서버 오류의 원인 메시지는 응답에 싣지 않는다. 자세한 내용은 로그에만 남긴다.
+ *
+ * <p><b>401/403 은 여기 없다.</b> 인증 실패는 컨트롤러에 닿기 전에 시큐리티 필터가 끝내고,
+ * 표준대로 {@code WWW-Authenticate: Bearer} 헤더를 붙여 응답한다. 본문은 비어 있다 —
+ * 왜 실패했는지 자세히 알려주는 것은 공격자에게만 이득이다.
  */
 @RestControllerAdvice
 @Slf4j
 public class CustomerApiExceptionHandler {
-
-    @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<ApiError> onUnauthorized(UnauthorizedException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError(e.getMessage()));
-    }
-
-    @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<ApiError> onForbidden(ForbiddenException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(e.getMessage()));
-    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> onIllegalArgument(IllegalArgumentException e) {

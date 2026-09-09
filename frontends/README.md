@@ -134,7 +134,7 @@ python frontends/serve.py employee-admin 5174
 그건 편의일 뿐이다. 실제 방어는 서버가 한다(`RbacAdminAccess`). 브라우저에서 저 코드를 고쳐
 패널을 열어도 API 는 403 이다.
 
-**`shared/auth-client.js` 는 백엔드의 `auth-client` 모듈과 같은 자리다.** auth 의 내부를 모르고
+**`shared/auth-client.js` 는 브라우저 쪽의 같은 자리다.** auth 의 내부를 모르고
 토큰과 클레임만 주고받는다. 실제 프로젝트라면 사내 npm 패키지가 될 자리이고, 지금은
 `serve.py` 가 두 앱에 같은 파일을 내보내 한 벌만 유지한다.
 

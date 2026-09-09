@@ -2,6 +2,17 @@
 
 다른 서비스가 auth-service 가 발급한 토큰을 검증할 때 쓰는 라이브러리.
 
+> **⚠️ customer-service 는 이제 이 모듈을 쓰지 않는다.** 토큰에 표준 `iss` 를 싣고 realm 별
+> discovery 문서를 내면서, 그 서비스는 **Spring Security 리소스 서버**로 옮겨갔다 — 설정 한 줄
+> (`spring.security.oauth2.resourceserver.jwt.issuer-uri`)이 이 모듈이 하던 일을 전부 대신한다.
+>
+> 이 모듈은 두 가지 이유로 남아 있다. ① Spring Security 를 쓰지 않는(쓸 수 없는) 서비스가 무엇을
+> 직접 해야 하는지 보여준다 — JWKS 조회, 캐시, `kid` 선택, 키 교체, auth 장애 때의 처리. ②
+> `JwksVerificationIntegrationTest` 가 발급기와 이 검증기를 함께 돌려, 클레임 이름이 바뀌면
+> 곧바로 걸리게 한다.
+>
+> **새 서비스라면 이 모듈 대신 `spring-boot-starter-oauth2-resource-server` 를 쓴다.**
+
 ## 어떻게 신뢰가 서는가
 
 ```

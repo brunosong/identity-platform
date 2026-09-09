@@ -25,13 +25,16 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.brunosong</groupId>
-            <artifactId>auth-client</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!--
+          토큰 검증을 표준에 맡긴다. JWKS 조회·캐시·kid 선택·서명/만료/발급자 검증이 모두 여기 있다.
+          직접 만든 auth-client 를 여기서 걷어냈다 — 그 모듈이 하던 일을 이 스타터가 그대로 한다.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

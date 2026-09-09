@@ -21,6 +21,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -31,6 +34,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * <b>서비스 간 신뢰가 실제로 서는지</b> 본다 — auth 가 토큰을 발급하고, 다른 서비스가 auth 에 묻지 않고
@@ -185,6 +189,43 @@ class JwksVerificationIntegrationTest {
     }
 
     @Test
+    @DisplayName("발급자 문서가 공개키 위치를 가리킨다")
+    void openIdConfigurationPointsAtTheKeys() {
+        Map<String, Object> document = asMap(http.get()
+                .uri("/realms/portal/.well-known/openid-configuration").retrieve().body(Map.class));
+
+        // 받아간 쪽은 이 값이 자기가 요청한 주소와 같은지 확인한다. 그래서 여기가 틀리면
+        // 표준 리소스 서버는 아예 뜨지 않는다.
+        assertThat(document).containsEntry("issuer", PORTAL_ISSUER)
+                .containsEntry("jwks_uri", PORTAL_ISSUER + "/.well-known/jwks.json");
+        assertThat(document).containsEntry("id_token_signing_alg_values_supported", List.of("RS256"));
+
+        // 없는 엔드포인트는 적지 않는다 — 이 서비스는 OIDC 인가 서버가 아니다.
+        assertThat(document).doesNotContainKeys("authorization_endpoint", "token_endpoint");
+        assertThat(statusOf("/realms/martian/.well-known/openid-configuration")).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("표준 리소스 서버(Spring Security)가 우리 토큰을 그대로 검증한다")
+    void standardResourceServerAcceptsOurToken() {
+        String email = "standard-" + UUID.randomUUID() + "@example.com";
+        registerCustomer(email);
+        String accessToken = login(email);
+
+        // customer-service 가 issuer-uri 한 줄로 얻는 것과 같은 검증기다.
+        NimbusJwtDecoder decoder = portalDecoder(PORTAL_ISSUER);
+
+        assertThat(decoder.decode(accessToken).getSubject()).isNotBlank();
+
+        // 어드민 토큰은 이 JWKS 에 없는 kid 로 서명돼 있다.
+        assertThatThrownBy(() -> decoder.decode(loginAsAdmin())).isInstanceOf(JwtException.class);
+
+        // 발급자가 다르면 서명이 맞아도 거부한다.
+        assertThatThrownBy(() -> portalDecoder("https://auth.example.com/realms/portal").decode(accessToken))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
     @DisplayName("토큰은 realm 을 클레임으로 들고 다니지 않는다")
     void tokenCarriesNoRealmClaim() {
         String email = "claims-" + UUID.randomUUID() + "@example.com";
@@ -298,6 +339,19 @@ class JwksVerificationIntegrationTest {
                 "employeeId", "E" + suffix,
                 "name", "Operator",
                 "email", "op-" + suffix + "@example.com");
+    }
+
+    /**
+     * 표준 리소스 서버가 만드는 것과 같은 디코더. 실제로는 {@code issuer-uri} 로부터 discovery 문서를
+     * 받아 이 주소를 찾아내지만, 이 테스트는 랜덤 포트라 발급자 이름과 실제 주소가 갈린다 —
+     * {@code iss} 는 식별자라 문자열로 대조하고, JWKS 는 주소라 실제로 접속한다.
+     */
+    private NimbusJwtDecoder portalDecoder(String expectedIssuer) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder
+                .withJwkSetUri("http://localhost:" + port + "/realms/portal/.well-known/jwks.json")
+                .build();
+        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(expectedIssuer));
+        return decoder;
     }
 
     /** 소비 서비스가 갖게 될 키 소스. 주소는 실제로 뜬 포트를 쓴다. */
