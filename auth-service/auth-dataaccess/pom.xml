@@ -31,14 +31,10 @@
           스키마 마이그레이션. 스크립트(db/migration)도 이 모듈이 소유한다 — 엔티티를 바꾸는 커밋과
           스키마를 바꾸는 커밋이 갈라지면 안 된다.
 
-          Boot 4 는 자동설정이 기능별 모듈로 쪼개져 있어 flyway-core 만 넣으면 마이그레이션이 돌지
-          않는다(빈이 만들어지지 않고, 조용히 지나간 뒤 ddl-auto=validate 에서 "missing table" 로 터진다).
-          spring-boot-flyway 가 그 자동설정을 들고 온다.
+          Boot 3 은 flyway-core 만 있으면 자동설정이 함께 온다. (Boot 4 는 자동설정이 기능별 모듈로
+          쪼개져 있어 spring-boot-flyway 를 따로 넣어야 하고, 빠뜨리면 마이그레이션이 조용히 지나간 뒤
+          ddl-auto=validate 에서 "missing table" 로 터진다.)
         -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-flyway</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
@@ -53,12 +49,6 @@
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
-        <!-- Boot 4 는 슬라이스 테스트(@DataJpaTest 등)가 별도 모듈로 분리됐다 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
