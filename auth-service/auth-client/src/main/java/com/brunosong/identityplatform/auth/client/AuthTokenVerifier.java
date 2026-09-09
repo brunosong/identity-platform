@@ -22,18 +22,21 @@ import java.util.Optional;
  * 그래서 소비 서비스의 컨트롤러가 realm 을 따로 확인할 필요가 없다 — 확인이 사라진 것이 아니라
  * <b>코드에서 설정으로 옮겨간 것</b>이다.
  *
- * <p>막는 층이 둘이라는 점이 중요하다:
- * <ol>
- *   <li>JWKS 가 realm 별로 나뉘어 있어 <b>다른 realm 의 키를 애초에 갖지 못한다</b> — 서명 검증에서 죽는다.</li>
- *   <li>그래도 {@code realm} 클레임을 대조한다 — JWKS 주소를 잘못 가리켰을 때 시끄럽게 실패하도록.</li>
- * </ol>
+ * <p>막는 것은 <b>JWKS 분리</b>다. realm 마다 주소가 다르므로 이 서비스는 다른 realm 의 공개키를
+ * 애초에 갖지 못하고, 그런 토큰은 {@code kid} 를 찾지 못해 서명 검증에서 죽는다.
+ *
+ * <p>토큰에 {@code realm} 클레임은 없다. realm 마다 서명키가 다르므로 <b>어느 키로 검증됐는지가 곧
+ * realm</b> 이고, 클레임은 그것을 한 번 더 적어둔 것이었다.
+ *
+ * <p><b>아직 비어 있는 자리:</b> {@code jwks-uri} 를 다른 realm 주소로 잘못 적으면 그 realm 의 토큰이
+ * 통과한다 — 조용히, fail-open 으로. 예전에는 클레임 대조가 그것을 잡았다. 표준 자리인 {@code iss}
+ * 검증으로 되돌려 놓아야 한다(RFC 8725 도 발급자 검증을 요구한다).
  *
  * <h2>검증하는 것</h2>
  * <ol>
- *   <li><b>서명</b> — 헤더의 {@code kid} 로 고른 공개키로 확인한다.</li>
+ *   <li><b>서명</b> — 헤더의 {@code kid} 로 고른 공개키로 확인한다. 이 서비스가 가진 키는 자기 realm 것뿐이다.</li>
  *   <li><b>만료</b> — jjwt 가 {@code exp} 를 본다.</li>
  *   <li><b>용도</b> — {@code type=access} 여야 한다. refresh 토큰을 access 처럼 쓰지 못하게 막는다.</li>
- *   <li><b>realm</b> — 이 검증기가 상대하는 realm 이어야 한다.</li>
  * </ol>
  *
  * <p><b>여기서 답하지 못하는 것이 하나 남는다</b> — "이 데이터가 이 사람 것인가". 그것은 토큰이
@@ -45,17 +48,17 @@ public class AuthTokenVerifier {
 
     private static final String TYPE_CLAIM = "type";
     private static final String ACCESS_TYPE = "access";
-    private static final String REALM_CLAIM = "realm";
     private static final String PERMISSIONS_CLAIM = "authLs";
     private static final String REVISION_CLAIM = "rbacRev";
 
     private final JwksKeySource keySource;
-    /** 이 검증기가 통과시키는 유일한 realm. */
+    /** 이 검증기가 상대하는 realm. 토큰에서 읽는 값이 아니라 설정이 정하는 값이다. */
     private final String realm;
 
     public AuthTokenVerifier(JwksKeySource keySource, String realm) {
         if (realm == null || realm.isBlank()) {
-            // realm 이 없으면 대조를 건너뛰게 되는데, 그 조용한 약한 모드가 가장 위험하다.
+            // 검증에 쓰이지는 않지만, 이 서비스가 어느 realm 을 상대하는지 밝히지 않은 채 뜨면
+            // jwks-uri 를 잘못 가리켰을 때 아무도 알아채지 못한다.
             throw new IllegalStateException("auth.client.realm 이 필요합니다.");
         }
         this.keySource = keySource;
@@ -67,7 +70,7 @@ public class AuthTokenVerifier {
         return realm;
     }
 
-    /** 서명·만료·용도·realm 을 확인한다. 통과하면 호출자, 아니면 빈 값. */
+    /** 서명·만료·용도를 확인한다. 통과하면 호출자, 아니면 빈 값. */
     public Optional<AuthenticatedToken> verify(String token) {
         if (token == null || token.isBlank()) {
             return Optional.empty();
@@ -86,13 +89,8 @@ public class AuthTokenVerifier {
         if (!ACCESS_TYPE.equals(claims.get(TYPE_CLAIM, String.class))) {
             return Optional.empty();
         }
-        // 이 서비스가 상대하지 않는 realm 의 토큰. 보통은 위 서명 검증에서 이미 걸리지만,
-        // JWKS 주소를 잘못 가리킨 경우에는 여기서 걸린다.
-        if (!realm.equals(claims.get(REALM_CLAIM, String.class))) {
-            return Optional.empty();
-        }
-
         return Optional.of(new AuthenticatedToken(
+                // 토큰이 아니라 설정에서 온다 — realm 은 서명이 증명했다.
                 realm,
                 claims.getSubject(),
                 permissionsOf(claims),

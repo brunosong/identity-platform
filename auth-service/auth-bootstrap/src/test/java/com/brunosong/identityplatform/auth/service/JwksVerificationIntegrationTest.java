@@ -20,7 +20,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -174,6 +178,57 @@ class JwksVerificationIntegrationTest {
         assertThat(verifier.verifyAuthorizationHeader(null)).isEmpty();
     }
 
+    @Test
+    @DisplayName("토큰은 realm 을 클레임으로 들고 다니지 않는다")
+    void tokenCarriesNoRealmClaim() {
+        String email = "claims-" + UUID.randomUUID() + "@example.com";
+        registerCustomer(email);
+
+        // realm 마다 서명키가 달라서 "어느 키로 검증됐는지" 가 곧 realm 이다. 클레임으로 한 번 더
+        // 적으면 토큰이 스스로 하는 주장이 생기고, 검증하는 쪽이 그걸 대조하기를 바라게 된다.
+        assertThat(payloadOf(login(email)))
+                .doesNotContainKey("realm")
+                .containsEntry("type", "access")
+                .containsKeys("sub", "authLs", "rbacRev", "exp");
+    }
+
+    @Test
+    @DisplayName("realm 이 붙지 않은 옛 경로는 없다")
+    void realmLessEndpointsAreGone() {
+        assertThat(statusOf("/api/auth/my-permissions")).isEqualTo(404);
+        assertThat(postStatusOf("/api/auth/logout", null)).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("경로에 남의 realm 을 적어도 그 realm 이 되지 않는다")
+    void pathCannotSpoofRealm() {
+        String email = "spoof-" + UUID.randomUUID() + "@example.com";
+        registerCustomer(email);
+        String portalToken = login(email);
+
+        Map<String, Object> mine = getWithToken("/api/auth/realms/portal/my-permissions", portalToken);
+        assertThat(mine.get("realm")).isEqualTo("PORTAL");
+
+        // 같은 토큰을 어드민 경로에 내밀면, 그 요청은 어드민 공개키로 검증된다. 경로는 realm 을
+        // 주장하는 값이 아니라 검증 키를 고르는 값이라, 잘못 적으면 통과하지 못한다.
+        Map<String, Object> spoofed = getWithToken("/api/auth/realms/admin/my-permissions", portalToken);
+        assertThat(spoofed.get("realm")).isNull();
+        assertThat((List<?>) spoofed.get("permissions")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("로그아웃도 realm 경로 위에 있고, 남의 realm 토큰은 통하지 않는다")
+    void logoutIsRealmScoped() {
+        String email = "logout-" + UUID.randomUUID() + "@example.com";
+        registerCustomer(email);
+        String portalToken = login(email);
+
+        assertThat(postStatusOf("/api/auth/realms/portal/logout", portalToken)).isEqualTo(204);
+        assertThat(postStatusOf("/api/auth/realms/admin/logout", portalToken)).isEqualTo(401);
+        assertThat(postStatusOf("/api/auth/realms/portal/logout", null)).isEqualTo(401);
+        assertThat(postStatusOf("/api/auth/realms/martian/logout", portalToken)).isEqualTo(404);
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> asMap(Object value) {
         return (Map<String, Object>) value;
@@ -189,11 +244,38 @@ class JwksVerificationIntegrationTest {
 
     /** 상태코드만 본다. 기본 RestClient 는 4xx 에 예외를 던지므로 별도 클라이언트를 쓴다. */
     private int statusOf(String path) {
+        return lenient().get().uri(path).retrieve().toBodilessEntity().getStatusCode().value();
+    }
+
+    private int postStatusOf(String path, String bearerToken) {
+        RestClient.RequestBodySpec request = lenient().post().uri(path);
+        if (bearerToken != null) {
+            request = request.header("Authorization", "Bearer " + bearerToken);
+        }
+        return request.retrieve().toBodilessEntity().getStatusCode().value();
+    }
+
+    private Map<String, Object> getWithToken(String path, String bearerToken) {
+        return asMap(http.get().uri(path)
+                .header("Authorization", "Bearer " + bearerToken)
+                .retrieve().body(Map.class));
+    }
+
+    private RestClient lenient() {
         return RestClient.builder()
                 .baseUrl("http://localhost:" + port)
                 .defaultStatusHandler(status -> true, (request, response) -> { })
-                .build()
-                .get().uri(path).retrieve().toBodilessEntity().getStatusCode().value();
+                .build();
+    }
+
+    /** 서명은 확인하지 않고 payload 만 편다 — 무엇이 실려 나가는지 보는 용도다. */
+    private static Map<String, Object> payloadOf(String jwt) {
+        byte[] json = Base64.getUrlDecoder().decode(jwt.split("\\.")[1]);
+        try {
+            return asMap(new ObjectMapper().readValue(new String(json, StandardCharsets.UTF_8), Map.class));
+        } catch (Exception e) {
+            throw new IllegalStateException("토큰 payload 를 읽지 못했다", e);
+        }
     }
 
     /**

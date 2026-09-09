@@ -53,7 +53,8 @@ public class AuthEmployeeRegistrationApiController {
     @ResponseStatus(HttpStatus.CREATED)
     public RegisterEmployeeResponse registerEmployee(HttpServletRequest request,
                                                      @Valid @RequestBody EmployeeRegisterRequest body) {
-        caller.requirePermission(request, managePermission);
+        // 직원 등록은 어드민 운영 API 다. 호출자 토큰도 어드민 realm 것이어야 한다.
+        caller.requirePermission(Realm.ADMIN, request, managePermission);
 
         String essentialId = registerEmployeeAccount.register(new RegisterEmployeeAccountCommand(
                 body.employeeId(), body.name(), body.email(), body.mobile(),

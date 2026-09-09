@@ -89,8 +89,11 @@ show_jwt "$ACCESS"
 # ---------------------------------------------------------------------------
 step "3. 발급한 쪽이 자기 토큰을 읽는다"
 note "이후 모든 요청은 Authorization: Bearer 로 토큰을 싣는다."
-req "GET $API/my-permissions"
-res "$(curl -s "$API/my-permissions" -H "Authorization: Bearer $ACCESS")"
+req "GET $API/realms/portal/my-permissions"
+res "$(curl -s "$API/realms/portal/my-permissions" -H "Authorization: Bearer $ACCESS")"
+note "같은 토큰을 어드민 경로에 내밀면 어드민 공개키로 검증되므로 통하지 않는다."
+note "경로는 realm 을 주장하는 값이 아니라 검증 키를 고르는 값이다."
+res "$(curl -s "$API/realms/admin/my-permissions" -H "Authorization: Bearer $ACCESS")"
 
 # ---------------------------------------------------------------------------
 step "4. realm 격리 — 같은 자격증명으로 직원 realm 에 로그인해본다"
@@ -146,10 +149,10 @@ res "HTTP $(curl -s -o /dev/null -w '%{http_code}' "$BASE/.well-known/jwks.json"
 
 # ---------------------------------------------------------------------------
 step "8. 로그아웃"
-note "무효화 대상은 호출자 자신이다 — 무효화할 realm 도 토큰에서 읽는다."
+note "무효화 대상은 호출자 자신이다 — 무효화할 realm 은 경로가 정한다."
 note "단일 세션을 켜지 않았다면 발급된 access 토큰은 만료까지 유효하다(무상태 JWT)."
 note "토큰 폐기는 호출자 몫이다."
-req "POST $API/logout"
-res "HTTP $(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/logout" -H "Authorization: Bearer $ACCESS")"
+req "POST $API/realms/portal/logout"
+res "HTTP $(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/realms/portal/logout" -H "Authorization: Bearer $ACCESS")"
 
 printf '\n\033[1;32m끝.\033[0m 이 계정은 남아 있습니다: %s\n\n' "$EMAIL"

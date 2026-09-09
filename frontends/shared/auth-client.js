@@ -78,12 +78,12 @@ export class AuthClient {
     }
 
     /**
-     * 로그아웃. 무효화 대상과 realm 은 모두 토큰에서 읽는다.
+     * 로그아웃. 무효화 대상은 토큰에서, realm 은 경로에서 온다.
      * 단일 세션을 켜지 않았다면 이 호출 뒤에도 access 토큰은 만료까지 서버에서 유효하다 —
      * 그래서 여기서 직접 버린다. 토큰 폐기는 호출자 몫이다.
      */
     async logout() {
-        const res = await this.request('POST', '/api/auth/logout', { auth: true });
+        const res = await this.request('POST', `/api/auth/realms/${this.realm}/logout`, { auth: true });
         this.tokens = null;
         return res;
     }
@@ -91,7 +91,7 @@ export class AuthClient {
     // ── 조회 ────────────────────────────────────────────────────────────────
 
     myPermissions() {
-        return this.request('GET', '/api/auth/my-permissions', { auth: true });
+        return this.request('GET', `/api/auth/realms/${this.realm}/my-permissions`, { auth: true });
     }
 
     /** 이 realm 의 공개키. JWKS 는 realm 마다 주소가 다르다. */

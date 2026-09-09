@@ -29,14 +29,17 @@ import java.util.Date;
  * <p><b>서명:</b> RS256(비대칭). realm 마다 다른 RSA 키페어를 쓴다({@link RealmSigningKeys}).
  * 한 프로세스가 두 realm 을 모두 담당하므로 발급기가 두 벌을 다 쥐고 realm 에 맞는 키를 고른다 —
  * 전에는 프로세스당 realm 하나·키 한 벌이었고, 상대 realm 공개키가 없다는 사실 자체가 격리 장치였다.
- * 이제 그 장치가 없으므로 격리는 조회 범위(realm 스코프)와 토큰의 realm 클레임이 맡는다.
+ * 이제 한 프로세스가 두 벌을 다 쥐지만, 검증하는 쪽은 realm 을 먼저 정하고 그 realm 의 공개키
+ * 하나로만 확인한다. 그래서 격리는 여전히 <b>키</b>가 맡는다.
  *
  * <p><b>kid:</b> 서명 헤더에 키 식별자를 박는다. 검증하는 쪽은 토큰을 열어보기 전에 어느 공개키를 쓸지
  * 정해야 하므로(내용을 믿으려면 먼저 서명을 확인해야 한다) 그 정보는 서명 대상 밖인 헤더에 있어야 한다.
  * 다른 서비스에 공개키를 나눠줄 때(JWKS)도 이 kid 로 고른다.
  *
- * <p><b>realm 클레임:</b> access 토큰이 자기 realm 을 들고 다닌다. 그래야 로그아웃·권한조회처럼 토큰만
- * 받는 경로가 설정이나 요청 경로에 기대지 않고 판단할 수 있다.
+ * <p><b>realm 클레임은 싣지 않는다.</b> 넣어도 새 정보가 아니다 — realm 마다 서명키가 다르므로
+ * <b>어느 키로 검증됐는지가 곧 realm</b> 이다. 토큰이 스스로 "나는 포털 것"이라고 주장하는 것보다
+ * 포털 공개키로만 검증되는 편이 강하다. 그래서 모든 엔드포인트가 realm 을 경로로 받고, 검증하는 쪽은
+ * 그 realm 의 키 하나만 쓴다(Keycloak 도 같다 — realm 은 {@code iss} 에 있고 별도 클레임은 없다).
  *
  * <p><b>주의(리비전 입도):</b> rbacRev 는 realm <b>전역</b> 정책 변경을 무효화한다. 개별 주체의 역할
  * 부여/회수(subject-role)는 전역 bump 대상이 아니다 — 그 변경은 해당 주체의 다음 토큰 갱신 때 반영된다
@@ -76,8 +79,8 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         String sid = sessionRegistry == null ? null : sessionRegistry.open(realm, subjectId);
 
         RealmSigningKeys.RealmKey key = signingKeys.of(realm);
-        String access = buildAccess(key, realm, subjectId, authLs, rbacRev, sid, accessExpirationMillis);
-        String refresh = buildRefresh(key, realm, subjectId, sid, refreshExpirationMillis);
+        String access = buildAccess(key, subjectId, authLs, rbacRev, sid, accessExpirationMillis);
+        String refresh = buildRefresh(key, subjectId, sid, refreshExpirationMillis);
         return new TokenPair(access, refresh);
     }
 
@@ -87,11 +90,6 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
 
         // access 토큰을 refresh 로 악용하지 못하게 타입을 검증한다.
         if (!"refresh".equals(claims.get("type", String.class))) {
-            throw new AuthenticationFailedException("리프레시 토큰이 유효하지 않습니다.");
-        }
-        // 다른 realm 키로 서명된 토큰은 위 parse 에서 이미 걸리지만, 클레임까지 대조해 둔다 —
-        // 서명키가 한 프로세스에 모여 있으므로 키 설정 실수가 곧 realm 혼입이 된다.
-        if (!realm.name().equals(claims.get("realm", String.class))) {
             throw new AuthenticationFailedException("리프레시 토큰이 유효하지 않습니다.");
         }
         String subjectId = claims.getSubject();
@@ -122,15 +120,14 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         }
     }
 
-    /** access 토큰 — 게이트웨이가 요청당 인가에 쓰도록 신원 + realm + 권한(authLs) + 리비전을 싣는다. */
-    private String buildAccess(RealmSigningKeys.RealmKey key, Realm realm, String subjectId,
+    /** access 토큰 — 게이트웨이가 요청당 인가에 쓰도록 신원 + 권한(authLs) + 리비전을 싣는다. */
+    private String buildAccess(RealmSigningKeys.RealmKey key, String subjectId,
                                String authLs, long rbacRev, String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
                 .subject(subjectId)
                 .claim("type", "access")
-                .claim("realm", realm.name())
                 .claim("authLs", authLs)
                 .claim("rbacRev", rbacRev)
                 .issuedAt(new Date(now))
@@ -142,18 +139,17 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     }
 
     /**
-     * refresh 토큰 — 재발급에 필요한 최소 클레임만 담는다: realm, 주체(userId), 단일 세션(sid).
-     * 표시정보/권한/리비전은 재발급 때 Principal 에서 다시 실으므로 넣지 않는다(쿠키 헤더 크기 절감).
+     * refresh 토큰 — 재발급에 필요한 최소 클레임만 담는다: 주체({@code sub})와 단일 세션(sid).
+     * 표시정보/권한/리비전은 재발급 때 Principal 에서 다시 실으므로 넣지 않는다(헤더 크기 절감).
      * access 와 구분되도록 {@code type=refresh} 를 박고, 재발급 시 이 타입을 검증한다.
      */
-    private String buildRefresh(RealmSigningKeys.RealmKey key, Realm realm, String subjectId,
+    private String buildRefresh(RealmSigningKeys.RealmKey key, String subjectId,
                                 String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
                 .subject(subjectId)
                 .claim("type", "refresh")
-                .claim("realm", realm.name())
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMillis));
         if (StringUtils.hasText(sid)) {

@@ -55,11 +55,6 @@ public final class RealmSigningKeys {
         return key;
     }
 
-    /** 검증용 — kid 로 공개키를 찾는다. 모르는 kid 면 비어 있다(= 이 서비스가 발급하지 않은 토큰). */
-    public PublicKey verifyKeyOf(String kid) {
-        return kid == null ? null : verifyKeysByKid.get(kid);
-    }
-
     /** 공개키 목록(kid → 공개키). JWKS 로 내보낼 때 쓴다. */
     public Map<String, PublicKey> verifyKeys() {
         return verifyKeysByKid;

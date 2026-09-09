@@ -22,6 +22,11 @@ import java.util.Optional;
  *
  * <p>토큰은 {@code Authorization: Bearer} 헤더에서만 읽는다. 쿠키 경로는 없앴다 — 인증 서버와
  * 프론트엔드의 도메인이 달라 쿠키가 전달되지 않는다({@link IssuedTokens} 참고).
+ *
+ * <p><b>realm 은 호출자가 넘긴다.</b> 이 서비스는 두 realm 의 키를 다 쥐고 있어서, 토큰만 보고 realm 을
+ * 정하면 결국 토큰이 하는 주장을 믿는 셈이 된다. 그래서 realm 을 먼저 정하고 그 realm 의 공개키로만
+ * 검증한다 — 다른 realm 의 토큰은 서명에서 죽는다. 인증 realm 은 경로가 주고
+ * ({@code /api/auth/realms/{realm}/...}), 경로에 realm 이 없는 운영 API 는 상수로 못박는다.
  */
 @Component
 @RequiredArgsConstructor
@@ -29,24 +34,26 @@ public class AuthenticatedCaller {
 
     /** access 토큰에 실린 권한 코드 목록(쉼표 구분). */
     private static final String PERMISSIONS_CLAIM = "authLs";
-    private static final String REALM_CLAIM = "realm";
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final AccessTokenReader accessTokenReader;
 
-    /** 토큰이 있고 유효하면 claims. 없거나 무효면 비어 있다(비로그인을 정상 흐름으로 다루는 쪽에서 쓴다). */
-    public Optional<Claims> read(HttpServletRequest request) {
-        return bearerToken(request).flatMap(accessTokenReader::read);
+    /**
+     * 그 realm 의 토큰이 있고 유효하면 claims. 없거나 무효면 비어 있다(비로그인을 정상 흐름으로 다루는
+     * 쪽에서 쓴다). 다른 realm 의 토큰도 여기서는 "없는 것"과 같다 — 서명 검증을 통과하지 못한다.
+     */
+    public Optional<Claims> read(Realm realm, HttpServletRequest request) {
+        return bearerToken(request).flatMap(token -> accessTokenReader.read(realm, token));
     }
 
-    /** 토큰이 유효하면 claims, 아니면 401. */
-    public Claims require(HttpServletRequest request) {
-        return read(request).orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
+    /** 그 realm 의 토큰이 유효하면 claims, 아니면 401. */
+    public Claims require(Realm realm, HttpServletRequest request) {
+        return read(realm, request).orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
     }
 
-    /** 토큰이 유효하고 그 권한을 갖고 있으면 claims, 없으면 403. */
-    public Claims requirePermission(HttpServletRequest request, String permissionCode) {
-        Claims claims = require(request);
+    /** 그 realm 의 토큰이 유효하고 그 권한을 갖고 있으면 claims, 없으면 403. */
+    public Claims requirePermission(Realm realm, HttpServletRequest request, String permissionCode) {
+        Claims claims = require(realm, request);
         if (!permissionsOf(claims).contains(permissionCode)) {
             throw new ForbiddenException("이 작업에 필요한 권한이 없습니다: " + permissionCode);
         }
@@ -55,22 +62,6 @@ public class AuthenticatedCaller {
 
     public String subjectId(Claims claims) {
         return claims.getSubject();
-    }
-
-    /**
-     * 호출자가 속한 realm — 토큰에 실려 온다. 한 서비스가 두 realm 을 담당하므로 설정으로는 알 수 없고,
-     * 요청 본문이 정하게 두면 남의 realm 을 지목할 수 있다. 서명된 토큰이 유일하게 믿을 수 있는 출처다.
-     */
-    public Realm realmOf(Claims claims) {
-        String realm = claims.get(REALM_CLAIM, String.class);
-        if (!StringUtils.hasText(realm)) {
-            throw new UnauthorizedException("토큰에 realm 이 없습니다.");
-        }
-        try {
-            return Realm.valueOf(realm);
-        } catch (IllegalArgumentException e) {
-            throw new UnauthorizedException("토큰의 realm 을 알 수 없습니다.");
-        }
     }
 
     public List<String> permissionsOf(Claims claims) {
