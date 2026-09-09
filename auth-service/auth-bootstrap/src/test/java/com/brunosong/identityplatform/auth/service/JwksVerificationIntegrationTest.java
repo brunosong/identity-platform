@@ -226,6 +226,20 @@ class JwksVerificationIntegrationTest {
     }
 
     @Test
+    @DisplayName("표준 검증기도 refresh 토큰을 access 로 받아주지 않는다")
+    void standardResourceServerRejectsRefreshToken() {
+        String email = "typecheck-" + UUID.randomUUID() + "@example.com";
+        registerCustomer(email);
+        Map<?, ?> tokens = (Map<?, ?>) loginResponse(email).get("tokens");
+        String refreshToken = (String) tokens.get("refreshToken");
+
+        // 같은 키, 같은 발급자, 아직 만료 전 — 서명·exp·iss 만 보는 기본 검증은 통과한다.
+        // 둘을 가르는 것은 type 클레임뿐이고, 그것은 표준 검증에 없다.
+        assertThatThrownBy(() -> portalDecoder(PORTAL_ISSUER).decode(refreshToken))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
     @DisplayName("토큰은 realm 을 클레임으로 들고 다니지 않는다")
     void tokenCarriesNoRealmClaim() {
         String email = "claims-" + UUID.randomUUID() + "@example.com";

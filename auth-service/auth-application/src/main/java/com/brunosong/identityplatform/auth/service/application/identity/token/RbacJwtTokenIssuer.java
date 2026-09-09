@@ -36,6 +36,13 @@ import java.util.Date;
  * 정해야 하므로(내용을 믿으려면 먼저 서명을 확인해야 한다) 그 정보는 서명 대상 밖인 헤더에 있어야 한다.
  * 다른 서비스에 공개키를 나눠줄 때(JWKS)도 이 kid 로 고른다.
  *
+ * <p><b>typ:</b> refresh 토큰만 헤더에 {@code typ=Refresh} 를 박는다. access 는 기본값({@code JWT})이다.
+ * 표준 JWT 처리기는 {@code typ} 이 {@code JWT} 이거나 없을 때만 받아들이므로, <b>리소스 서버는
+ * refresh 토큰을 설정 한 줄 없이 거부한다.</b> 두 토큰을 가르는 일을 클레임({@code type})에만 맡기면
+ * 그 클레임을 확인해 주는 검증기에서만 갈리는데, 표준 검증기는 커스텀 클레임을 모른다 —
+ * 실제로 Spring Security 로 옮긴 직후 refresh 토큰이 access 로 통과했다.
+ * ({@code type} 클레임은 그대로 둔다. auth 자신의 재발급 검증이 그것을 본다.)
+ *
  * <p><b>iss:</b> realm 별 발급자를 싣는다({@link RealmIssuers}). 서명은 "이 키를 가진 누군가"까지만
  * 말하고 <b>어느 배포의 키인지는 말하지 않는다</b> — staging 과 prod 의 포털 토큰은 클레임이 똑같다.
  * 소비 서비스가 JWKS 주소를 잘못 가리켰을 때 그것을 가르는 값이 이것뿐이다.
@@ -162,7 +169,10 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
                                 String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
-                .header().keyId(key.kid()).and()
+                // 헤더의 typ 으로 access 와 가른다. 표준 JWT 처리기는 typ 이 "JWT"(또는 없음)일 때만
+                // 받아들이므로, 리소스 서버는 이 토큰을 설정 한 줄 없이 거부한다 — 클레임을 대조해
+                // 주기를 바라지 않아도 된다. (Keycloak 도 refresh 토큰 헤더에 다른 typ 을 박는다.)
+                .header().keyId(key.kid()).type("Refresh").and()
                 .issuer(issuer)
                 .subject(subjectId)
                 .claim("type", "refresh")
