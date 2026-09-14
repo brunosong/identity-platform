@@ -86,6 +86,19 @@ class AuthorizationStorePersistenceIntegrationTest {
         }
 
         @Test
+        @DisplayName("다른 realm 의 역할은 배정되지 않는다 — DB 가 막는다")
+        void crossRealmAssignmentIsRejected() {
+            Long adminRole = role(Realm.ADMIN, "ROLE_ADMIN_ONLY", true).getRoleId();
+
+            // 포털 주체에게 어드민 역할을 붙이려 한다. 코드가 realm 으로 먼저 찾아서 막고 있지만,
+            // roleId 를 그대로 받는 경로(관리 API 의 역할 일괄 배정)가 있으므로 DB 가 붙들어야 한다.
+            assertThatThrownBy(() -> {
+                subjectRoleRepository.addRole(Realm.PORTAL, "CUSTOMER-1", adminRole);
+                flushClear();
+            }).hasMessageContaining("fk_authz_subject_role_role");
+        }
+
+        @Test
         @DisplayName("비활성 역할과 비활성 권한은 권한 코드에서 빠진다")
         void inactiveRowsExcluded() {
             AuthzPermissionEntity active = permission(Realm.ADMIN, "ACTIVE_PERM", true);

@@ -168,7 +168,12 @@ CREATE TABLE authz_role
     --
     -- 역할에는 서비스 구분이 없다. 역할은 "이 사람이 조직에서 맡은 일"(ADMIN, CUSTOMER, 상담원)이고
     -- 그건 서비스마다 다르지 않다. 서비스마다 갈리는 것은 아래 권한이다.
-    CONSTRAINT uk_authz_role_realm_role_code UNIQUE (realm, role_code)
+    CONSTRAINT uk_authz_role_realm_role_code UNIQUE (realm, role_code),
+
+    -- 주체-역할 배정이 (role_id, realm) 을 통째로 참조할 수 있게 하는 유니크다.
+    -- role_id 가 이미 PK 라 유일성 자체는 새로울 것이 없지만, 외래키는 유니크한 열 조합만
+    -- 참조할 수 있다. identity_principal 의 uk_identity_principal_id_realm 과 같은 자리다.
+    CONSTRAINT uk_authz_role_id_realm UNIQUE (role_id, realm)
 );
 
 CREATE TABLE authz_permission
@@ -273,8 +278,15 @@ CREATE TABLE authz_subject_role
 
     PRIMARY KEY (realm, subject_id, role_id),
     CONSTRAINT ck_authz_subject_role_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
+
+    -- realm 을 함께 참조한다. role_id 만 걸면 이 행의 realm 과 역할의 realm 이 어긋날 수 있다 —
+    -- 포털 고객에게 어드민 역할을 붙이는 행이 DB 에 들어간다. 그러면 realm 격리가 코드의
+    -- 규율로만 서게 되고, 관리 API 가 roleId 를 그대로 받는 경로로 실제로 샌다.
+    --
+    -- identity 쪽이 자격증명에 걸어둔 복합 외래키와 같은 규율이다. 그쪽 주석의 말 그대로,
+    -- 복사된 realm 은 어긋날 수 있으므로 DB 가 받아주지 않게 한다.
     CONSTRAINT fk_authz_subject_role_role
-        FOREIGN KEY (role_id) REFERENCES authz_role (role_id) ON DELETE CASCADE
+        FOREIGN KEY (role_id, realm) REFERENCES authz_role (role_id, realm) ON DELETE CASCADE
 );
 
 -- 토큰 발급 때마다 (realm, subject_id) 로 권한을 모은다 — PK 앞부분이라 별도 인덱스는 필요없다.
