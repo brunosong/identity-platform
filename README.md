@@ -9,10 +9,13 @@ MSA 에서 인증·인가를 어떻게 나누는지 직접 만들어보는 샘�
 두 realm(**ADMIN** / **PORTAL**)이 한 auth 를 공유하되 서로의 영역에는 들어가지 못한다.
 그 격리가 어떻게 지켜지는지가 이 저장소의 주제다.
 
-> **realm 과 주체 유형은 다른 값이다.** realm(`ADMIN`/`PORTAL`)은 *영역*이 어떤 정책을 갖는지를,
-> 주체 유형(`EMPLOYEE`/`CUSTOMER`)은 *사람*이 누구인지를 말한다. 어드민 영역에 직원이 살고,
-> 포털 영역에 고객이 산다. `ADMIN.failOpen()` 은 읽히지만 `EMPLOYEE.failOpen()` 은 읽히지 않는다 —
-> 사람이 fail-open 일 수는 없기 때문이다.
+> **realm 이 유일한 파티션 키다.** 신원·자격증명·역할·권한·URL규칙이 전부 이 값으로 나뉜다.
+> 전에는 identity 쪽이 `SubjectType`(EMPLOYEE/CUSTOMER)으로, authz 쪽이 realm 으로 나뉘었는데
+> 두 값은 끝까지 1:1 이었다 — 같은 분할선에 이름이 둘이었을 뿐이라 하나로 모았다.
+> Keycloak 도 `USER_ENTITY.REALM_ID` 하나로 간다.
+>
+> **두 realm 모두 화이트리스트다.** 등록된 URL 규칙만 통과하고, 규칙 없는 보호 경로는 거부한다.
+> 잊었을 때의 결과가 "막힌다" 여야지 "열린다" 여서는 안 되기 때문이다.
 
 ---
 
@@ -25,7 +28,7 @@ MSA 에서 인증·인가를 어떻게 나누는지 직접 만들어보는 샘�
 | auth-service | `localhost:8080` | |
 | customer-service | `localhost:8081` | |
 | 고객 포털 | `localhost:5173` | Vite + React |
-| 직원 관리자 | `localhost:5174` | 정적 HTML |
+| 직원 관리자 | `localhost:5174` | Vite + React |
 
 > **8080 이 이미 쓰이고 있다면** 아래 "포트가 겹칠 때" 를 보라. 흔한 상황이고, 바꿔야 할 곳이 몇 군데 있다.
 
@@ -176,17 +179,22 @@ java -jar target/customer-bootstrap-0.0.1-SNAPSHOT.jar
 
 ## 3. 프론트엔드 띄우기
 
+고객 포털과 직원 관리자, 둘 다 같은 방식이다.
+
 ```bash
 cd frontends/customer-portal
 npm install        # 처음 한 번
 npm run dev        # → http://localhost:5173
 ```
 
-직원 화면은 아직 정적 HTML 이다.
-
 ```bash
-python frontends/serve.py employee-admin 5174
+cd frontends/employee-admin
+npm install        # 처음 한 번
+npm run dev        # → http://localhost:5174
 ```
+
+**두 창을 나란히 띄워놓고 보는 것을 권한다.** 같은 auth-service 를 상대하는데 서로의 realm 에는
+들어가지 못하는 것이 이 저장소의 주제다.
 
 자세한 내용은 [`frontends/README.md`](frontends/README.md).
 
@@ -210,7 +218,7 @@ java -jar target/customer-bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
 **③ 프론트엔드** — 화면 오른쪽 아래 **"연결 대상"** 에서 바꾸거나,
-`frontends/customer-portal/.env.local` 에:
+`frontends/customer-portal/.env.local` 과 `frontends/employee-admin/.env.local` 에:
 
 ```
 VITE_AUTH_BASE_URL=http://localhost:8090
@@ -240,6 +248,17 @@ lsof -i :8080
 |---|---|
 | 직원 관리자 (ADMIN realm) | `admin@example.com` · 이메일 OTP, 고정코드 **`123456`** |
 | 고객 (PORTAL realm) | 없음 — 화면에서 직접 가입(`POST /api/auth/realms/portal/register`) |
+
+계정을 만드는 방법은 realm 이 정한다.
+
+| realm | 셀프 가입 | 관리자 등록 |
+|---|---|---|
+| PORTAL | 비밀번호 **또는** 이메일 인증 | — |
+| ADMIN | 이메일 인증만 | 있음 (역할까지 배정) |
+
+어느 쪽이든 **비밀번호를 정하는 것은 포털뿐**이다 — 직원 계정은 이메일 계정만 갖는다.
+어드민 셀프 가입으로 만든 계정에는 역할이 하나도 붙지 않아, 로그인은 되지만 아무것도 열지
+못한다. 쓸 수 있게 만드는 것은 `AUTHZ_MANAGE` 를 가진 운영자다.
 
 직원 계정은 관리자만 만들 수 있어서(`AUTHZ_MANAGE` 권한 필요) **최초 한 명은 데이터로 심어야 한다** —
 닭과 달걀 문제다. 실제 운영에서도 최초 관리자는 이렇게 넣는다.
