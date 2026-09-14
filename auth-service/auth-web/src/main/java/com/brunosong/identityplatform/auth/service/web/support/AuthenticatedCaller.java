@@ -32,13 +32,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AuthenticatedCaller {
 
-    /**
-     * 이 서비스 자신의 클라이언트 이름. 토큰의 {@code resource_access} 에서 이 칸만 읽는다.
-     *
-     * <p>어드민 콘솔이 상대하는 서비스가 auth 자신이라, 콘솔의 권한({@code AUTHZ_MANAGE})은
-     * auth-service 의 client role 이다 — 다른 서비스의 역할은 여기서 읽지 않는다.
-     */
-    private static final String OWN_CLIENT_ID = "auth-service";
     private static final String RESOURCE_ACCESS_CLAIM = "resource_access";
     private static final String ROLES_KEY = "roles";
     private static final String BEARER_PREFIX = "Bearer ";
@@ -58,9 +51,17 @@ public class AuthenticatedCaller {
         return read(realm, request).orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
     }
 
-    /** 그 realm 의 토큰이 유효하고 그 권한을 갖고 있으면 claims, 없으면 403. */
+    /**
+     * <b>admin 채널용.</b> 그 realm 의 토큰이 이 서비스 앞으로 발급됐고({@code aud}) 그 권한을
+     * 갖고 있으면 claims, 아니면 401/403.
+     *
+     * <p>{@link #require} 와 달리 {@code aud} 까지 본다. 여기 걸리는 API 는 auth 자신의 자원을
+     * 바꾸므로, 같은 realm 의 다른 클라이언트가 받은 토큰이 통과하면 안 된다.
+     */
     public Claims requirePermission(Realm realm, HttpServletRequest request, String permissionCode) {
-        Claims claims = require(realm, request);
+        Claims claims = bearerToken(request)
+                .flatMap(token -> accessTokenReader.readForSelf(realm, token))
+                .orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
         if (!permissionsOf(claims).contains(permissionCode)) {
             throw new ForbiddenException("이 작업에 필요한 권한이 없습니다: " + permissionCode);
         }
@@ -75,7 +76,10 @@ public class AuthenticatedCaller {
      * 이 서비스에 대해 호출자가 가진 역할 코드.
      *
      * <p>전에는 권한 코드를 평면 목록({@code authLs})으로 읽었다. 이제는 서비스별로 갈려 있어
-     * <b>auth-service 칸만</b> 본다 — 다른 서비스의 역할이 이 서비스의 문을 열지 않는다.
+     * <b>자기 칸만</b> 본다 — 다른 서비스의 권한이 이 서비스의 문을 열지 않는다.
+     *
+     * <p>칸 이름은 {@link AccessTokenReader#audience()} 에서 온다. {@code aud} 대조에 쓰는 값과
+     * 같은 값이어야 하므로 한 곳에서만 정한다.
      */
     @SuppressWarnings("unchecked")
     public List<String> permissionsOf(Claims claims) {
@@ -83,7 +87,7 @@ public class AuthenticatedCaller {
         if (!(resourceAccess instanceof Map<?, ?> byClient)) {
             return List.of();
         }
-        if (!(byClient.get(OWN_CLIENT_ID) instanceof Map<?, ?> own)) {
+        if (!(byClient.get(accessTokenReader.audience()) instanceof Map<?, ?> own)) {
             return List.of();
         }
         if (!(own.get(ROLES_KEY) instanceof List<?> roles)) {

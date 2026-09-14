@@ -19,6 +19,14 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+# 이 서비스가 자기 관리 API 에서 요구하는 대상(aud). auth 도 자기 API 에 대해서는
+# 리소스 서버라, 자기 이름으로 발급된 토큰만 받아야 한다.
+#
+# token.clients.*.audiences 에 쓰는 이름과 같아야 한다 — 어드민 콘솔(employee-admin)의
+# audience 가 auth-service 인 것이 그 짝이다.
+auth:
+  audience: ${AUTH_AUDIENCE:auth-service}
+
 authorization:
   # RBAC 편집·캐시 리로드 같은 운영 API 를 부르는 데 필요한 권한 코드.
   manage-permission: AUTHZ_MANAGE
