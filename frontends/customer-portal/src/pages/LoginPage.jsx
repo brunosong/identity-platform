@@ -25,7 +25,14 @@ export default function LoginPage() {
     });
     const [notice, setNotice] = useState(
         signedUpEmail
-            ? { kind: 'ok', text: `가입되었습니다 (principalId ${location.state.principalId}). 이제 로그인해 보세요.` }
+            ? {
+                kind: 'ok',
+                text: `가입되었습니다 (principalId ${location.state.principalId}). `
+                    + (location.state?.passwordless
+                        ? '비밀번호를 정하지 않은 계정이라 아래 비밀번호 로그인은 되지 않습니다 — '
+                          + '이메일 OTP 로 로그인해야 합니다.'
+                        : '이제 로그인해 보세요.'),
+            }
             : null,
     );
     const [busy, setBusy] = useState(false);
@@ -58,7 +65,7 @@ export default function LoginPage() {
             : {
                 kind: 'ok',
                 text: `어드민 realm 거부됨 (${result.status}) — "${result.message}". `
-                    + '비밀번호는 맞습니다. 자격증명 조회가 (subject_type, login_id) 로 좁혀져 있어 '
+                    + '비밀번호는 맞습니다. 자격증명 조회가 (realm, login_id) 로 좁혀져 있어 '
                     + '직원 서랍에는 이 계정이 아예 없습니다. 없는 아이디와 같은 메시지로 끝나 '
                     + '계정이 어디에 있는지도 새지 않습니다.',
             });

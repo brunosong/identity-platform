@@ -16,6 +16,16 @@ import { request } from './http';
 
 const REALM = 'portal';
 
+/**
+ * 이 앱의 클라이언트 식별자. 로그인 요청에 실으면 auth 가 이 클라이언트의 audience 로 토큰을 만든다.
+ *
+ * <b>통합 로그인은 그대로다.</b> 한 클라이언트가 audience 를 여럿 가질 수 있어서, 서비스가 늘면
+ * auth 설정(token.clients.customer-portal.audiences)에 한 줄 더하면 같은 토큰이 그 서비스에도 통한다.
+ * 달라지는 것은 나열되지 않은 서비스가 이 토큰을 거부한다는 것뿐이다 — 서비스 하나가 침해돼도
+ * 그 토큰을 다른 서비스에 재생할 수 없다.
+ */
+const CLIENT_ID = 'customer-portal';
+
 const authUrl = () => endpoints().auth;
 
 /** 고객 가입. 이메일이 곧 로그인 아이디다(고객은 별도 아이디가 없다). */
@@ -25,9 +35,36 @@ export function register({ email, password, name, phoneNumber }) {
     });
 }
 
+/**
+ * 가입용 인증번호 발송.
+ *
+ * 로그인용 OTP 와 <b>조건이 정반대다.</b> 로그인용은 등록된 주소에만, 이것은 등록되지 <i>않은</i>
+ * 주소에만 보낸다. 그래서 경로가 따로 있다.
+ *
+ * 응답은 어느 쪽이든 202 다 — "이미 가입된 이메일입니다" 를 돌려주면 주소를 넣어보는 것만으로
+ * 누가 가입돼 있는지 훑을 수 있다.
+ */
+export function sendRegistrationCode(email) {
+    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/register/email/send-code`, {
+        body: { email },
+    });
+}
+
+/**
+ * 인증번호로 가입한다. <b>비밀번호를 정하지 않는다.</b>
+ *
+ * 비밀번호 가입과 달리 <b>가입 시점에 이메일 소유가 확인된다</b> — 인증번호를 받아낸 것이 곧
+ * 그 주소의 주인이라는 증거이기 때문이다. 대신 이 사람은 이메일 OTP 로만 로그인한다.
+ */
+export function registerWithEmail({ email, name, phoneNumber, verificationCode }) {
+    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/register/email`, {
+        body: { email, name, phoneNumber, verificationCode },
+    });
+}
+
 export function login({ loginId, password }) {
     return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login`, {
-        body: { loginId, password },
+        body: { loginId, password, clientId: CLIENT_ID },
     });
 }
 
@@ -64,7 +101,8 @@ export function jwks() {
 
 /** realm 격리 실험 — 같은 자격증명을 다른 realm 에 넣어본다. 성공해도 토큰을 쓰지 않는다. */
 export function tryOtherRealm(realm, { loginId, password }) {
+    // clientId 는 그대로 둔다. realm 이 어긋나면 자격증명 이전에 클라이언트에서 먼저 걸린다.
     return request(authUrl(), 'POST', `/api/auth/realms/${realm}/login`, {
-        body: { loginId, password },
+        body: { loginId, password, clientId: CLIENT_ID },
     });
 }

@@ -6,8 +6,9 @@
     --input: #0d0f14;
     --text: #e6e8ee;
     --muted: #8b93a7;
-    --accent: #5b8cff;
-    --accent-ink: #08101f;
+    /* 어드민의 색. 고객 포털(파랑)과 한눈에 구분되게 둔다 — 두 창을 나란히 띄워놓고 보기 때문이다. */
+    --accent: #ffb454;
+    --accent-ink: #201603;
     --ok: #3ddc97;
     --err: #ff6b6b;
     --warn: #ffb454;
@@ -42,7 +43,7 @@ code { font-family: "Cascadia Mono", Consolas, monospace; font-size: .92em; }
 .brand { color: var(--text); text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 10px; }
 .badge {
     font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px;
-    background: rgba(91, 140, 255, .15); color: var(--accent);
+    background: rgba(255, 180, 84, .15); color: var(--accent);
 }
 .topnav { display: flex; align-items: center; gap: 16px; font-size: 13px; }
 .topnav a { color: var(--muted); text-decoration: none; }
@@ -125,7 +126,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
 .chip {
     display: inline-block; padding: 2px 8px; border-radius: 4px; margin: 0 5px 5px 0;
-    background: rgba(91, 140, 255, .15); color: var(--accent); font-size: 12px;
+    background: rgba(255, 180, 84, .15); color: var(--accent); font-size: 12px;
 }
 
 /* ── 클레임 표 ──────────────────────────────────────── */
@@ -179,9 +180,8 @@ pre.raw {
 }
 .log-line:last-child { border-bottom: none; }
 .log-line .time { color: #5b6273; }
-.log-line .server { min-width: 66px; }
+.log-line .server { min-width: 46px; }
 .log-line .server.auth { color: var(--accent); }
-.log-line .server.customer { color: var(--warn); }
 .log-line .method { min-width: 42px; color: var(--muted); }
 .log-line .path { flex: 1; word-break: break-all; color: var(--text); }
 .log-line .status.s2 { color: var(--ok); }
@@ -193,12 +193,29 @@ pre.raw {
     .claim-key { width: auto; }
 }
 
-/* ── 가입 방식 탭 / 단계 표시 ───────────────────────── */
-.stepline { display: flex; gap: 8px; align-items: center; margin: 0 0 18px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
-.stepline .step {
-    padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
-    background: var(--panel-2); color: var(--muted); font: inherit; cursor: pointer;
+/* ── 표 (역할·권한 목록) ────────────────────────────── */
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+table.grid th {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line);
+    color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
 }
-.stepline button.step:hover { color: var(--text); }
+table.grid td { padding: 8px 10px; border-bottom: 1px solid #1a1e26; vertical-align: top; }
+table.grid tr:last-child td { border-bottom: none; }
+table.grid code { color: var(--accent); }
+
+/* ── 역할 고르기 (직원 가입) ────────────────────────── */
+.checks { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.check {
+    display: flex; align-items: flex-start; gap: 9px; margin: 0; padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 6px; cursor: pointer;
+    color: var(--text); font-size: 13px; background: var(--input);
+}
+.check:hover { border-color: var(--accent); }
+.check input { width: auto; margin-top: 3px; flex: none; }
+.check .check-desc { display: block; color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+
+/* ── 단계 표시 (OTP 로그인) ─────────────────────────── */
+.stepline { display: flex; gap: 8px; align-items: center; margin: 0 0 18px; font-size: 12px; color: var(--muted); }
+.stepline .step { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); }
 .stepline .step.now { border-color: var(--accent); color: var(--accent); }
 .stepline .step.done { color: var(--ok); border-color: rgba(61, 220, 151, .3); }

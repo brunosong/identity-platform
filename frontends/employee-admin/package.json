@@ -1,0 +1,21 @@
+{
+  "name": "employee-admin",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "직원 관리자 — auth-service 의 어드민 realm 에 이메일 OTP 로 로그인하는 학습용 프론트엔드",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.2",
+    "vite": "^7.1.5"
+  }
+}
