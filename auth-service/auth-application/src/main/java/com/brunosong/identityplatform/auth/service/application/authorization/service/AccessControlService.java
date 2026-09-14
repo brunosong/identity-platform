@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.auth.service.application.authorization.se
 
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.CheckAccessUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectPermissionsUseCase;
+import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectRolesUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ReloadAccessRulesUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.out.SubjectRoleQuery;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.out.UrlAccessQuery;
@@ -41,7 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @Slf4j
 public class AccessControlService implements CheckAccessUseCase, ListSubjectPermissionsUseCase,
-        ReloadAccessRulesUseCase {
+        ListSubjectRolesUseCase, ReloadAccessRulesUseCase {
 
     private final UrlAccessQuery urlAccessQuery;
     private final SubjectRoleQuery subjectRoleQuery;
@@ -98,6 +99,19 @@ public class AccessControlService implements CheckAccessUseCase, ListSubjectPerm
     @Override
     public List<String> of(Realm realm, String subjectId) {
         return subjectRoleQuery.permissionCodes(realm, subjectId);
+    }
+
+    /**
+     * 토큰에 실을 역할을 realm 공통과 서비스별로 갈라 읽는다.
+     *
+     * <p>요청한 서비스({@code clientIds} = 토큰의 aud)의 역할만 읽는다. 전부 읽으면 토큰이
+     * realm 전체 크기로 자란다.
+     */
+    @Override
+    public SubjectRoles of(Realm realm, String subjectId, java.util.Collection<String> clientIds) {
+        return new SubjectRoles(
+                subjectRoleQuery.realmRoleCodes(realm, subjectId),
+                subjectRoleQuery.clientRoleCodes(realm, subjectId, clientIds));
     }
 
     @Override

@@ -5,7 +5,7 @@ import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.T
 
 /**
  * 인증 성공 결과: 신원(principalId/subjectId) + 발급 토큰. 호스트 컨트롤러가 쿠키 세팅에 사용.
- * 역할/권한은 토큰(authLs 클레임)에 실려 있으므로 여기 담지 않는다.
+ * 역할은 토큰(realm_access / resource_access 클레임)에 실려 있으므로 여기 담지 않는다.
  */
 public record AuthenticationResult(
         String principalId,

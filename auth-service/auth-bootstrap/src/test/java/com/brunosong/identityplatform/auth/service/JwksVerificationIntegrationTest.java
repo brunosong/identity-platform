@@ -86,7 +86,7 @@ class JwksVerificationIntegrationTest {
     @BeforeEach
     void setUp() {
         http = RestClient.create("http://localhost:" + port);
-        verifier = new AuthTokenVerifier(portalKeys(), PORTAL_ISSUER);
+        verifier = new AuthTokenVerifier(portalKeys(), PORTAL_ISSUER, "customer-service");
     }
 
     @Test
@@ -252,7 +252,7 @@ class JwksVerificationIntegrationTest {
                 // realm 은 표준 자리인 iss 안에 있다.
                 .containsEntry("iss", PORTAL_ISSUER)
                 .containsEntry("type", "access")
-                .containsKeys("sub", "authLs", "rbacRev", "exp");
+                .containsKeys("sub", "realm_access", "resource_access", "rbacRev", "exp");
     }
 
     @Test
@@ -265,7 +265,7 @@ class JwksVerificationIntegrationTest {
         // 이 검증기는 같은 JWKS 를 보므로 서명은 통과한다. realm 도 같고 클레임도 같다.
         // 다른 것은 발급자 이름 하나뿐이다 — staging 토큰이 prod 를 여는 상황이 정확히 이 모양이다.
         AuthTokenVerifier otherDeployment =
-                new AuthTokenVerifier(portalKeys(), "https://auth.example.com/realms/portal");
+                new AuthTokenVerifier(portalKeys(), "https://auth.example.com/realms/portal", "customer-service");
 
         assertThat(otherDeployment.verify(accessToken)).isEmpty();
         assertThat(verifier.verify(accessToken)).isPresent();

@@ -63,7 +63,8 @@ export default function RbacPage() {
             setNotice({
                 kind: 'ok',
                 text: `어드민 realm 의 권한 ${result.data?.length ?? 0}개. `
-                    + '이 코드들이 토큰의 authLs 에 실려서, 서비스가 요청마다 권한 DB 를 뒤지지 않아도 됩니다.',
+                    + '이것은 realm 공통 권한이고, 어드민 콘솔의 화면·URL 제어가 씁니다. '
+                    + '업무 서비스의 권한은 여기 없습니다 — 그쪽은 서비스별 역할(client role)로 갈려 있습니다.',
             });
             return;
         }

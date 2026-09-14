@@ -1,7 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.identity.token;
 
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.GetAuthorizationRevisionUseCase;
-import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectPermissionsUseCase;
+import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectRolesUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SessionRegistryPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
@@ -22,7 +22,7 @@ import java.util.Map;
  * 키가 설정에 없으면 부팅에서 실패한다. 토큰을 못 만드는 인증 서비스는 떠 있어도 소용이 없다.
  *
  * <p>realm 별 키페어를 모두 읽어 한 발급기에 넘긴다. 토큰에 실을 권한과 리비전은 auth 자체
- * ({@link ListSubjectPermissionsUseCase}/{@link GetAuthorizationRevisionUseCase})가 낸다.
+ * ({@link ListSubjectRolesUseCase}/{@link GetAuthorizationRevisionUseCase})가 낸다.
  */
 @Configuration
 @EnableConfigurationProperties(TokenProperties.class)
@@ -62,7 +62,7 @@ public class RbacTokenIssuerConfiguration {
 
     @Bean
     public TokenIssuerPort rbacJwtTokenIssuer(
-            ListSubjectPermissionsUseCase subjectPermissions,
+            ListSubjectRolesUseCase subjectRoles,
             GetAuthorizationRevisionUseCase revision,
             ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
             RealmSigningKeys signingKeys,
@@ -70,7 +70,7 @@ public class RbacTokenIssuerConfiguration {
             TokenClients clients,
             TokenProperties properties) {
         return new RbacJwtTokenIssuer(
-                subjectPermissions, revision, sessionRegistryProvider, signingKeys, issuers, clients,
+                subjectRoles, revision, sessionRegistryProvider, signingKeys, issuers, clients,
                 properties.getAccessExpiration(), properties.getRefreshExpiration());
     }
 }

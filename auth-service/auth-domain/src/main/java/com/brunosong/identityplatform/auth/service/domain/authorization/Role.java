@@ -9,8 +9,19 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * 역할 — realm 으로 스코프되며 roleCode 는 realm 내에서 유일하다.
- * 보유 권한은 permissionId 집합으로만 연관한다(권한은 별도 애그리거트).
+ * 역할 — realm 으로 스코프된다. 여기에 <b>어느 서비스의 역할인가</b>({@code clientId})가 더해진다.
+ *
+ * <ul>
+ *   <li><b>realm 역할</b>({@code clientId == null}) — 영역 공통. 권한(permissionId)을 갖고,
+ *       어드민 콘솔의 화면·URL 제어가 그것을 쓴다.</li>
+ *   <li><b>client 역할</b>({@code clientId != null}) — 그 서비스의 것. <b>역할 코드 자체가 권한</b>이고
+ *       별도의 permission 을 갖지 않는다. 그것이 무엇을 여는지는 그 서비스가 자기 코드로 정한다 —
+ *       auth 는 이름만 보관한다.</li>
+ * </ul>
+ *
+ * <p>서비스가 늘어날수록 권한 어휘가 전역이면 부딪힌다. 서비스로 네임스페이스를 가르면 그
+ * 충돌이 구조적으로 불가능해지고, 새 서비스가 auth 스키마를 건드리지 않고 배포된다.
+ * (Keycloak 의 client roles 와 같은 자리다.)
  *
  * <p>권한 집합의 변경은 이 애그리거트를 통해서만 일어난다. 밖에서 얻은 집합은 읽기 전용이라,
  * "조회해서 담아둔 집합을 몰래 고쳐 저장"하는 경로가 생기지 않는다.
@@ -21,6 +32,8 @@ public class Role {
     /** null = 아직 저장되지 않은 신규. */
     private final Long roleId;
     private final Realm realm;
+    /** null = realm 공통 역할. 값이 있으면 그 서비스의 역할이다. */
+    private final String clientId;
     private final String roleCode;
 
     private String roleName;
@@ -29,10 +42,11 @@ public class Role {
 
     private final Set<Long> permissionIds;
 
-    private Role(Long roleId, Realm realm, String roleCode, String roleName, String description,
-                 boolean active, Collection<Long> permissionIds) {
+    private Role(Long roleId, Realm realm, String clientId, String roleCode, String roleName,
+                 String description, boolean active, Collection<Long> permissionIds) {
         this.roleId = roleId;
         this.realm = realm;
+        this.clientId = normalize(clientId);
         this.roleCode = roleCode;
         this.roleName = roleName;
         this.description = description;
@@ -40,15 +54,27 @@ public class Role {
         this.permissionIds = permissionIds == null ? new LinkedHashSet<>() : new LinkedHashSet<>(permissionIds);
     }
 
+    /** realm 공통 역할. 권한(permissionId)을 갖고 어드민 콘솔의 화면 제어가 그것을 쓴다. */
     public static Role create(Realm realm, String roleCode, String roleName, String description) {
-        if (realm == null) throw new IllegalArgumentException("realm must not be null");
-        return new Role(null, realm, requireCode(roleCode), requireName(roleName), normalize(description),
-                true, null);
+        return create(realm, null, roleCode, roleName, description);
     }
 
-    public static Role restore(Long roleId, Realm realm, String roleCode, String roleName, String description,
-                               boolean active, Collection<Long> permissionIds) {
-        return new Role(roleId, realm, roleCode, roleName, description, active, permissionIds);
+    /** 그 서비스의 역할. {@code clientId} 가 null 이면 realm 공통 역할이 된다. */
+    public static Role create(Realm realm, String clientId, String roleCode, String roleName,
+                              String description) {
+        if (realm == null) throw new IllegalArgumentException("realm must not be null");
+        return new Role(null, realm, clientId, requireCode(roleCode), requireName(roleName),
+                normalize(description), true, null);
+    }
+
+    public static Role restore(Long roleId, Realm realm, String clientId, String roleCode, String roleName,
+                               String description, boolean active, Collection<Long> permissionIds) {
+        return new Role(roleId, realm, clientId, roleCode, roleName, description, active, permissionIds);
+    }
+
+    /** 이 역할이 특정 서비스의 것인가. 아니면 realm 공통이다. */
+    public boolean isClientRole() {
+        return clientId != null;
     }
 
     /** 보유 권한 — 읽기 전용 뷰. 변경은 {@link #replacePermissions}/{@link #grantPermission} 으로만. */

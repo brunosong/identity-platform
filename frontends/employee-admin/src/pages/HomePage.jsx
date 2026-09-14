@@ -48,7 +48,7 @@ export default function HomePage() {
             kind: 'ok',
             text: `realm ${result.data.realm ?? '(없음)'} · `
                 + `${result.data.permissions.join(', ') || '권한 없음'} — `
-                + '이 값은 서버가 토큰을 열어 읽어준 것이고, 위 클레임 표의 authLs 와 같은 값입니다.',
+                + '이 값은 서버가 토큰을 열어 읽어준 것이고, resource_access["auth-service"] 와 같은 값입니다.',
         });
     }
 
@@ -102,7 +102,7 @@ export default function HomePage() {
                 <div className="kv">
                     <span>subjectId (sub)</span><code>{claims?.sub}</code>
                     <span>발급자 (iss)</span><code>{claims?.iss}</code>
-                    <span>권한 (authLs)</span>
+                    <span>역할 (auth-service)</span>
                     <span>
                         {permissions.length === 0
                             ? <em className="hint">없음</em>
@@ -110,9 +110,13 @@ export default function HomePage() {
                     </span>
                 </div>
                 <p className="field-hint">
-                    <b>realm 클레임이 없는 것</b>에 주목하세요. realm 은 <code>iss</code> 안에 있고,
-                    무엇보다 <b>어느 키로 검증됐는지가 곧 realm</b> 입니다. 토큰이 스스로 "나는 어드민
-                    것" 이라고 주장하는 것보다 어드민 공개키로만 검증되는 편이 강합니다.
+                    역할이 <b>두 칸</b>으로 갈려 있습니다 — <code>realm_access</code>(영역 공통)와
+                    <code>resource_access</code>(서비스별). 이 화면을 여는 것은 뒤쪽,
+                    그중에서도 <code>auth-service</code> 칸입니다. 다른 서비스의 역할은 여기를
+                    열지 않습니다.
+                    <br /><br />
+                    <b>realm 클레임이 없는 것</b>에도 주목하세요. realm 은 <code>iss</code> 안에 있고,
+                    무엇보다 <b>어느 키로 검증됐는지가 곧 realm</b> 입니다.
                 </p>
 
                 <div className="row">

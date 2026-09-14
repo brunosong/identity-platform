@@ -51,6 +51,7 @@ public class RoleRepositoryAdapter implements RoleRepository {
                 : roleRepository.findById(role.getRoleId())
                         .orElseThrow(() -> AuthorizationNotFoundException.role(role.getRoleId()));
         entity.setRealm(role.getRealm());
+        entity.setClientId(role.getClientId());
         entity.setRoleCode(role.getRoleCode());
         entity.setRoleName(role.getRoleName());
         entity.setDescription(role.getDescription());
@@ -82,6 +83,7 @@ public class RoleRepositoryAdapter implements RoleRepository {
         return Role.restore(
                 entity.getRoleId(),
                 entity.getRealm(),
+                entity.getClientId(),
                 entity.getRoleCode(),
                 entity.getRoleName(),
                 entity.getDescription(),

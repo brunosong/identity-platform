@@ -1,7 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.identity.token;
 
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.GetAuthorizationRevisionUseCase;
-import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectPermissionsUseCase;
+import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectRolesUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SessionRegistryPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
@@ -19,14 +19,32 @@ import org.springframework.util.StringUtils;
 
 import java.security.PublicKey;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * 표준 JWT 토큰 발급기(RBAC 적재형). subjectId + realm + 로그인 이메일 + 권한(authLs) + RBAC 리비전(rbacRev)을
- * 담아 RS256 으로 서명한다.
+ * 표준 JWT 토큰 발급기(RBAC 적재형). subjectId + 역할 + RBAC 리비전을 담아 RS256 으로 서명한다.
  *
- * <p>게이트웨이/시큐리티가 토큰만으로 인가하도록(요청당 권한 DB 조회 없이) 권한을 토큰에 싣고, realm 의
- * 권한 정책(역할-권한/URL 매핑)이 바뀌면 리비전 bump 로 옛 토큰을 무효화한다.
+ * <p>요청마다 권한 DB 를 뒤지지 않도록 역할을 토큰에 싣고, realm 의 권한 정책이 바뀌면 리비전
+ * bump 로 옛 토큰을 무효화한다.
+ *
+ * <h2>권한이 아니라 역할을 싣는다</h2>
+ * 전에는 권한 코드를 평면 목록({@code authLs})으로 실었다. 그러면 두 가지가 아프다 —
+ * 어휘가 전역이라 서비스가 늘수록 이름이 부딪히고(order-service 의 READ 와 customer-service 의
+ * READ), <b>auth 가 모든 서비스의 권한 이름을 알아야 한다.</b> 새 서비스를 붙일 때마다 auth 스키마에
+ * 등록해야 하므로 배포가 서로 묶인다.
+ *
+ * <p>이제 Keycloak 과 같은 모양으로 나눈다.
+ *
+ * <pre>
+ * "realm_access":    { "roles": ["CUSTOMER"] }
+ * "resource_access": { "customer-service": { "roles": ["PROFILE_READ"] } }
+ * </pre>
+ *
+ * <b>{@code resource_access} 에는 이 토큰의 {@code aud} 에 있는 서비스만 싣는다.</b> 전부 실으면
+ * 토큰이 realm 전체 크기로 자란다. 그 이름이 무엇을 여는지는 각 서비스가 자기 코드로 정하므로,
+ * auth 는 이름만 보관하고 URL 규칙은 그 서비스와 함께 배포된다.
  *
  * <p><b>서명:</b> RS256(비대칭). realm 마다 다른 RSA 키페어를 쓴다({@link RealmSigningKeys}).
  * 한 프로세스가 두 realm 을 모두 담당하므로 발급기가 두 벌을 다 쥐고 realm 에 맞는 키를 고른다 —
@@ -65,7 +83,7 @@ import java.util.List;
  */
 public class RbacJwtTokenIssuer implements TokenIssuerPort {
 
-    private final ListSubjectPermissionsUseCase subjectPermissions;
+    private final ListSubjectRolesUseCase subjectRoles;
     private final GetAuthorizationRevisionUseCase revision;
     private final ObjectProvider<SessionRegistryPort> sessionRegistryProvider;
     private final RealmSigningKeys signingKeys;
@@ -74,14 +92,14 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     private final long accessExpirationMillis;
     private final long refreshExpirationMillis;
 
-    public RbacJwtTokenIssuer(ListSubjectPermissionsUseCase subjectPermissions,
+    public RbacJwtTokenIssuer(ListSubjectRolesUseCase subjectRoles,
                               GetAuthorizationRevisionUseCase revision,
                               ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
                               RealmSigningKeys signingKeys,
                               RealmIssuers issuers,
                               TokenClients clients,
                               long accessExpirationMillis, long refreshExpirationMillis) {
-        this.subjectPermissions = subjectPermissions;
+        this.subjectRoles = subjectRoles;
         this.revision = revision;
         this.sessionRegistryProvider = sessionRegistryProvider;
         this.signingKeys = signingKeys;
@@ -97,7 +115,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         // 모르는 클라이언트거나 realm 이 어긋나면 여기서 인증 실패로 끝난다.
         List<String> audiences = clients.audiencesOf(realm, clientId);
 
-        String authLs = String.join(",", subjectPermissions.of(realm, subjectId));
+        ListSubjectRolesUseCase.SubjectRoles roles = subjectRoles.of(realm, subjectId, audiences);
         long rbacRev = revision.current(realm);
 
         // 단일 세션을 켠 설정에서만 sid 발급(기존 세션 무효화). 미활성이면 sid 없이 다중 로그인 허용.
@@ -106,7 +124,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
 
         RealmSigningKeys.RealmKey key = signingKeys.of(realm);
         String issuer = issuers.of(realm);
-        String access = buildAccess(key, issuer, subjectId, audiences, authLs, rbacRev, sid,
+        String access = buildAccess(key, issuer, subjectId, audiences, roles, rbacRev, sid,
                 accessExpirationMillis);
         String refresh = buildRefresh(key, issuer, subjectId, clientId, sid, refreshExpirationMillis);
         return new TokenPair(access, refresh);
@@ -155,10 +173,10 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         }
     }
 
-    /** access 토큰 — 게이트웨이가 요청당 인가에 쓰도록 신원 + 권한(authLs) + 리비전을 싣는다. */
+    /** access 토큰 — 요청당 DB 조회 없이 인가하도록 신원 + 역할(realm/서비스별) + 리비전을 싣는다. */
     private String buildAccess(RealmSigningKeys.RealmKey key, String issuer, String subjectId,
-                               List<String> audiences, String authLs, long rbacRev, String sid,
-                               long ttlMillis) {
+                               List<String> audiences, ListSubjectRolesUseCase.SubjectRoles roles,
+                               long rbacRev, String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
@@ -166,7 +184,8 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
                 .audience().add(audiences).and()
                 .subject(subjectId)
                 .claim("type", "access")
-                .claim("authLs", authLs)
+                .claim("realm_access", Map.of("roles", roles.realmRoles()))
+                .claim("resource_access", resourceAccess(roles.clientRoles()))
                 .claim("rbacRev", rbacRev)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMillis));
@@ -174,6 +193,13 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
             builder.claim("sid", sid);
         }
         return builder.signWith(key.privateKey(), Jwts.SIG.RS256).compact();
+    }
+
+    /** {@code {"customer-service": {"roles": [...]}}} 모양으로 감싼다 — Keycloak 과 같은 구조다. */
+    private static Map<String, Object> resourceAccess(Map<String, List<String>> clientRoles) {
+        Map<String, Object> wrapped = new LinkedHashMap<>();
+        clientRoles.forEach((clientId, codes) -> wrapped.put(clientId, Map.of("roles", codes)));
+        return wrapped;
     }
 
     /**

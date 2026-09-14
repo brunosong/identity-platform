@@ -32,7 +32,8 @@ export default function RequireManage({ children }) {
                             </span>
                         </div>
                         <p className="field-hint">
-                            권한은 토큰이 <b>발급될 때</b> 실립니다(<code>authLs</code>). 방금 역할을
+                            권한은 토큰이 <b>발급될 때</b> 실립니다
+                            (<code>resource_access["auth-service"]</code>). 방금 역할을
                             받았다면 이 토큰에는 아직 없습니다 — 홈에서 <b>토큰 재발급</b>을 누르면
                             그 시점의 권한으로 다시 실립니다.
                         </p>

@@ -1,6 +1,5 @@
 package com.brunosong.identityplatform.auth.service.web.client.identity;
 
-import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectPermissionsUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.AuthenticateWithEmailOtpUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RequestEmailOtpUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.EmailOtpAuthCommand;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 
 /**
  * 이메일 OTP 로그인 API — 인증번호 발송과 검증+토큰발급을 소유한다.
@@ -44,7 +42,6 @@ public class EmailOtpLoginApiController {
 
     private final RequestEmailOtpUseCase requestEmailOtp;
     private final AuthenticateWithEmailOtpUseCase authenticateOtp;
-    private final ListSubjectPermissionsUseCase subjectPermissions;
     private final AuthenticationRealm authenticationRealm;
 
     /** 인증번호 발송. 계정 열거 방지를 위해 가입 여부와 무관하게 같은 응답을 준다. */
@@ -61,12 +58,9 @@ public class EmailOtpLoginApiController {
         AuthenticationResult result = authenticateOtp.authenticate(new EmailOtpAuthCommand(
                 authenticationRealm.of(realm), request.email(), request.verificationCode(), request.clientId()));
 
-        // 프론트 메뉴/버튼 렌더용 권한 목록. /api/auth/my-permissions 로도 조회된다.
-        // 권한은 발급된 토큰과 같은 realm 에서 읽는다 — 경로가 아니라 인증된 주체를 따른다.
-        List<String> permissions = subjectPermissions.of(
-                authenticationRealm.of(realm), result.subjectId());
-
-        return new LoginResponse(result.subjectId(), permissions, IssuedTokens.of(result.tokens()));
+        // 권한 목록을 따로 싣지 않는다. 토큰이 이미 realm_access/resource_access 로 들고 있고,
+        // 두 곳에서 같은 것을 내보내면 언젠가 갈린다. 화면은 토큰을 읽는다.
+        return new LoginResponse(result.subjectId(), IssuedTokens.of(result.tokens()));
     }
 
     public record SendCodeRequest(@NotBlank @Email String email) {
@@ -76,6 +70,6 @@ public class EmailOtpLoginApiController {
                                @NotBlank String clientId) {
     }
 
-    public record LoginResponse(String subjectId, List<String> permissions, IssuedTokens tokens) {
+    public record LoginResponse(String subjectId, IssuedTokens tokens) {
     }
 }

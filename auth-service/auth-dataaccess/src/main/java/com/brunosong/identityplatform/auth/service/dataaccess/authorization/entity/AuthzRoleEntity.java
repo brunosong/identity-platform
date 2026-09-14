@@ -34,6 +34,10 @@ public class AuthzRoleEntity {
     @Column(name = "realm", nullable = false, length = 20)
     private Realm realm;
 
+    /** null = realm 공통 역할. 값이 있으면 그 서비스의 역할이다(Keycloak 의 client role). */
+    @Column(name = "client_id", length = 100)
+    private String clientId;
+
     @Column(name = "role_code", nullable = false, length = 50)
     private String roleCode;
 

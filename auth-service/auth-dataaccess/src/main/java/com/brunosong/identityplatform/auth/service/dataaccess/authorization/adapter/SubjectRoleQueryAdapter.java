@@ -9,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 주체-역할 배정 조회 어댑터.
@@ -38,8 +41,28 @@ public class SubjectRoleQueryAdapter implements SubjectRoleQuery {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> realmRoleCodes(Realm realm, String subjectId) {
+        return subjectRoleRepository.findRealmRoleCodes(realm, subjectId, ACTIVE);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, List<String>> clientRoleCodes(Realm realm, String subjectId,
+                                                     Collection<String> clientIds) {
+        if (clientIds == null || clientIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<String>> byClient = new LinkedHashMap<>();
+        for (Object[] row : subjectRoleRepository.findClientRoleCodes(realm, subjectId, clientIds, ACTIVE)) {
+            byClient.computeIfAbsent((String) row[0], k -> new java.util.ArrayList<>()).add((String) row[1]);
+        }
+        return byClient;
+    }
+
     private static RoleView toView(AuthzRoleEntity entity) {
-        return new RoleView(entity.getRoleId(), entity.getRealm(), entity.getRoleCode(), entity.getRoleName(),
-                entity.getDescription(), entity.isActive(), List.of());
+        return new RoleView(entity.getRoleId(), entity.getRealm(), entity.getClientId(), entity.getRoleCode(),
+                entity.getRoleName(), entity.getDescription(), entity.isActive(), List.of());
     }
 }

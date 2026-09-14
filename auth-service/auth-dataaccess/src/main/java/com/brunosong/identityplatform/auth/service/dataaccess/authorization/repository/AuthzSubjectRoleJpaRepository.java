@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface AuthzSubjectRoleJpaRepository
@@ -41,4 +42,30 @@ public interface AuthzSubjectRoleJpaRepository
             + "WHERE sr.realm = :realm AND sr.subjectId = :subjectId AND r.active = :active")
     List<String> findRoleCodes(@Param("realm") Realm realm, @Param("subjectId") String subjectId,
                                @Param("active") boolean active);
+
+    /**
+     * 주체의 <b>realm 공통</b> 역할 코드(활성만). {@code client_id IS NULL} 인 것들이다.
+     *
+     * <p>토큰의 {@code realm_access.roles} 가 된다.
+     */
+    @Query("SELECT r.roleCode FROM AuthzSubjectRoleEntity sr "
+            + "JOIN AuthzRoleEntity r ON sr.roleId = r.roleId "
+            + "WHERE sr.realm = :realm AND sr.subjectId = :subjectId "
+            + "AND r.clientId IS NULL AND r.active = :active")
+    List<String> findRealmRoleCodes(@Param("realm") Realm realm, @Param("subjectId") String subjectId,
+                                    @Param("active") boolean active);
+
+    /**
+     * 주체의 <b>그 서비스</b> 역할 코드(활성만).
+     *
+     * <p>토큰의 {@code resource_access.{clientId}.roles} 가 된다. 여러 서비스를 한 번에 읽어
+     * 클라이언트별로 가르기 위해 코드와 함께 clientId 를 돌려준다.
+     */
+    @Query("SELECT r.clientId, r.roleCode FROM AuthzSubjectRoleEntity sr "
+            + "JOIN AuthzRoleEntity r ON sr.roleId = r.roleId "
+            + "WHERE sr.realm = :realm AND sr.subjectId = :subjectId "
+            + "AND r.clientId IN :clientIds AND r.active = :active")
+    List<Object[]> findClientRoleCodes(@Param("realm") Realm realm, @Param("subjectId") String subjectId,
+                                       @Param("clientIds") Collection<String> clientIds,
+                                       @Param("active") boolean active);
 }

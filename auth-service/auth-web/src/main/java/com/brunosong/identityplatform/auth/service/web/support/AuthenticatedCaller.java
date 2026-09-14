@@ -8,8 +8,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -32,8 +32,15 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AuthenticatedCaller {
 
-    /** access 토큰에 실린 권한 코드 목록(쉼표 구분). */
-    private static final String PERMISSIONS_CLAIM = "authLs";
+    /**
+     * 이 서비스 자신의 클라이언트 이름. 토큰의 {@code resource_access} 에서 이 칸만 읽는다.
+     *
+     * <p>어드민 콘솔이 상대하는 서비스가 auth 자신이라, 콘솔의 권한({@code AUTHZ_MANAGE})은
+     * auth-service 의 client role 이다 — 다른 서비스의 역할은 여기서 읽지 않는다.
+     */
+    private static final String OWN_CLIENT_ID = "auth-service";
+    private static final String RESOURCE_ACCESS_CLAIM = "resource_access";
+    private static final String ROLES_KEY = "roles";
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final AccessTokenReader accessTokenReader;
@@ -64,13 +71,26 @@ public class AuthenticatedCaller {
         return claims.getSubject();
     }
 
+    /**
+     * 이 서비스에 대해 호출자가 가진 역할 코드.
+     *
+     * <p>전에는 권한 코드를 평면 목록({@code authLs})으로 읽었다. 이제는 서비스별로 갈려 있어
+     * <b>auth-service 칸만</b> 본다 — 다른 서비스의 역할이 이 서비스의 문을 열지 않는다.
+     */
+    @SuppressWarnings("unchecked")
     public List<String> permissionsOf(Claims claims) {
-        String permissions = claims.get(PERMISSIONS_CLAIM, String.class);
-        if (!StringUtils.hasText(permissions)) {
+        Object resourceAccess = claims.get(RESOURCE_ACCESS_CLAIM);
+        if (!(resourceAccess instanceof Map<?, ?> byClient)) {
             return List.of();
         }
-        return Arrays.stream(permissions.split(","))
-                .map(String::trim)
+        if (!(byClient.get(OWN_CLIENT_ID) instanceof Map<?, ?> own)) {
+            return List.of();
+        }
+        if (!(own.get(ROLES_KEY) instanceof List<?> roles)) {
+            return List.of();
+        }
+        return ((List<Object>) roles).stream()
+                .map(String::valueOf)
                 .filter(StringUtils::hasText)
                 .toList();
     }

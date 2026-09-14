@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * 권한 — realm 으로 스코프되며 permissionCode 는 realm 내에서 유일하다.
  *
  * <p>식별자(realm, permissionCode)는 생성 후 바뀌지 않는다. 코드가 바뀌면 그것은 같은 권한의 수정이
- * 아니라 다른 권한이며, 이미 그 코드로 발급된 토큰(authLs claim)과의 대응도 끊긴다.
+ * 아니라 다른 권한이며, 이미 그 코드에 기대고 있던 URL 규칙과의 대응도 끊긴다.
  * 표시 정보(이름/분류/설명)와 사용 여부만 바꿀 수 있다.
  */
 @Getter

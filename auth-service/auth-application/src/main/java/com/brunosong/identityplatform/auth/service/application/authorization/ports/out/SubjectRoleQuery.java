@@ -3,7 +3,9 @@ package com.brunosong.identityplatform.auth.service.application.authorization.po
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.RoleView;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 주체-역할 배정 조회 포트(SPI) — 읽기 모델을 바로 준다.
@@ -18,4 +20,10 @@ public interface SubjectRoleQuery {
 
     /** 주체에 배정된 역할. 활성 여부와 무관 — 배정 그대로. */
     List<RoleView> assignedRoles(Realm realm, String subjectId);
+
+    /** realm 공통 역할 코드(활성만) — 토큰의 {@code realm_access.roles}. */
+    List<String> realmRoleCodes(Realm realm, String subjectId);
+
+    /** 서비스별 역할 코드(활성만) — 토큰의 {@code resource_access.{client}.roles}. */
+    Map<String, List<String>> clientRoleCodes(Realm realm, String subjectId, Collection<String> clientIds);
 }

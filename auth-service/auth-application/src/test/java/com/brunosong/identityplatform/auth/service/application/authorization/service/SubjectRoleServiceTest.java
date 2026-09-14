@@ -72,7 +72,7 @@ class SubjectRoleServiceTest {
         private final List<Role> roles = new ArrayList<>();
 
         void add(Realm realm, String roleCode, Long roleId) {
-            roles.add(Role.restore(roleId, realm, roleCode, roleCode, null, true, List.of()));
+            roles.add(Role.restore(roleId, realm, null, roleCode, roleCode, null, true, List.of()));
         }
 
         @Override

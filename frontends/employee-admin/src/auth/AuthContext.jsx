@@ -15,15 +15,22 @@ import { decode } from '../api/jwt';
  * <p><b>이 앱에서는 그 값이 더 크다.</b> 여기 토큰에는 계정을 만들고 역할을 배정할 수 있는
  * 권한이 실려 있다. 고객 토큰이 새면 그 사람 프로필이 새지만, 이 토큰이 새면 직원이 만들어진다.
  *
- * <h3>권한은 토큰에서 읽는다</h3>
- * `authLs` 클레임이 발급 시점의 권한 목록이다. 그래서 역할을 새로 받아도 <b>재발급 전에는
- * 보이지 않는다</b> — 화면의 "토큰 재발급" 이 그것을 확인하는 자리다.
+ * <h3>권한은 토큰에서, 그것도 이 서비스 칸에서 읽는다</h3>
+ * 토큰은 역할을 두 칸으로 싣는다 — `realm_access.roles`(영역 공통)와
+ * `resource_access.{서비스}.roles`(그 서비스의 것). 이 앱이 상대하는 서비스는 auth 자신이라
+ * `resource_access["auth-service"]` 만 읽는다. 다른 서비스의 역할은 이 화면을 열지 않는다.
+ *
+ * <p>발급 시점의 값이라 역할을 새로 받아도 <b>재발급 전에는 보이지 않는다</b> —
+ * 화면의 "토큰 재발급" 이 그것을 확인하는 자리다.
  */
 
 const AuthContext = createContext(null);
 
-/** 관리 기능을 여는 권한. 서버도 같은 코드를 요구한다(authorization.manage-permission). */
+/** 관리 기능을 여는 역할. 서버도 같은 코드를 요구한다(authorization.manage-permission). */
 export const MANAGE_PERMISSION = 'AUTHZ_MANAGE';
+
+/** 이 앱이 상대하는 서비스. 토큰의 resource_access 에서 이 칸만 읽는다. */
+const OWN_CLIENT_ID = 'auth-service';
 
 const PERSIST_FLAG = 'admin.persistTokens';
 const TOKEN_KEY = 'admin.tokens';
@@ -83,17 +90,21 @@ export function AuthProvider({ children }) {
     const decoded = useMemo(() => decode(tokens?.accessToken), [tokens]);
     const claims = decoded?.payload ?? null;
 
-    // 권한은 쉼표로 이어진 한 문자열로 온다. 빈 값이면 빈 목록이다.
+    // 이 서비스 칸의 역할만 읽는다. 다른 서비스의 역할은 여기서 권한이 되지 않는다.
     const permissions = useMemo(
-        () => (claims?.authLs ?? '').split(',').map((c) => c.trim()).filter(Boolean),
+        () => claims?.resource_access?.[OWN_CLIENT_ID]?.roles ?? [],
         [claims],
     );
+
+    /** 영역 공통 역할 — 조직에서 맡은 일. 화면을 여는 기준은 아니고 표시용이다. */
+    const realmRoles = useMemo(() => claims?.realm_access?.roles ?? [], [claims]);
 
     const value = useMemo(() => ({
         tokens,
         decoded,
         claims,
         permissions,
+        realmRoles,
         isLoggedIn: Boolean(tokens?.accessToken),
         // 화면을 여는 기준일 뿐이다. 실제 방어는 서버가 한다 — 여기를 고쳐도 API 는 403 이다.
         canManage: permissions.includes(MANAGE_PERMISSION),
@@ -103,7 +114,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         refresh,
-    }), [tokens, decoded, claims, permissions, persist, setPersist, sendCode, login, logout, refresh]);
+    }), [tokens, decoded, claims, permissions, realmRoles, persist, setPersist, sendCode, login, logout, refresh]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

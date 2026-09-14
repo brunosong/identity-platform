@@ -11,29 +11,27 @@
 -- role_id / permission_id 는 identity 라 넣지 않는다 — 명시하면 시퀀스가 뒤처져 이후 삽입이 충돌한다.
 -- 이미 있는 DB 에 다시 돌려도 되도록 ON CONFLICT 로 둔다(Flyway 는 한 번만 돌리지만, 손으로 실행할 때).
 
--- 역할 --------------------------------------------------------------------
-INSERT INTO authz_role (realm, role_code, role_name, description, use_yn, created_at, updated_at)
+-- realm 공통 역할 ----------------------------------------------------------
+-- client_id 가 NULL 이다. 영역 전체에서 뜻이 같은 역할이고, 어드민 콘솔의 화면·URL 제어가
+-- 여기 붙은 권한(authz_permission)을 쓴다.
+INSERT INTO authz_role (realm, client_id, role_code, role_name, description, use_yn, created_at, updated_at)
 VALUES
     -- 신규 고객이 가입 시 자동으로 받는 역할. 코드가 상수로 박혀 있다(CustomerDefaultRoleGrantListener).
     -- realm 은 PORTAL 이고 role_code 는 CUSTOMER 다 — 영역과 역할은 다른 것이다.
-    ('PORTAL', 'CUSTOMER', 'Customer', 'Default role granted on customer sign-up', 'Y', now(), now()),
-    -- 직원 등록·RBAC 편집 API 를 부를 수 있는 역할. 직원은 운영자가 만들어야 하므로 부트스트랩용이다.
-    ('ADMIN', 'ADMIN', 'Administrator', 'Can edit roles, permissions and URL rules', 'Y', now(), now())
-ON CONFLICT (realm, role_code) DO NOTHING;
+    ('PORTAL', NULL, 'CUSTOMER', 'Customer', 'Default role granted on customer sign-up', 'Y', now(), now()),
+    -- 직원의 기본 역할. 조직에서 맡은 일을 가리킨다 — 무엇을 열 수 있는지는 아래 client role 이 정한다.
+    ('ADMIN', NULL, 'ADMIN', 'Administrator', 'Employee administrator', 'Y', now(), now())
+ON CONFLICT DO NOTHING;
 
--- 권한 --------------------------------------------------------------------
-INSERT INTO authz_permission (realm, category, permission_code, permission_name, description, use_yn, created_at, updated_at)
+-- 서비스별 역할(client role) ------------------------------------------------
+-- client_id 가 있으면 그 서비스의 역할이고, <b>역할 코드 자체가 권한</b>이다.
+-- auth 는 이름만 보관한다 — AUTHZ_MANAGE 가 무엇을 여는지는 auth-service 가 자기 코드로 정한다.
+--
+-- 서비스가 늘면 여기에 한 줄씩 더한다. 어휘가 서비스로 갈려 있어 이름이 부딪히지 않는다:
+-- order-service 의 READ 와 customer-service 의 READ 는 서로 다른 행이다.
+INSERT INTO authz_role (realm, client_id, role_code, role_name, description, use_yn, created_at, updated_at)
 VALUES
     -- authorization.manage-permission 기본값과 같은 코드여야 한다.
-    ('ADMIN', 'AUTHZ', 'AUTHZ_MANAGE', 'Manage authorization', 'Edit roles/permissions/URL rules', 'Y', now(), now())
-ON CONFLICT (realm, permission_code) DO NOTHING;
-
--- 역할-권한 ---------------------------------------------------------------
-INSERT INTO authz_role_permission (role_id, permission_id)
-SELECT r.role_id, p.permission_id
-FROM authz_role r
-         JOIN authz_permission p ON p.realm = r.realm
-WHERE r.realm = 'ADMIN'
-  AND r.role_code = 'ADMIN'
-  AND p.permission_code = 'AUTHZ_MANAGE'
+    ('ADMIN', 'auth-service', 'AUTHZ_MANAGE', 'Manage authorization',
+     'Edit roles/permissions/URL rules, register employees', 'Y', now(), now())
 ON CONFLICT DO NOTHING;

@@ -213,5 +213,16 @@ class AccessControlServiceTest {
         public List<RoleView> assignedRoles(Realm realm, String subjectId) {
             return List.of();
         }
+
+        @Override
+        public List<String> realmRoleCodes(Realm realm, String subjectId) {
+            return List.of();
+        }
+
+        @Override
+        public java.util.Map<String, List<String>> clientRoleCodes(
+                Realm realm, String subjectId, java.util.Collection<String> clientIds) {
+            return java.util.Map.of();
+        }
     }
 }
