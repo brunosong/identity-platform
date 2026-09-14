@@ -39,8 +39,8 @@ public class RoleRepositoryAdapter implements RoleRepository {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Role> findByCode(Realm realm, String roleCode) {
-        return roleRepository.findByRealmAndRoleCode(realm, roleCode).map(RoleRepositoryAdapter::toDomain);
+    public Optional<Role> findByCode(Realm realm, String clientId, String roleCode) {
+        return roleRepository.findByCode(realm, clientId, roleCode).map(RoleRepositoryAdapter::toDomain);
     }
 
     @Override

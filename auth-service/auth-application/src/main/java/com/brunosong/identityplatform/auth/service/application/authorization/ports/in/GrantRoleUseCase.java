@@ -12,5 +12,11 @@ import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
  */
 public interface GrantRoleUseCase {
 
-    void grant(Realm realm, String subjectId, String roleCode);
+    /** realm 공통 역할을 부여한다. */
+    default void grant(Realm realm, String subjectId, String roleCode) {
+        grant(realm, subjectId, null, roleCode);
+    }
+
+    /** {@code clientId} 가 null 이면 realm 공통 역할, 값이 있으면 그 서비스의 역할을 부여한다. */
+    void grant(Realm realm, String subjectId, String clientId, String roleCode);
 }

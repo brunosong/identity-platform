@@ -30,12 +30,14 @@ public class SubjectRoleService implements GrantRoleUseCase, AssignSubjectRolesU
      */
     @Override
     @Transactional
-    public void grant(Realm realm, String subjectId, String roleCode) {
-        Role role = roleRepository.findByCode(realm, roleCode)
+    public void grant(Realm realm, String subjectId, String clientId, String roleCode) {
+        Role role = roleRepository.findByCode(realm, clientId, roleCode)
                 .orElseThrow(() -> new AuthorizationNotFoundException(
-                        "역할을 찾을 수 없습니다: realm=" + realm + ", roleCode=" + roleCode));
+                        "역할을 찾을 수 없습니다: realm=" + realm + ", clientId=" + clientId
+                                + ", roleCode=" + roleCode));
         subjectRoleRepository.addRole(realm, subjectId, role.getRoleId());
-        log.info("역할 가산 부여: realm={}, subjectId={}, roleCode={}", realm, subjectId, roleCode);
+        log.info("역할 가산 부여: realm={}, subjectId={}, clientId={}, roleCode={}",
+                realm, subjectId, clientId, roleCode);
     }
 
     @Override

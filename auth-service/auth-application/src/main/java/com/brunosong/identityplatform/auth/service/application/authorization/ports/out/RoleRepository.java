@@ -18,8 +18,13 @@ public interface RoleRepository {
     /** 수정 대상 애그리거트를 싣는다(권한 매핑 포함). */
     Optional<Role> findById(Long roleId);
 
-    /** role_code 로 애그리거트를 싣는다(realm 내 유일). 역할 부여가 코드로 대상을 찾을 때 쓴다. */
-    Optional<Role> findByCode(Realm realm, String roleCode);
+    /**
+     * role_code 로 애그리거트를 싣는다. 역할 부여가 코드로 대상을 찾을 때 쓴다.
+     *
+     * <p>{@code clientId} 가 null 이면 realm 공통 역할, 값이 있으면 그 서비스의 역할이다.
+     * 같은 코드가 realm 공통과 서비스별로 각각 있을 수 있으므로 둘을 함께 줘야 대상이 정해진다.
+     */
+    Optional<Role> findByCode(Realm realm, String clientId, String roleCode);
 
     /** 기본 필드 저장(신규/수정). 권한 매핑은 건드리지 않는다. */
     Role save(Role role);

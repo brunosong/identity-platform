@@ -33,5 +33,10 @@ INSERT INTO authz_role (realm, client_id, role_code, role_name, description, use
 VALUES
     -- authorization.manage-permission 기본값과 같은 코드여야 한다.
     ('ADMIN', 'auth-service', 'AUTHZ_MANAGE', 'Manage authorization',
-     'Edit roles/permissions/URL rules, register employees', 'Y', now(), now())
+     'Edit roles/permissions/URL rules, register employees', 'Y', now(), now()),
+    -- customer-service 가 검사하는 역할. 가입 시 자동으로 부여된다
+    -- (CustomerDefaultRoleGrantListener). 이 이름이 어떤 URL 을 여는지는 customer-service 의
+    -- SecurityConfiguration 이 정한다 — auth 는 이름만 안다.
+    ('PORTAL', 'customer-service', 'PROFILE_READ', 'Read own profile',
+     'Access /api/customers/me', 'Y', now(), now())
 ON CONFLICT DO NOTHING;
