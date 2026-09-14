@@ -4,6 +4,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PasswordAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PasswordEncoderPort;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalProfileRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.event.SubjectRegisteredEvent;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
@@ -11,6 +12,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.ou
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
+import com.brunosong.identityplatform.auth.service.domain.identity.PrincipalProfile;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,17 +37,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class RegisterWithPasswordService implements RegisterWithPasswordUseCase {
 
     private final PrincipalRepository principalRepository;
+    private final PrincipalProfileRepository principalProfileRepository;
     private final PasswordAccountRepository passwordAccountRepository;
     private final EmailAccountRepository emailAccountRepository;
     private final PasswordEncoderPort passwordEncoder;
     private final SubjectRegisteredEventPublisher subjectRegisteredEventPublisher;
 
     public RegisterWithPasswordService(PrincipalRepository principalRepository,
+                                       PrincipalProfileRepository principalProfileRepository,
                                        PasswordAccountRepository passwordAccountRepository,
                                        EmailAccountRepository emailAccountRepository,
                                        PasswordEncoderPort passwordEncoder,
                                        SubjectRegisteredEventPublisher subjectRegisteredEventPublisher) {
         this.principalRepository = principalRepository;
+        this.principalProfileRepository = principalProfileRepository;
         this.passwordAccountRepository = passwordAccountRepository;
         this.emailAccountRepository = emailAccountRepository;
         this.passwordEncoder = passwordEncoder;
@@ -55,19 +60,19 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
     @Override
     @Transactional
     public String register(RegisterWithPasswordCommand command) {
-        // 아이디 중복은 같은 주체 유형 안에서만 따진다 — 직원 "hong" 과 고객 "hong" 은 다른 계정이다.
-        if (passwordAccountRepository.existsByLoginId(command.subjectType(), command.loginId())) {
+        // 아이디 중복은 같은 realm 안에서만 따진다 — 직원 "hong" 과 고객 "hong" 은 다른 계정이다.
+        if (passwordAccountRepository.existsByLoginId(command.realm(), command.loginId())) {
             throw new IllegalArgumentException("이미 존재하는 아이디입니다: " + command.loginId());
         }
 
         // 같은 이메일로 이미 신원이 있으면 수단(아이디/비번)만 더한다. 없으면 auth 가 채번해서
         // "생겼다"만 알린다 — 누가 받아 프로필을 만드는지는 모른다.
-        Principal principal = emailAccountRepository.findByEmail(command.subjectType(), command.email())
+        Principal principal = emailAccountRepository.findByEmail(command.realm(), command.email())
                 .flatMap(account -> principalRepository.findById(account.getPrincipalId()))
                 .orElseGet(() -> createPrincipal(command));
 
         passwordAccountRepository.save(PasswordAccount.create(
-                principal.getPrincipalId(), command.subjectType(), command.loginId(),
+                principal.getPrincipalId(), command.realm(), command.loginId(),
                 passwordEncoder.encode(command.password())));
 
         // 인가 역할(authz)은 등록 이벤트를 받은 realm 별 리스너가 authz_subject_role 에 부여한다.
@@ -79,12 +84,18 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
     private Principal createPrincipal(RegisterWithPasswordCommand command) {
         SubjectId subjectId = SubjectId.generate();
         subjectRegisteredEventPublisher.publish(new SubjectRegisteredEvent(
-                subjectId.value(), command.subjectType(),
+                subjectId.value(), command.realm(),
                 command.email(), command.name(), command.phoneNumber()));
 
-        Principal principal = principalRepository.save(Principal.create(subjectId, command.subjectType()));
-        emailAccountRepository.save(EmailAccount.create(
-                principal.getPrincipalId(), command.subjectType(), command.email()));
+        Principal principal = principalRepository.save(Principal.create(subjectId, command.realm()));
+        // 가입 폼이 받은 이름·전화번호가 갈 곳. 전에는 이벤트에 실려 나가기만 하고 아무도
+        // 저장하지 않아 증발했다.
+        principalProfileRepository.save(PrincipalProfile.create(
+                principal.getPrincipalId(), command.name(), command.phoneNumber()));
+        // 폼에 적혔을 뿐 확인한 적이 없다 — 남의 주소일 수 있다. 이 주소로 OTP 로그인을 해내면
+        // 그때 확인됨으로 올라간다(AuthenticateWithEmailOtpService).
+        emailAccountRepository.save(EmailAccount.unverified(
+                principal.getPrincipalId(), command.realm(), command.email()));
         return principal;
     }
 }

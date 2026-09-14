@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface PasswordAccountJpaRepository extends JpaRepository<PasswordAccountJpaEntity, String> {
 
-    Optional<PasswordAccountJpaEntity> findBySubjectTypeAndLoginId(String subjectType, String loginId);
+    Optional<PasswordAccountJpaEntity> findByRealmAndLoginId(String realm, String loginId);
 
-    boolean existsBySubjectTypeAndLoginId(String subjectType, String loginId);
+    boolean existsByRealmAndLoginId(String realm, String loginId);
 }

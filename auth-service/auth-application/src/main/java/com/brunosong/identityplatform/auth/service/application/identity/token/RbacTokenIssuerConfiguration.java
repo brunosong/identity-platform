@@ -51,15 +51,26 @@ public class RbacTokenIssuerConfiguration {
     }
 
     @Bean
+    public TokenClients tokenClients(TokenProperties properties) {
+        properties.getClients().forEach((clientId, client) -> {
+            if (client.getRealm() == null) {
+                throw new IllegalStateException("클라이언트에 realm 이 없습니다: token.clients." + clientId);
+            }
+        });
+        return new TokenClients(properties.getClients());
+    }
+
+    @Bean
     public TokenIssuerPort rbacJwtTokenIssuer(
             ListSubjectPermissionsUseCase subjectPermissions,
             GetAuthorizationRevisionUseCase revision,
             ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
             RealmSigningKeys signingKeys,
             RealmIssuers issuers,
+            TokenClients clients,
             TokenProperties properties) {
         return new RbacJwtTokenIssuer(
-                subjectPermissions, revision, sessionRegistryProvider, signingKeys, issuers,
+                subjectPermissions, revision, sessionRegistryProvider, signingKeys, issuers, clients,
                 properties.getAccessExpiration(), properties.getRefreshExpiration());
     }
 }

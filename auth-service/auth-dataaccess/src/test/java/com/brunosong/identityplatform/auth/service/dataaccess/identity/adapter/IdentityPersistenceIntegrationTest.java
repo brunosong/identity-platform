@@ -5,7 +5,7 @@ import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalStatus;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -75,14 +75,14 @@ class IdentityPersistenceIntegrationTest {
         @Test
         @DisplayName("주체 정보가 값 그대로 복원된다")
         void principalRoundTrip() {
-            Principal principal = Principal.create(new SubjectId("CUST-UUID-1"), SubjectType.CUSTOMER);
+            Principal principal = Principal.create(new SubjectId("CUST-UUID-1"), Realm.PORTAL);
             principalAdapter.save(principal);
             flushClear();
 
             Principal loaded = principalAdapter.findById(principal.getPrincipalId()).orElseThrow();
             assertThat(loaded.getPrincipalId()).isEqualTo(principal.getPrincipalId());
             assertThat(loaded.getSubjectId().value()).isEqualTo("CUST-UUID-1");
-            assertThat(loaded.getSubjectType()).isEqualTo(SubjectType.CUSTOMER);
+            assertThat(loaded.getRealm()).isEqualTo(Realm.PORTAL);
             assertThat(loaded.getStatus()).isEqualTo(PrincipalStatus.ACTIVE);
             assertThat(loaded.getLastAuthenticatedAt()).isNull();
         }
@@ -90,23 +90,23 @@ class IdentityPersistenceIntegrationTest {
         @Test
         @DisplayName("주체 식별자로도 찾는다 — 유형이 다르면 없는 것과 같다")
         void findBySubjectId() {
-            Principal principal = Principal.create(new SubjectId("EMP-ESNTL-1"), SubjectType.EMPLOYEE);
+            Principal principal = Principal.create(new SubjectId("EMP-ESNTL-1"), Realm.ADMIN);
             principalAdapter.save(principal);
             flushClear();
 
-            assertThat(principalAdapter.findBySubjectId(SubjectType.EMPLOYEE, new SubjectId("EMP-ESNTL-1")))
+            assertThat(principalAdapter.findBySubjectId(Realm.ADMIN, new SubjectId("EMP-ESNTL-1")))
                     .isPresent();
-            assertThat(principalAdapter.findBySubjectId(SubjectType.EMPLOYEE, new SubjectId("EMP-NONE")))
+            assertThat(principalAdapter.findBySubjectId(Realm.ADMIN, new SubjectId("EMP-NONE")))
                     .isEmpty();
-            // 유일키는 (subject_type, subject_id) 다. 식별자만 맞고 유형이 다르면 찾히지 않아야 한다.
-            assertThat(principalAdapter.findBySubjectId(SubjectType.CUSTOMER, new SubjectId("EMP-ESNTL-1")))
+            // 유일키는 (realm, subject_id) 다. 식별자만 맞고 유형이 다르면 찾히지 않아야 한다.
+            assertThat(principalAdapter.findBySubjectId(Realm.PORTAL, new SubjectId("EMP-ESNTL-1")))
                     .isEmpty();
         }
 
         @Test
         @DisplayName("같은 principalId 로 다시 저장하면 행이 늘지 않고 갱신된다")
         void saveIsUpsert() {
-            Principal principal = Principal.create(new SubjectId("CUST-UUID-2"), SubjectType.CUSTOMER);
+            Principal principal = Principal.create(new SubjectId("CUST-UUID-2"), Realm.PORTAL);
             principalAdapter.save(principal);
             flushClear();
 
@@ -139,13 +139,13 @@ class IdentityPersistenceIntegrationTest {
 
         /**
          * 자격증명은 신원에 매달려야 저장된다 — 스키마의 복합 외래키
-         * {@code (principal_id, subject_type) -> identity_principal} 가 그것을 강제한다.
+         * {@code (principal_id, realm) -> identity_principal} 가 그것을 강제한다.
          * 전에는 이 테스트들이 주인 없는 principal_id 를 그냥 넣었다. 엔티티에서 만든 스키마에는
          * 그 외래키가 없어서 통과했을 뿐, 운영 스키마에서는 들어가지 않는 행이었다.
          */
-        private PrincipalId givenPrincipal(String subjectId, SubjectType subjectType) {
+        private PrincipalId givenPrincipal(String subjectId, Realm realm) {
             Principal principal = principalAdapter.save(
-                    Principal.create(new SubjectId(subjectId), subjectType));
+                    Principal.create(new SubjectId(subjectId), realm));
             flushClear();
             return principal.getPrincipalId();
         }
@@ -153,14 +153,14 @@ class IdentityPersistenceIntegrationTest {
         @Test
         @DisplayName("자격증명과 실패 상태가 값 그대로 복원된다")
         void accountRoundTrip() {
-            PrincipalId principalId = givenPrincipal("CUST-1", SubjectType.CUSTOMER);
+            PrincipalId principalId = givenPrincipal("CUST-1", Realm.PORTAL);
 
             PasswordAccount account = PasswordAccount.create(
-                    principalId, SubjectType.CUSTOMER, "hong@example.com", "{bcrypt}hash");
+                    principalId, Realm.PORTAL, "hong@example.com", "{bcrypt}hash");
             passwordAdapter.save(account);
             flushClear();
 
-            PasswordAccount loaded = passwordAdapter.findByLoginId(SubjectType.CUSTOMER, "hong@example.com").orElseThrow();
+            PasswordAccount loaded = passwordAdapter.findByLoginId(Realm.PORTAL, "hong@example.com").orElseThrow();
             assertThat(loaded.getPasswordAccountId()).isEqualTo(account.getPasswordAccountId());
             assertThat(loaded.getPrincipalId()).isEqualTo(principalId);
             assertThat(loaded.getPasswordHash()).isEqualTo("{bcrypt}hash");
@@ -175,32 +175,32 @@ class IdentityPersistenceIntegrationTest {
         @DisplayName("로그인 ID 중복 여부를 가린다")
         void existsByLoginId() {
             passwordAdapter.save(PasswordAccount.create(
-                    givenPrincipal("CUST-2", SubjectType.CUSTOMER),
-                    SubjectType.CUSTOMER, "dup@example.com", "{bcrypt}hash"));
+                    givenPrincipal("CUST-2", Realm.PORTAL),
+                    Realm.PORTAL, "dup@example.com", "{bcrypt}hash"));
             flushClear();
 
-            assertThat(passwordAdapter.existsByLoginId(SubjectType.CUSTOMER, "dup@example.com")).isTrue();
-            assertThat(passwordAdapter.existsByLoginId(SubjectType.CUSTOMER, "other@example.com")).isFalse();
-            assertThat(passwordAdapter.findByLoginId(SubjectType.CUSTOMER, "other@example.com")).isEmpty();
+            assertThat(passwordAdapter.existsByLoginId(Realm.PORTAL, "dup@example.com")).isTrue();
+            assertThat(passwordAdapter.existsByLoginId(Realm.PORTAL, "other@example.com")).isFalse();
+            assertThat(passwordAdapter.findByLoginId(Realm.PORTAL, "other@example.com")).isEmpty();
         }
 
         @Test
         @DisplayName("같은 login_id 가 realm 별로 따로 저장되고 서로 섞이지 않는다")
-        void sameLoginIdPerSubjectType() {
+        void sameLoginIdPerRealm() {
             String loginId = "shared@example.com";
-            PrincipalId customer = givenPrincipal("CUST-SHARED", SubjectType.CUSTOMER);
-            PrincipalId employee = givenPrincipal("EMP-SHARED", SubjectType.EMPLOYEE);
+            PrincipalId customer = givenPrincipal("CUST-SHARED", Realm.PORTAL);
+            PrincipalId employee = givenPrincipal("EMP-SHARED", Realm.ADMIN);
 
             passwordAdapter.save(PasswordAccount.create(
-                    customer, SubjectType.CUSTOMER, loginId, "{bcrypt}customer"));
+                    customer, Realm.PORTAL, loginId, "{bcrypt}customer"));
             passwordAdapter.save(PasswordAccount.create(
-                    employee, SubjectType.EMPLOYEE, loginId, "{bcrypt}employee"));
+                    employee, Realm.ADMIN, loginId, "{bcrypt}employee"));
             flushClear();
 
-            // 유니크는 (subject_type, login_id) 라 두 행이 공존한다. 조회는 유형까지 보고 고른다.
-            assertThat(passwordAdapter.findByLoginId(SubjectType.CUSTOMER, loginId).orElseThrow()
+            // 유니크는 (realm, login_id) 라 두 행이 공존한다. 조회는 유형까지 보고 고른다.
+            assertThat(passwordAdapter.findByLoginId(Realm.PORTAL, loginId).orElseThrow()
                     .getPrincipalId()).isEqualTo(customer);
-            assertThat(passwordAdapter.findByLoginId(SubjectType.EMPLOYEE, loginId).orElseThrow()
+            assertThat(passwordAdapter.findByLoginId(Realm.ADMIN, loginId).orElseThrow()
                     .getPrincipalId()).isEqualTo(employee);
         }
 
@@ -209,28 +209,28 @@ class IdentityPersistenceIntegrationTest {
         void lockStateRoundTrip() {
             Instant now = Instant.parse("2026-01-01T00:00:00Z");
             PasswordAccount account = PasswordAccount.create(
-                    givenPrincipal("CUST-3", SubjectType.CUSTOMER),
-                    SubjectType.CUSTOMER, "locked-read@example.com", "{bcrypt}hash");
+                    givenPrincipal("CUST-3", Realm.PORTAL),
+                    Realm.PORTAL, "locked-read@example.com", "{bcrypt}hash");
             account.recordFailure(now, 1, Duration.ofMinutes(10));
             passwordAdapter.save(account);
             flushClear();
 
-            PasswordAccount loaded = passwordAdapter.findByLoginId(SubjectType.CUSTOMER, "locked-read@example.com").orElseThrow();
+            PasswordAccount loaded = passwordAdapter.findByLoginId(Realm.PORTAL, "locked-read@example.com").orElseThrow();
             assertThat(loaded.isLocked(now)).isTrue();
             assertThat(loaded.isLocked(now.plus(Duration.ofMinutes(11)))).isFalse();
         }
 
         @Test
         @DisplayName("신원과 유형이 어긋난 자격증명은 DB 가 받아주지 않는다")
-        void subjectTypeMustMatchPrincipal() {
+        void realmMustMatchPrincipal() {
             // 이 계정의 유형은 CUSTOMER 인데 매달린 신원은 EMPLOYEE 다. 애플리케이션 코드가 그런
             // 조합을 만들지 않지만, 코드의 규율만으로 서 있으면 언젠가 샌다 —
             // 그러면 고객 자격증명으로 직원 realm 토큰이 나간다. 스키마가 막는지 본다.
-            PrincipalId employee = givenPrincipal("EMP-MISMATCH", SubjectType.EMPLOYEE);
+            PrincipalId employee = givenPrincipal("EMP-MISMATCH", Realm.ADMIN);
 
             assertThatThrownBy(() -> {
                 passwordAdapter.save(PasswordAccount.create(
-                        employee, SubjectType.CUSTOMER, "mismatch@example.com", "{bcrypt}hash"));
+                        employee, Realm.PORTAL, "mismatch@example.com", "{bcrypt}hash"));
                 flushClear();
             }).isInstanceOf(Exception.class)
                     .hasMessageContaining("fk_identity_password_account_principal");
@@ -248,10 +248,10 @@ class IdentityPersistenceIntegrationTest {
             // 신원도 별도 커넥션에서 커밋해 둔다. REQUIRES_NEW 로 도는 쓰기는 이 테스트 트랜잭션을
             // 보지 못하므로, 신원이 아직 커밋 전이면 외래키가 걸린다 — 이 어댑터를 실제로 쓰는
             // 인증 경로에서도 신원은 이미 커밋돼 있다.
-            String principalId = insertPrincipalOutsideTx("CUST-COMMIT", SubjectType.CUSTOMER);
+            String principalId = insertPrincipalOutsideTx("CUST-COMMIT", Realm.PORTAL);
 
             PasswordAccount account = PasswordAccount.create(
-                    new PrincipalId(principalId), SubjectType.CUSTOMER, loginId, "{bcrypt}hash");
+                    new PrincipalId(principalId), Realm.PORTAL, loginId, "{bcrypt}hash");
             account.recordFailure(Instant.parse("2026-01-01T00:00:00Z"), 5, Duration.ofMinutes(10));
 
             try {
@@ -267,16 +267,16 @@ class IdentityPersistenceIntegrationTest {
         }
 
         /** 테스트 트랜잭션 밖에서 신원을 만들어 커밋한다. */
-        private String insertPrincipalOutsideTx(String subjectId, SubjectType subjectType) throws Exception {
+        private String insertPrincipalOutsideTx(String subjectId, Realm realm) throws Exception {
             String principalId = UUID.randomUUID().toString();
             try (Connection conn = dataSource.getConnection();
                  PreparedStatement ps = conn.prepareStatement(
                          "INSERT INTO identity_principal"
-                                 + " (principal_id, subject_id, subject_type, status, created_at, updated_at)"
+                                 + " (principal_id, subject_id, realm, status, created_at, updated_at)"
                                  + " VALUES (?, ?, ?, 'ACTIVE', now(), now())")) {
                 ps.setString(1, principalId);
                 ps.setString(2, subjectId);
-                ps.setString(3, subjectType.name());
+                ps.setString(3, realm.name());
                 ps.executeUpdate();
             }
             return principalId;

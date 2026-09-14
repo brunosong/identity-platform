@@ -4,7 +4,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.ou
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PasswordEncoderPort;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +17,7 @@ import java.time.Instant;
  * <p>실패 기록은 인증 트랜잭션과 무관하게 커밋된다. 실패로 트랜잭션이 되돌아갈 때
  * 실패 횟수까지 사라지면 잠금이 영원히 걸리지 않는다.
  *
- * <p>조회는 주체 유형으로 좁힌다. 상대 realm 에 같은 loginId 가 있어도 걸리지 않고, 없는 아이디와
+ * <p>조회는 realm 으로 좁힌다. 상대 realm 에 같은 loginId 가 있어도 걸리지 않고, 없는 아이디와
  * 같은 실패로 끝난다(계정 열거 방지 겸 realm 격리).
  */
 @Component
@@ -34,9 +34,9 @@ class PasswordCredentialVerifier {
     private final PasswordAccountRepository passwordAccountRepository;
     private final PasswordEncoderPort passwordEncoder;
 
-    public PasswordAccount verify(SubjectType subjectType, String loginId, String password)
+    public PasswordAccount verify(Realm realm, String loginId, String password)
             throws AuthenticationFailedException {
-        PasswordAccount account = passwordAccountRepository.findByLoginId(subjectType, loginId)
+        PasswordAccount account = passwordAccountRepository.findByLoginId(realm, loginId)
                 .orElseThrow(() -> new AuthenticationFailedException(GENERIC_FAIL));
 
         if (account.isLocked(Instant.now())) {

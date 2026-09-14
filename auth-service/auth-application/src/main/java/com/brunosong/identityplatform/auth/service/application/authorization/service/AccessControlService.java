@@ -30,6 +30,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * 이상이면 나머지는 규칙이 바뀐 줄 모른다. TTL 은 그 창을 유한하게 만든다(기본 60초). 즉시 전파가
  * 필요해지면 이 자리를 분산 캐시/브로커 무효화로 바꾼다.
  *
+ * <p><b>두 realm 모두 fail-closed(화이트리스트)다.</b> 매칭되는 규칙이 없으면 보호 경로는 거부한다 —
+ * 등록된 것만 통과한다. realm 마다 다르지 않으므로 그 정책은 {@code Realm} 에 값으로 두지 않았다.
+ *
  * <p>보호 경로 접두어는 프로퍼티로 받는다. 어떤 경로가 보호 대상인지는 이 규칙을 시행하는 쪽의
  * URL 설계이지 접근제어 엔진이 알 일이 아니다.
  *
@@ -80,12 +83,11 @@ public class AccessControlService implements CheckAccessUseCase, ListSubjectPerm
             return false;
         }
 
-        // 매칭 규칙이 없는 경우: realm 기본 정책으로 결정한다.
-        //  - fail-open(CUSTOMER/블랙리스트): 허용 — 등록된 URL 만 차단된다.
-        //  - fail-closed(EMPLOYEE/화이트리스트): 보호 경로는 거부 — 등록된 것만 허용된다.
-        if (realm.failOpen()) {
-            return true;
-        }
+        // 매칭 규칙이 없는 경우: 두 realm 모두 fail-closed(화이트리스트)다.
+        // 보호 경로는 거부하고, 그 밖(정적 리소스 등)은 통과시킨다.
+        //
+        // 전에는 포털만 fail-open 이었다. 그러면 규칙을 등록하지 않은 고객 API 가 조용히 열린 채로
+        // 남는다 — 잊었을 때의 결과가 "막힌다" 여야지 "열린다" 여서는 안 된다.
         if (isProtectedPath(requestUrl)) {
             log.warn("RBAC 규칙 미등록 보호 경로 접근 거부: realm={}, url={}, method={}", realm, requestUrl, httpMethod);
             return false;

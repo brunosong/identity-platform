@@ -6,7 +6,7 @@ import com.brunosong.identityplatform.auth.service.dataaccess.identity.repositor
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,8 +31,8 @@ public class PrincipalPersistenceAdapter implements PrincipalRepository {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Principal> findBySubjectId(SubjectType subjectType, SubjectId subjectId) {
-        return principalRepository.findBySubjectTypeAndSubjectId(subjectType, subjectId.value())
+    public Optional<Principal> findBySubjectId(Realm realm, SubjectId subjectId) {
+        return principalRepository.findByRealmAndSubjectId(realm, subjectId.value())
                 .map(this::toDomain);
     }
 
@@ -43,7 +43,7 @@ public class PrincipalPersistenceAdapter implements PrincipalRepository {
         PrincipalJpaEntity e = principalRepository.findById(pid).orElseGet(PrincipalJpaEntity::new);
         e.setPrincipalId(pid);
         e.setSubjectId(principal.getSubjectId().value());
-        e.setSubjectType(principal.getSubjectType());
+        e.setRealm(principal.getRealm());
         e.setStatus(principal.getStatus());
         e.setLastAuthenticatedAt(principal.getLastAuthenticatedAt());
         principalRepository.save(e);
@@ -54,7 +54,7 @@ public class PrincipalPersistenceAdapter implements PrincipalRepository {
         return Principal.restore(
                 new PrincipalId(e.getPrincipalId()),
                 new SubjectId(e.getSubjectId()),
-                e.getSubjectType(),
+                e.getRealm(),
                 e.getStatus(),
                 e.getLastAuthenticatedAt());
     }

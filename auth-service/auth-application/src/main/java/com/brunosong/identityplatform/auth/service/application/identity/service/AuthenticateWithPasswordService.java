@@ -32,17 +32,17 @@ public class AuthenticateWithPasswordService implements AuthenticateWithPassword
     @Transactional
     public AuthenticationResult authenticate(PasswordAuthCommand command) {
         PasswordAccount account = passwordCredentialVerifier.verify(
-                command.subjectType(), command.loginId(), command.password());
+                command.realm(), command.loginId(), command.password());
 
         Principal principal = principalRepository.findById(account.getPrincipalId())
                 .orElseThrow(() -> new IllegalStateException(
                         "Principal not found for passwordAccount=" + account.getPasswordAccountId()));
 
         // 자격증명과 신원의 유형이 어긋나면 데이터가 깨진 것이다. 토큰을 내주지 않는다.
-        if (principal.getSubjectType() != command.subjectType()) {
+        if (principal.getRealm() != command.realm()) {
             throw new AuthenticationFailedException("인증에 실패했습니다.");
         }
 
-        return authenticationCompletion.complete(principal);
+        return authenticationCompletion.complete(principal, command.clientId());
     }
 }

@@ -1,8 +1,7 @@
 package com.brunosong.identityplatform.auth.service.web.support;
 
-import com.brunosong.identityplatform.auth.service.application.identity.SubjectRealm;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
+import com.brunosong.identityplatform.auth.service.domain.shared.RegistrationMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -13,7 +12,7 @@ import org.springframework.util.StringUtils;
  * {@code authorization.realm} 이 하나 박혀 있었고 요청은 realm 을 말하지 않았다. 이제 요청이 지목한다.
  *
  * <p><b>realm 은 비밀이 아니라 어느 서랍을 열지 고르는 값이다.</b> 아무나 employee 를 지목할 수 있지만,
- * 그 서랍에 자기 계정이 없으면 로그인은 실패한다 — 자격증명 조회가 모두 주체 유형으로 좁혀져 있기
+ * 그 서랍에 자기 계정이 없으면 로그인은 실패한다 — 자격증명 조회가 모두 realm 으로 좁혀져 있기
  * 때문이다. 그 전제가 깨지면(전역 조회로 되돌아가면) 이 설계도 함께 깨진다.
  *
  * <p>발급된 토큰의 realm 은 이 값이 아니라 인증된 Principal 에서 나온다. 그래서 요청이 realm 을
@@ -36,20 +35,19 @@ public class AuthenticationRealm {
         }
     }
 
-    /** 신원(Principal/자격증명) 조회에 쓰는 주체 유형. */
-    public SubjectType subjectTypeOf(String pathValue) {
-        return SubjectRealm.subjectTypeOf(of(pathValue));
-    }
-
     /**
-     * 셀프 가입이 열려 있는 realm 인지 확인한다. 닫힌 realm 에서는 그 경로가 <b>없는 것</b>으로 다룬다 —
-     * 403 이 아니라 404 인 이유는, "여기에도 가입 API 가 있긴 한데 막혀 있다" 를 알려줄 이유가 없기
-     * 때문이다. 어느 realm 이 열려 있는지는 {@link Realm} 이 정한다.
+     * <b>그 방식의</b> 셀프 가입이 열려 있는 realm 인지 확인한다. 닫혀 있으면 그 경로가
+     * <b>없는 것</b>으로 다룬다 — 403 이 아니라 404 인 이유는, "여기에도 가입 API 가 있긴 한데
+     * 막혀 있다" 를 알려줄 이유가 없기 때문이다.
+     *
+     * <p>방식까지 함께 본다. 어드민 realm 은 이메일 가입만 열려 있고, 포털은 둘 다 열려 있다.
+     * 이것을 realm 이 정하므로({@link Realm#registrationMethods()}) 컨트롤러는 자기 경로가 어떤
+     * 방식인지만 말하면 된다 — 어느 realm 에 열어줄지는 여기서 판단하지 않는다.
      */
-    public Realm requireSelfRegistration(String pathValue) {
+    public Realm requireSelfRegistration(String pathValue, RegistrationMethod method) {
         Realm realm = of(pathValue);
-        if (!realm.allowsSelfRegistration()) {
-            throw new NotFoundException("이 realm 은 셀프 가입을 지원하지 않습니다: " + pathValue);
+        if (!realm.allowsSelfRegistrationWith(method)) {
+            throw new NotFoundException("이 realm 은 해당 방식의 셀프 가입을 지원하지 않습니다: " + pathValue);
         }
         return realm;
     }

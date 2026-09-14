@@ -3,7 +3,7 @@ package com.brunosong.identityplatform.auth.service.domain.identity;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalStatus;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +25,7 @@ class PrincipalTest {
     private static final SubjectId SUBJECT_ID = new SubjectId("customer-uuid");
 
     private static Principal active() {
-        return Principal.create(SUBJECT_ID, SubjectType.CUSTOMER);
+        return Principal.create(SUBJECT_ID, Realm.PORTAL);
     }
 
     @Test
@@ -50,7 +50,7 @@ class PrincipalTest {
         Principal principal = active();
 
         assertThat(principal.getSubjectId()).isEqualTo(SUBJECT_ID);
-        assertThat(principal.getSubjectType()).isEqualTo(SubjectType.CUSTOMER);
+        assertThat(principal.getRealm()).isEqualTo(Realm.PORTAL);
     }
 
     @Test
@@ -66,7 +66,7 @@ class PrincipalTest {
     @Test
     @DisplayName("정지된 신원은 인증 표시를 남길 수 없다")
     void suspendedCannotAuthenticate() {
-        Principal principal = Principal.restore(PrincipalId.newId(), SUBJECT_ID, SubjectType.CUSTOMER,
+        Principal principal = Principal.restore(PrincipalId.newId(), SUBJECT_ID, Realm.PORTAL,
                 PrincipalStatus.SUSPENDED, null);
 
         assertThatThrownBy(principal::markAuthenticated)
@@ -77,7 +77,7 @@ class PrincipalTest {
     @Test
     @DisplayName("탈퇴한 신원도 인증 표시를 남길 수 없다")
     void withdrawnCannotAuthenticate() {
-        Principal principal = Principal.restore(PrincipalId.newId(), SUBJECT_ID, SubjectType.EMPLOYEE,
+        Principal principal = Principal.restore(PrincipalId.newId(), SUBJECT_ID, Realm.ADMIN,
                 PrincipalStatus.WITHDRAWN, null);
 
         assertThatThrownBy(principal::markAuthenticated).isInstanceOf(IllegalStateException.class);
@@ -87,7 +87,7 @@ class PrincipalTest {
     @DisplayName("막힌 인증은 기존 인증 시각을 건드리지 않는다")
     void blockedAuthKeepsPreviousTimestamp() {
         Instant before = Instant.parse("2026-01-01T00:00:00Z");
-        Principal principal = Principal.restore(PrincipalId.newId(), SUBJECT_ID, SubjectType.CUSTOMER,
+        Principal principal = Principal.restore(PrincipalId.newId(), SUBJECT_ID, Realm.PORTAL,
                 PrincipalStatus.SUSPENDED, before);
 
         assertThatThrownBy(principal::markAuthenticated).isInstanceOf(IllegalStateException.class);
@@ -101,7 +101,7 @@ class PrincipalTest {
         PrincipalId principalId = PrincipalId.newId();
         Instant authenticatedAt = Instant.parse("2026-08-06T00:00:00Z");
 
-        Principal principal = Principal.restore(principalId, SUBJECT_ID, SubjectType.EMPLOYEE,
+        Principal principal = Principal.restore(principalId, SUBJECT_ID, Realm.ADMIN,
                 PrincipalStatus.ACTIVE, authenticatedAt);
 
         assertThat(principal.getPrincipalId()).isEqualTo(principalId);

@@ -7,6 +7,6 @@ import java.util.Optional;
 
 public interface SocialAccountJpaRepository extends JpaRepository<SocialAccountJpaEntity, String> {
 
-    Optional<SocialAccountJpaEntity> findBySubjectTypeAndProviderAndProviderUid(
-            String subjectType, String provider, String providerUid);
+    Optional<SocialAccountJpaEntity> findByRealmAndProviderAndProviderUid(
+            String realm, String provider, String providerUid);
 }

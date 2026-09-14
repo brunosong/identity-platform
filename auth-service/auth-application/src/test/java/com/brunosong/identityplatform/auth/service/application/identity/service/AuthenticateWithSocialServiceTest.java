@@ -8,11 +8,12 @@ import com.brunosong.identityplatform.auth.service.domain.identity.Authenticatio
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalProfileRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeSocialAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
@@ -28,11 +29,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class AuthenticateWithSocialServiceTest {
 
+    private static final String CLIENT_ID = "test-client";
+
     private static final String PROVIDER_UID = "google-uid-1";
     private static final String EMAIL = "user@example.com";
 
     private FakeSocialAccountRepository socialRepo;
     private FakePrincipalRepository principalRepo;
+    private FakePrincipalProfileRepository profileRepo;
     private FakeEmailAccountRepository emailAccountRepo;
     private RecordingEventPublisher eventPublisher;
     private RecordingSubjectRegisteredPublisher registeredPublisher;
@@ -42,6 +46,7 @@ class AuthenticateWithSocialServiceTest {
     void setUp() {
         socialRepo = new FakeSocialAccountRepository();
         principalRepo = new FakePrincipalRepository();
+        profileRepo = new FakePrincipalProfileRepository();
         emailAccountRepo = new FakeEmailAccountRepository();
         eventPublisher = new RecordingEventPublisher();
         registeredPublisher = new RecordingSubjectRegisteredPublisher();
@@ -50,14 +55,14 @@ class AuthenticateWithSocialServiceTest {
 
     private AuthenticateWithSocialService service() {
         return new AuthenticateWithSocialService(
-                provider(verifier), socialRepo, principalRepo, emailAccountRepo,
+                provider(verifier), socialRepo, principalRepo, profileRepo, emailAccountRepo,
                 registeredPublisher,
                 new AuthenticationCompletion(principalRepo, eventPublisher,
                         new TokenIssuance(new FakeTokenIssuer())));
     }
 
     private SocialAuthCommand command() {
-        return new SocialAuthCommand(SubjectType.CUSTOMER, SocialProvider.GOOGLE, "auth-code");
+        return new SocialAuthCommand(Realm.PORTAL, SocialProvider.GOOGLE, "auth-code", CLIENT_ID);
     }
 
     @Test
@@ -67,7 +72,7 @@ class AuthenticateWithSocialServiceTest {
 
         assertThat(registeredPublisher.published).hasSize(1);
         assertThat(socialRepo.saved).hasSize(1);
-        assertThat(result.subjectType()).isEqualTo(SubjectType.CUSTOMER);
+        assertThat(result.realm()).isEqualTo(Realm.PORTAL);
         assertThat(eventPublisher.published).hasSize(1);
     }
 
@@ -87,9 +92,9 @@ class AuthenticateWithSocialServiceTest {
     @Test
     @DisplayName("같은 이메일로 이미 가입한 주체가 있으면 새 Principal 없이 소셜 수단만 붙는다")
     void linksToExistingSubjectByVerifiedEmail() {
-        Principal existing = principalRepo.seed("customer-uuid-1", SubjectType.CUSTOMER);
-        emailAccountRepo.save(EmailAccount.create(
-                existing.getPrincipalId(), SubjectType.CUSTOMER, EMAIL));
+        Principal existing = principalRepo.seed("customer-uuid-1", Realm.PORTAL);
+        emailAccountRepo.save(EmailAccount.verified(
+                existing.getPrincipalId(), Realm.PORTAL, EMAIL));
 
         AuthenticationResult result = service().authenticate(command());
 
@@ -114,7 +119,7 @@ class AuthenticateWithSocialServiceTest {
     @DisplayName("소셜 검증 어댑터가 없으면 소셜 로그인을 지원하지 않는다")
     void withoutVerifierFails() {
         AuthenticateWithSocialService noVerifier = new AuthenticateWithSocialService(
-                provider((SocialIdentityVerifierPort) null), socialRepo, principalRepo, emailAccountRepo,
+                provider((SocialIdentityVerifierPort) null), socialRepo, principalRepo, profileRepo, emailAccountRepo,
                 registeredPublisher,
                 new AuthenticationCompletion(principalRepo, eventPublisher,
                         new TokenIssuance(new FakeTokenIssuer())));
@@ -129,5 +134,22 @@ class AuthenticateWithSocialServiceTest {
         public VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode) {
             return identity;
         }
+    }
+
+    @Test
+    @DisplayName("기존 이메일이 확인되지 않은 것이면 자동 연결하지 않고 거절한다(pre-account hijacking 방지)")
+    void unverifiedEmailIsNotAutoLinked() {
+        // 공격자가 남의 주소로 비밀번호 가입을 해둔 상태를 흉내낸다 — 확인된 적이 없는 주소다.
+        Principal planted = principalRepo.seed("attacker-uuid", Realm.PORTAL);
+        emailAccountRepo.save(EmailAccount.unverified(
+                planted.getPrincipalId(), Realm.PORTAL, EMAIL));
+
+        assertThatThrownBy(() -> service().authenticate(command()))
+                .isInstanceOf(AuthenticationFailedException.class)
+                .hasMessageContaining("다른 방법으로 가입");
+
+        // 공격자의 신원에 소셜 수단이 붙지 않았다.
+        assertThat(socialRepo.saved).isEmpty();
+        assertThat(principalRepo.byId).hasSize(1);
     }
 }

@@ -3,13 +3,14 @@ package com.brunosong.identityplatform.auth.service.application.identity.service
 import com.brunosong.identityplatform.auth.service.application.identity.event.SubjectRegisteredEvent;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordEncoder;
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalProfileRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingSubjectRegisteredPublisher;
@@ -24,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class RegisterWithPasswordServiceTest {
 
     private FakePrincipalRepository principalRepo;
+    private FakePrincipalProfileRepository profileRepo;
     private FakePasswordAccountRepository accountRepo;
     private FakeEmailAccountRepository emailAccountRepo;
     private RecordingSubjectRegisteredPublisher registeredPublisher;
@@ -35,14 +37,15 @@ class RegisterWithPasswordServiceTest {
         accountRepo = new FakePasswordAccountRepository();
         emailAccountRepo = new FakeEmailAccountRepository();
         registeredPublisher = new RecordingSubjectRegisteredPublisher();
+        profileRepo = new FakePrincipalProfileRepository();
         service = new RegisterWithPasswordService(
-                principalRepo, accountRepo, emailAccountRepo, new FakePasswordEncoder(),
+                principalRepo, profileRepo, accountRepo, emailAccountRepo, new FakePasswordEncoder(),
                 registeredPublisher);
     }
 
     private RegisterWithPasswordCommand command(String loginId, String email) {
         return new RegisterWithPasswordCommand(
-                SubjectType.CUSTOMER, email, "홍길동", "01012345678", loginId, "pw1234!");
+                Realm.PORTAL, email, "홍길동", "01012345678", loginId, "pw1234!");
     }
 
     @Test
@@ -52,7 +55,7 @@ class RegisterWithPasswordServiceTest {
 
         assertThat(registeredPublisher.published).hasSize(1);
         assertThat(principalRepo.byId).containsKey(principalId);
-        assertThat(accountRepo.findByLoginId(SubjectType.CUSTOMER, "gildong")).isPresent();
+        assertThat(accountRepo.findByLoginId(Realm.PORTAL, "gildong")).isPresent();
     }
 
     @Test
@@ -70,7 +73,7 @@ class RegisterWithPasswordServiceTest {
         service.register(command("gildong", "gildong@example.com"));
 
         SubjectRegisteredEvent event = registeredPublisher.published.get(0);
-        assertThat(event.subjectType()).isEqualTo(SubjectType.CUSTOMER);
+        assertThat(event.realm()).isEqualTo(Realm.PORTAL);
         assertThat(event.email()).isEqualTo("gildong@example.com");
         assertThat(event.name()).isEqualTo("홍길동");
         assertThat(event.phoneNumber()).isEqualTo("01012345678");
@@ -81,7 +84,7 @@ class RegisterWithPasswordServiceTest {
     void passwordIsEncoded() {
         service.register(command("gildong", "gildong@example.com"));
 
-        assertThat(accountRepo.findByLoginId(SubjectType.CUSTOMER, "gildong").orElseThrow().getPasswordHash())
+        assertThat(accountRepo.findByLoginId(Realm.PORTAL, "gildong").orElseThrow().getPasswordHash())
                 .isEqualTo("hash:pw1234!")
                 .isNotEqualTo("pw1234!");
     }
@@ -107,8 +110,8 @@ class RegisterWithPasswordServiceTest {
         assertThat(principalRepo.byId).hasSize(1);
         assertThat(registeredPublisher.published).hasSize(1);
         // 저장소 내부 키가 아니라 포트로 확인한다 — 아이디는 유형 안에서만 유일하다.
-        assertThat(accountRepo.findByLoginId(SubjectType.CUSTOMER, "gildong")).isPresent();
-        assertThat(accountRepo.findByLoginId(SubjectType.CUSTOMER, "gildong2")).isPresent();
+        assertThat(accountRepo.findByLoginId(Realm.PORTAL, "gildong")).isPresent();
+        assertThat(accountRepo.findByLoginId(Realm.PORTAL, "gildong2")).isPresent();
     }
 
     @Test
@@ -116,18 +119,18 @@ class RegisterWithPasswordServiceTest {
     void emailAccountIsCreated() {
         String principalId = service.register(command("gildong", "gildong@example.com"));
 
-        assertThat(emailAccountRepo.findByEmail(SubjectType.CUSTOMER, "gildong@example.com"))
+        assertThat(emailAccountRepo.findByEmail(Realm.PORTAL, "gildong@example.com"))
                 .get()
                 .extracting(a -> a.getPrincipalId().value())
                 .isEqualTo(principalId);
     }
 
     @Test
-    @DisplayName("같은 이메일이라도 주체 유형이 다르면 서로 다른 신원이다")
-    void sameEmailDifferentSubjectType() {
+    @DisplayName("같은 이메일이라도 realm 이 다르면 서로 다른 신원이다")
+    void sameEmailDifferentRealm() {
         service.register(command("gildong", "same@example.com"));
 
-        assertThat(emailAccountRepo.findByEmail(SubjectType.EMPLOYEE, "same@example.com")).isEmpty();
+        assertThat(emailAccountRepo.findByEmail(Realm.ADMIN, "same@example.com")).isEmpty();
     }
 
     @Test
@@ -137,5 +140,16 @@ class RegisterWithPasswordServiceTest {
 
         Principal principal = principalRepo.byId.get(principalId);
         assertThat(principal.getLastAuthenticatedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("가입 폼의 이름·전화번호를 신원 프로필로 저장한다")
+    void savesPrincipalProfile() {
+        String principalId = service.register(command("hong", "hong@example.com"));
+
+        assertThat(profileRepo.byPrincipalId).containsKey(principalId);
+        var profile = profileRepo.byPrincipalId.get(principalId);
+        assertThat(profile.getName()).isEqualTo("홍길동");
+        assertThat(profile.getPhoneNumber()).isEqualTo("01012345678");
     }
 }

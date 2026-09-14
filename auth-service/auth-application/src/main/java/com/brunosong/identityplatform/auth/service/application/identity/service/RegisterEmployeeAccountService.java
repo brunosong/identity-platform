@@ -5,11 +5,13 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.event.EmployeeRegisteredEvent;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmployeeRegisteredEventPublisher;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalProfileRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
+import com.brunosong.identityplatform.auth.service.domain.identity.PrincipalProfile;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,13 +29,14 @@ import java.util.UUID;
  *
  * <p>직원 전용 유스케이스다. 전에는 realm 프로퍼티로 이 빈 자체를 껐지만, 한 서비스가 두 realm 을
  * 담당하면 그렇게 가를 수 없다. 대신 이 서비스가 만드는 것이 언제나 EMPLOYEE 신원이라는 사실
- * (아래 {@code SubjectType.EMPLOYEE})과, 이것을 부르는 경로가 직원 등록 API 하나뿐이라는 점이 경계다.
+ * (아래 {@code Realm.ADMIN})과, 이것을 부르는 경로가 직원 등록 API 하나뿐이라는 점이 경계다.
  */
 @Service
 @RequiredArgsConstructor
 public class RegisterEmployeeAccountService implements RegisterEmployeeAccountUseCase {
 
     private final PrincipalRepository principalRepository;
+    private final PrincipalProfileRepository principalProfileRepository;
     private final EmailAccountRepository emailAccountRepository;
     private final EmployeeRegisteredEventPublisher employeeRegisteredEventPublisher;
 
@@ -44,13 +47,17 @@ public class RegisterEmployeeAccountService implements RegisterEmployeeAccountUs
 
         // (1)(2) 신원 먼저: Principal 생성(순수 신원 — 식별자 email 은 EmailAccount 소유). 인가 역할(authz)은
         // 신원이 아니라 admin RBAC 이 authz_subject_role 에 별도 배정한다.
-        Principal principal = Principal.create(new SubjectId(essentialId), SubjectType.EMPLOYEE);
+        Principal principal = Principal.create(new SubjectId(essentialId), Realm.ADMIN);
         principalRepository.save(principal);
+        principalProfileRepository.save(PrincipalProfile.create(
+                principal.getPrincipalId(), command.name(), command.mobile()));
 
         // 이메일(OTP) 로그인 식별자 계정 생성
         if (command.email() != null && !command.email().isBlank()) {
-            emailAccountRepository.save(EmailAccount.create(
-                    principal.getPrincipalId(), SubjectType.EMPLOYEE, command.email()));
+            // 관리자가 대신 입력한 주소다. 그 주소의 주인임을 지금 증명할 사람이 없으므로
+            // 확인되지 않은 것으로 둔다 — 오타가 나면 엉뚱한 주소가 로그인 식별자가 된다.
+            emailAccountRepository.save(EmailAccount.unverified(
+                    principal.getPrincipalId(), Realm.ADMIN, command.email()));
         }
 
         // (3) 같은 esntlId 로 "직원이 생겼다"만 알린다. 프로필만 싣는다 — 자격증명은 auth 가 갖는다.

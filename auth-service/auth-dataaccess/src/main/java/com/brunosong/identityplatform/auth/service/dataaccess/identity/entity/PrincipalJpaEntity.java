@@ -1,7 +1,7 @@
 package com.brunosong.identityplatform.auth.service.dataaccess.identity.entity;
 
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalStatus;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
- * identity_principal — 인증 신원. principalId(UUID 문자열)가 PK. 주체는 (subject_type, subject_id)로 유일.
+ * identity_principal — 인증 신원. principalId(UUID 문자열)가 PK. 주체는 (realm, subject_id)로 유일.
  *
  * <p>그 유일성을 제약으로 건다. 전에는 주석에만 있었다 — subject_id 는 realm 마다 다른 체계에서
  * 발급되므로(직원 esntlId, 고객 UUID) 전역 유일을 걸 수 없고, 유형과 묶어야 비로소 유일해진다.
@@ -19,8 +19,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "identity_principal",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_identity_principal_subject_type_subject_id",
-                columnNames = {"subject_type", "subject_id"}))
+                name = "uk_identity_principal_realm_subject_id",
+                columnNames = {"realm", "subject_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -34,8 +34,8 @@ public class PrincipalJpaEntity {
     private String subjectId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "subject_type", nullable = false, length = 20)
-    private SubjectType subjectType;
+    @Column(name = "realm", nullable = false, length = 20)
+    private Realm realm;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

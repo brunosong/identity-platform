@@ -5,7 +5,7 @@ import com.brunosong.identityplatform.auth.client.AuthenticatedToken;
 import com.brunosong.identityplatform.auth.client.JwksKeySource;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RegisterWithPasswordUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -295,11 +295,11 @@ class JwksVerificationIntegrationTest {
     @DisplayName("관리자 계정 생성은 대상 realm 이 경로에, 호출자 realm 이 토큰에 있다")
     void adminUserCreationSeparatesTargetFromCaller() {
         // 대상 realm 을 먼저 본다 — 포털 계정을 대신 만드는 유스케이스는 아직 없다.
-        assertThat(postJson("/api/auth/admin/realms/portal/users", adminUserBody(), null)).isEqualTo(404);
+        assertThat(postJson("/api/admin/realms/portal/users", adminUserBody(), null)).isEqualTo(404);
         // 대상은 맞지만 호출자를 밝히지 않았다.
-        assertThat(postJson("/api/auth/admin/realms/admin/users", adminUserBody(), null)).isEqualTo(401);
+        assertThat(postJson("/api/admin/realms/admin/users", adminUserBody(), null)).isEqualTo(401);
         // 어드민 토큰이면 통과한다.
-        assertThat(postJson("/api/auth/admin/realms/admin/users", adminUserBody(), loginAsAdmin()))
+        assertThat(postJson("/api/admin/realms/admin/users", adminUserBody(), loginAsAdmin()))
                 .isEqualTo(201);
     }
 
@@ -445,7 +445,8 @@ class JwksVerificationIntegrationTest {
 
         Map<?, ?> response = http.post().uri("/api/auth/realms/admin/login/email-otp")
                 .header("Content-Type", "application/json")
-                .body(Map.of("email", "admin@example.com", "verificationCode", "123456"))
+                .body(Map.of("email", "admin@example.com", "verificationCode", "123456",
+                        "clientId", "employee-admin"))
                 .retrieve().body(Map.class);
 
         cachedAdminToken = (String) ((Map<?, ?>) response.get("tokens")).get("accessToken");
@@ -455,7 +456,7 @@ class JwksVerificationIntegrationTest {
     /** 가입은 유스케이스로 직접 부른다 — 이 테스트가 보려는 것은 가입 API 가 아니라 토큰 검증이다. */
     private void registerCustomer(String email) {
         registerWithPassword.register(new RegisterWithPasswordCommand(
-                SubjectType.CUSTOMER, email, "Tester", null, email, "pw12345678"));
+                Realm.PORTAL, email, "Tester", null, email, "pw12345678"));
     }
 
     private String login(String email) {
@@ -467,7 +468,8 @@ class JwksVerificationIntegrationTest {
         return Optional.ofNullable(http.post()
                         .uri("/api/auth/realms/portal/login")
                         .header("Content-Type", "application/json")
-                        .body(Map.of("loginId", email, "password", "pw12345678"))
+                        .body(Map.of("loginId", email, "password", "pw12345678",
+                                "clientId", "customer-portal"))
                         .retrieve()
                         .body(Map.class))
                 .orElseThrow(() -> new IllegalStateException("로그인 응답이 비어 있다"));

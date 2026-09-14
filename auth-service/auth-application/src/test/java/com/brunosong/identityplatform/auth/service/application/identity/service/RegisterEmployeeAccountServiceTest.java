@@ -5,7 +5,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.event.Em
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmployeeRegisteredEventPublisher;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalProfileRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RegisterEmployeeAccountServiceTest {
 
     private FakePrincipalRepository principalRepo;
+    private FakePrincipalProfileRepository profileRepo;
     private FakeEmailAccountRepository emailAccountRepo;
     private RecordingEmployeeRegisteredPublisher registeredPublisher;
     private RegisterEmployeeAccountService service;
@@ -34,7 +36,8 @@ class RegisterEmployeeAccountServiceTest {
         principalRepo = new FakePrincipalRepository();
         emailAccountRepo = new FakeEmailAccountRepository();
         registeredPublisher = new RecordingEmployeeRegisteredPublisher();
-        service = new RegisterEmployeeAccountService(principalRepo, emailAccountRepo, registeredPublisher);
+        profileRepo = new FakePrincipalProfileRepository();
+        service = new RegisterEmployeeAccountService(principalRepo, profileRepo, emailAccountRepo, registeredPublisher);
     }
 
     private RegisterEmployeeAccountCommand command(String email) {
@@ -47,8 +50,8 @@ class RegisterEmployeeAccountServiceTest {
     void registerSharesEssentialId() {
         String essentialId = service.register(command("gildong@example.com"));
 
-        Principal principal = principalRepo.findBySubjectId(SubjectType.EMPLOYEE, new SubjectId(essentialId)).orElseThrow();
-        assertThat(principal.getSubjectType()).isEqualTo(SubjectType.EMPLOYEE);
+        Principal principal = principalRepo.findBySubjectId(Realm.ADMIN, new SubjectId(essentialId)).orElseThrow();
+        assertThat(principal.getRealm()).isEqualTo(Realm.ADMIN);
         assertThat(registeredPublisher.published).hasSize(1);
         assertThat(registeredPublisher.published.get(0).essentialId()).isEqualTo(essentialId);
     }
@@ -71,7 +74,7 @@ class RegisterEmployeeAccountServiceTest {
     void emailAccountIsCreated() {
         service.register(command("gildong@example.com"));
 
-        assertThat(emailAccountRepo.findByEmail(SubjectType.EMPLOYEE, "gildong@example.com")).isPresent();
+        assertThat(emailAccountRepo.findByEmail(Realm.ADMIN, "gildong@example.com")).isPresent();
     }
 
     @Test

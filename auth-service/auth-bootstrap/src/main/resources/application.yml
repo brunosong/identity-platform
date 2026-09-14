@@ -40,6 +40,19 @@ token:
   # realm 마다 다른 키페어를 쓴다. kid 는 realm 전체에서 유일해야 한다 —
   # 겹치면 상대 realm 키로 검증이 통과한다(부팅에서 막는다).
   # 키는 base64(DER): private=PKCS#8, public=X.509 SubjectPublicKeyInfo.
+  # 토큰을 받아 갈 앱들. clientId 가 토큰의 aud 를 정한다.
+  #
+  # 한 클라이언트가 audience 를 여럿 가질 수 있다 — 그래서 사용자는 한 번만 로그인하고 그 토큰
+  # 하나로 나열된 서비스를 모두 쓴다(통합 로그인). 서비스를 하나 붙이면 여기에 한 줄 더한다.
+  # 나열되지 않은 서비스는 그 토큰을 거부한다.
+  clients:
+    customer-portal:
+      realm: PORTAL
+      audiences: customer-service
+    employee-admin:
+      realm: ADMIN
+      # 직원 앱이 상대하는 서비스는 아직 auth 자신뿐이다.
+      audiences: auth-service
   realms:
     ADMIN:
       kid: ${ADMIN_KID:admin-1}

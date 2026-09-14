@@ -1,23 +1,22 @@
 package com.brunosong.identityplatform.auth.service.application.identity.ports.out;
 
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.RefreshedSubject;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.TokenPair;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 
 /**
- * 토큰 발급 드리븐 포트. 토큰 형식(JWT 등)과 표시정보 조회는 발급 어댑터가 정한다.
- *
- * <p>realm 을 함께 받는다. 한 프로세스가 두 realm 을 모두 발급하므로 어느 realm 의 키로 서명하고
- * 어느 realm 의 권한을 실을지를 발급기가 스스로 알 수 없다. 전에는 발급기가 realm 하나에 고정돼 있었다.
+ * 토큰 발급 드리븐 포트. 형식(JWT/서명/클레임)은 어댑터가 정하고, auth 는 "이 주체에게 이 realm 의
+ * 토큰을 이 클라이언트용으로 달라" 고만 말한다.
  */
 public interface TokenIssuerPort {
 
-    TokenPair issue(Realm realm, Principal principal);
-
     /**
-     * refresh 토큰을 검증(서명·만료·realm, 단일 세션 활성 시 sid 현재성)하고 담긴 subjectId 를 돌려준다.
-     * 무효/만료/세션 불일치면 {@link com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException}.
-     * 검증은 요청한 realm 의 공개키로만 한다 — 상대 realm 토큰은 서명 단계에서 걸린다.
+     * @param clientId 토큰을 받아 갈 앱. 이 값이 토큰의 {@code aud} 를 정한다 —
+     *                 나열되지 않은 서비스는 이 토큰을 거부한다.
      */
-    String subjectIdFromRefreshToken(Realm realm, String refreshToken);
+    TokenPair issue(Realm realm, Principal principal, String clientId);
+
+    /** 검증까지 포함한다. 무효/만료/다른 realm 이면 실패로 끝난다. */
+    RefreshedSubject readRefreshToken(Realm realm, String refreshToken);
 }

@@ -1,6 +1,6 @@
 package com.brunosong.identityplatform.auth.service.application.identity.ports.in;
 
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 
 /**
  * 이메일 OTP 발송 요청 인바운드 포트. 로그인 전 단계로 인증번호(챌린지) 발송을 요청한다.
@@ -15,5 +15,5 @@ public interface RequestEmailOtpUseCase {
      * 이메일로 OTP 챌린지 발송을 요청한다.
      * 계정 열거 방지를 위해 미등록/쿨다운 등은 예외로 드러내지 않고 조용히 흡수한다.
      */
-    void request(SubjectType subjectType, String email);
+    void request(Realm realm, String email);
 }

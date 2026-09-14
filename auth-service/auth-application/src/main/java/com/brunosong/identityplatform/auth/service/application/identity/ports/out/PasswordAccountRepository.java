@@ -1,21 +1,21 @@
 package com.brunosong.identityplatform.auth.service.application.identity.ports.out;
 
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 
 import java.util.Optional;
 
 /**
  * 비밀번호 자격증명(로그인ID/비번) 저장 드리븐 포트.
  *
- * <p>조회에 주체 유형을 함께 받는다 — {@link EmailAccountRepository} 와 같은 규칙이다.
- * loginId 의 유일성은 유형 안에서만 성립하므로, 유형 없이 찾으면 상대 realm 의 자격증명이 걸린다.
+ * <p>조회에 realm 을 함께 받는다 — {@link EmailAccountRepository} 와 같은 규칙이다.
+ * loginId 의 유일성은 realm 안에서만 성립하므로, realm 없이 찾으면 상대 realm 의 자격증명이 걸린다.
  */
 public interface PasswordAccountRepository {
 
-    Optional<PasswordAccount> findByLoginId(SubjectType subjectType, String loginId);
+    Optional<PasswordAccount> findByLoginId(Realm realm, String loginId);
 
-    boolean existsByLoginId(SubjectType subjectType, String loginId);
+    boolean existsByLoginId(Realm realm, String loginId);
 
     PasswordAccount save(PasswordAccount account);
 

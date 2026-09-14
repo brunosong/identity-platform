@@ -5,7 +5,7 @@ import com.brunosong.identityplatform.auth.service.dataaccess.identity.entity.Em
 import com.brunosong.identityplatform.auth.service.dataaccess.identity.repository.EmailAccountJpaRepository;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,8 +23,8 @@ public class EmailAccountPersistenceAdapter implements EmailAccountRepository {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<EmailAccount> findByEmail(SubjectType subjectType, String email) {
-        return repository.findBySubjectTypeAndEmail(subjectType.name(), email)
+    public Optional<EmailAccount> findByEmail(Realm realm, String email) {
+        return repository.findByRealmAndEmail(realm.name(), email)
                 .map(EmailAccountPersistenceAdapter::toDomain);
     }
 
@@ -41,14 +41,15 @@ public class EmailAccountPersistenceAdapter implements EmailAccountRepository {
         EmailAccountJpaEntity e = new EmailAccountJpaEntity();
         e.setEmailAccountId(account.getEmailAccountId());
         e.setPrincipalId(account.getPrincipalId().value());
-        e.setSubjectType(account.getSubjectType().name());
+        e.setRealm(account.getRealm().name());
         e.setEmail(account.getEmail());
+        e.setVerified(account.isVerified());
         e.setCreatedAt(account.getCreatedAt());
         return toDomain(repository.save(e));
     }
 
     private static EmailAccount toDomain(EmailAccountJpaEntity e) {
         return EmailAccount.restore(e.getEmailAccountId(), new PrincipalId(e.getPrincipalId()),
-                SubjectType.valueOf(e.getSubjectType()), e.getEmail(), e.getCreatedAt());
+                Realm.valueOf(e.getRealm()), e.getEmail(), e.isVerified(), e.getCreatedAt());
     }
 }

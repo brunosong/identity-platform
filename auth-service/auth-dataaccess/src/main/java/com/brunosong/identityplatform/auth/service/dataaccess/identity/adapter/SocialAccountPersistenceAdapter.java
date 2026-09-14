@@ -6,7 +6,7 @@ import com.brunosong.identityplatform.auth.service.dataaccess.identity.repositor
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +24,10 @@ public class SocialAccountPersistenceAdapter implements SocialAccountRepository 
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<SocialAccount> findByProvider(SubjectType subjectType, SocialProvider provider,
+    public Optional<SocialAccount> findByProvider(Realm realm, SocialProvider provider,
                                                  String providerUid) {
         return repository
-                .findBySubjectTypeAndProviderAndProviderUid(subjectType.name(), provider.name(), providerUid)
+                .findByRealmAndProviderAndProviderUid(realm.name(), provider.name(), providerUid)
                 .map(SocialAccountPersistenceAdapter::toDomain);
     }
 
@@ -37,7 +37,7 @@ public class SocialAccountPersistenceAdapter implements SocialAccountRepository 
         SocialAccountJpaEntity e = new SocialAccountJpaEntity();
         e.setSocialAccountId(account.getSocialAccountId());
         e.setPrincipalId(account.getPrincipalId().value());
-        e.setSubjectType(account.getSubjectType().name());
+        e.setRealm(account.getRealm().name());
         e.setProvider(account.getProvider().name());
         e.setProviderUid(account.getProviderUid());
         e.setCreatedAt(account.getCreatedAt());
@@ -46,7 +46,7 @@ public class SocialAccountPersistenceAdapter implements SocialAccountRepository 
 
     private static SocialAccount toDomain(SocialAccountJpaEntity e) {
         return SocialAccount.restore(e.getSocialAccountId(), new PrincipalId(e.getPrincipalId()),
-                SubjectType.valueOf(e.getSubjectType()), SocialProvider.valueOf(e.getProvider()),
+                Realm.valueOf(e.getRealm()), SocialProvider.valueOf(e.getProvider()),
                 e.getProviderUid(), e.getCreatedAt());
     }
 }

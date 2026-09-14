@@ -2,7 +2,7 @@ package com.brunosong.identityplatform.auth.service.application.identity.service
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ class RefreshTokenServiceTest {
     @BeforeEach
     void setUp() {
         principalRepo = new FakePrincipalRepository();
-        principalRepo.seed("customer-uuid-1", SubjectType.CUSTOMER);
+        principalRepo.seed("customer-uuid-1", Realm.PORTAL);
         tokenIssuer = new FakeTokenIssuer();
         service = new RefreshTokenService(principalRepo, new TokenIssuance(tokenIssuer));
     }
@@ -35,7 +35,7 @@ class RefreshTokenServiceTest {
     void refreshIssuesNewTokens() {
         tokenIssuer.refreshTokenSubjectId = "customer-uuid-1";
 
-        AuthenticationResult result = service.refresh(SubjectType.CUSTOMER, "refresh:customer-uuid-1");
+        AuthenticationResult result = service.refresh(Realm.PORTAL, "refresh:customer-uuid-1");
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
         assertThat(result.tokens().accessToken()).isEqualTo("access:PORTAL:customer-uuid-1");
@@ -46,7 +46,7 @@ class RefreshTokenServiceTest {
     void unknownSubjectRejected() {
         tokenIssuer.refreshTokenSubjectId = "gone-uuid";
 
-        assertThatThrownBy(() -> service.refresh(SubjectType.CUSTOMER, "refresh:gone-uuid"))
+        assertThatThrownBy(() -> service.refresh(Realm.PORTAL, "refresh:gone-uuid"))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("유효하지 않습니다");
     }

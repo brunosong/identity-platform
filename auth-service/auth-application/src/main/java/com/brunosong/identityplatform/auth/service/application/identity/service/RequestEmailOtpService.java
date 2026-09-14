@@ -2,82 +2,38 @@ package com.brunosong.identityplatform.auth.service.application.identity.service
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RequestEmailOtpUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailOtpStore;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.out.OtpEmailSenderPort;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PasswordEncoderPort;
-import com.brunosong.identityplatform.auth.service.domain.identity.EmailOtpChallenge;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Optional;
-
 /**
- * 이메일 OTP 발송 요청. auth 가 코드 생성/저장을 직접 소유하고,
- * 등록 여부는 {@link EmailAccountRepository#findByEmail}(이메일 계정 존재) 로 판단한다.
- * 실제 전송은 {@link OtpEmailSenderPort} 어댑터에 위임한다 — auth 는 발송 인프라를 모른다.
+ * <b>로그인용</b> 이메일 OTP 발송 요청.
+ *
+ * <p>이 서비스가 하는 판단은 하나뿐이다 — "그 유형으로 등록된 이메일인가". 등록된 경우에만
+ * 보낸다. 코드 생성·저장·발송과 쿨다운은 {@link EmailOtpIssuer} 가 갖는다(가입용과 공유).
+ *
+ * <p>미등록이면 <b>조용히</b> 끝난다. 없는 이메일에 다른 응답을 주면 그 응답만으로 누가 가입돼
+ * 있는지 훑어낼 수 있다(계정 열거). 컨트롤러가 어느 쪽이든 202 를 돌려주는 것과 한 쌍이다.
+ *
+ * <p>가입용은 조건이 정반대다 — {@link RequestRegistrationOtpService} 참고.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RequestEmailOtpService implements RequestEmailOtpUseCase {
 
-    /** 동일 이메일 재발송 최소 간격(초) — 메일 폭탄/비용 남용 방지. */
-    private static final long RESEND_COOLDOWN_SECONDS = 60;
-    /** OTP 만료(분). */
-    private static final long OTP_TTL_MINUTES = 5;
-    /** 로컬 개발 환경 고정 인증번호 — 메일 발송 없이 이 코드로 로그인. */
-    private static final String LOCAL_FIXED_CODE = "123456";
-
     private final EmailAccountRepository emailAccountRepository;
-    private final EmailOtpStore otpStore;
-    private final PasswordEncoderPort passwordEncoder;
-    private final Environment environment;
-    private final ObjectProvider<OtpEmailSenderPort> emailSenderProvider;
-
-    private final SecureRandom secureRandom = new SecureRandom();
+    private final EmailOtpIssuer otpIssuer;
 
     @Override
     @Transactional
-    public void request(SubjectType subjectType, String email) {
-        // 계정 열거 방지: 그 유형으로 등록된 이메일 계정이 아니면 조용히 종료
-        if (emailAccountRepository.findByEmail(subjectType, email).isEmpty()) {
-            log.info("미등록 이메일 OTP 요청 — 발송 생략(열거 방지): email={}", email);
+    public void request(Realm realm, String email) {
+        if (emailAccountRepository.findByEmail(realm, email).isEmpty()) {
+            log.info("미등록 이메일 로그인 OTP 요청 — 발송 생략(열거 방지): email={}", email);
             return;
         }
-
-        // 재발송 쿨다운 — 최근 발급 후 일정 시간 내 재요청은 조용히 무시
-        Optional<Instant> lastCreated = otpStore.findLatestCreatedAt(email);
-        if (lastCreated.isPresent()
-                && lastCreated.get().isAfter(Instant.now().minusSeconds(RESEND_COOLDOWN_SECONDS))) {
-            log.info("OTP 재발송 쿨다운 — 발송 생략: email={}", email);
-            return;
-        }
-
-        boolean local = environment.acceptsProfiles(Profiles.of("local"));
-        String rawCode = local ? LOCAL_FIXED_CODE : String.format("%06d", secureRandom.nextInt(1_000_000));
-
-        Instant now = Instant.now();
-        otpStore.save(EmailOtpChallenge.issue(
-                email, passwordEncoder.encode(rawCode), now, now.plus(Duration.ofMinutes(OTP_TTL_MINUTES))));
-
-        if (local) {
-            log.info("[local] OTP 메일 발송 생략 — 고정코드({}) 사용: email={}", LOCAL_FIXED_CODE, email);
-            return;
-        }
-
-        OtpEmailSenderPort sender = emailSenderProvider.getIfAvailable();
-        if (sender == null) {
-            throw new IllegalStateException("메일 발송 어댑터가 설정되지 않았습니다(OtpEmailSenderPort).");
-        }
-        sender.send(email, rawCode);
+        otpIssuer.issue(email);
     }
 }

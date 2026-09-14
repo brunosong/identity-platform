@@ -22,7 +22,9 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 접근제어 엔진. 패턴·메서드 매칭, 권한 OR 판정, realm 별 기본 정책(fail-open/closed)을 본다.
+ * 접근제어 엔진. 패턴·메서드 매칭, 권한 OR 판정, 그리고 규칙이 없을 때의 결정을 본다.
+ *
+ * <p>두 realm 모두 화이트리스트다 — 등록된 규칙만 통과하고 규칙 없는 보호 경로는 거부한다.
  */
 class AccessControlServiceTest {
 
@@ -64,8 +66,8 @@ class AccessControlServiceTest {
         urlAccessQuery.rules(Realm.PORTAL, rule("/api/resumes/**", "POST", Set.of("RESUME_WRITE")));
 
         assertThat(service.hasAccess(Realm.PORTAL, "/api/resumes/1", "POST", Set.of())).isFalse();
-        // CUSTOMER 는 fail-open — 매칭 규칙이 없는 GET 은 통과
-        assertThat(service.hasAccess(Realm.PORTAL, "/api/resumes/1", "GET", Set.of())).isTrue();
+        // 규칙이 POST 에만 걸려 있으니 GET 은 "매칭 없음" 이고, 보호 경로라 거부된다(화이트리스트).
+        assertThat(service.hasAccess(Realm.PORTAL, "/api/resumes/1", "GET", Set.of())).isFalse();
     }
 
     @Test
@@ -106,11 +108,26 @@ class AccessControlServiceTest {
     }
 
     @Test
-    @DisplayName("CUSTOMER(fail-open)는 규칙이 없는 보호 경로를 허용한다")
-    void customerAllowsUnmappedProtectedPath() {
+    @DisplayName("포털도 규칙이 없는 보호 경로는 거부한다 — 두 realm 모두 화이트리스트다")
+    void portalDeniesUnmappedProtectedPath() {
         urlAccessQuery.rules(Realm.PORTAL);
 
-        assertThat(service.hasAccess(Realm.PORTAL, "/api/unknown", "GET", Set.of())).isTrue();
+        // 전에는 포털만 fail-open 이었다. 그러면 규칙을 등록하지 않은 고객 API 가 조용히 열린
+        // 채로 남는다 — 잊었을 때의 결과가 "막힌다" 여야지 "열린다" 여서는 안 된다.
+        assertThat(service.hasAccess(Realm.PORTAL, "/api/unknown", "GET", Set.of())).isFalse();
+    }
+
+    @Test
+    @DisplayName("두 realm 의 기본 결정이 같다 — 규칙 없는 보호 경로는 어느 쪽도 열리지 않는다")
+    void bothRealmsAreFailClosed() {
+        urlAccessQuery.rules(Realm.ADMIN);
+        urlAccessQuery.rules(Realm.PORTAL);
+
+        assertThat(service.hasAccess(Realm.ADMIN, "/api/unknown", "GET", Set.of())).isFalse();
+        assertThat(service.hasAccess(Realm.PORTAL, "/api/unknown", "GET", Set.of())).isFalse();
+        // 보호 경로가 아니면(정적 리소스 등) 둘 다 통과한다.
+        assertThat(service.hasAccess(Realm.ADMIN, "/css/app.css", "GET", Set.of())).isTrue();
+        assertThat(service.hasAccess(Realm.PORTAL, "/css/app.css", "GET", Set.of())).isTrue();
     }
 
     @Test

@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface EmailAccountJpaRepository extends JpaRepository<EmailAccountJpaEntity, String> {
 
-    Optional<EmailAccountJpaEntity> findBySubjectTypeAndEmail(String subjectType, String email);
+    Optional<EmailAccountJpaEntity> findByRealmAndEmail(String realm, String email);
 
     Optional<EmailAccountJpaEntity> findByPrincipalId(String principalId);
 }

@@ -1,6 +1,6 @@
 package com.brunosong.identityplatform.auth.service.application.identity.ports.in.result;
 
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.TokenPair;
 
 /**
@@ -10,7 +10,7 @@ import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.T
 public record AuthenticationResult(
         String principalId,
         String subjectId,
-        SubjectType subjectType,
+        Realm realm,
         TokenPair tokens
 ) {
 }

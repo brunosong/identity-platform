@@ -8,20 +8,22 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.ou
 import com.brunosong.identityplatform.auth.service.application.identity.event.SubjectRegisteredEvent;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalAuthenticatedEventPublisher;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SubjectRegisteredEventPublisher;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalProfileRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.RefreshedSubject;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailOtpChallenge;
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
+import com.brunosong.identityplatform.auth.service.domain.identity.PrincipalProfile;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectId;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.TokenPair;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
+import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.TokenPair;
 import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.ArrayList;
@@ -90,8 +92,8 @@ final class IdentityFakes {
     static final class FakePrincipalRepository implements PrincipalRepository {
         final Map<String, Principal> byId = new LinkedHashMap<>();
 
-        Principal seed(String subjectId, SubjectType subjectType) {
-            return save(Principal.create(new SubjectId(subjectId), subjectType));
+        Principal seed(String subjectId, Realm realm) {
+            return save(Principal.create(new SubjectId(subjectId), realm));
         }
 
         @Override
@@ -100,9 +102,9 @@ final class IdentityFakes {
         }
 
         @Override
-        public Optional<Principal> findBySubjectId(SubjectType subjectType, SubjectId subjectId) {
+        public Optional<Principal> findBySubjectId(Realm realm, SubjectId subjectId) {
             return byId.values().stream()
-                    .filter(p -> p.getSubjectType() == subjectType && p.getSubjectId().equals(subjectId))
+                    .filter(p -> p.getRealm() == realm && p.getSubjectId().equals(subjectId))
                     .findFirst();
         }
 
@@ -113,35 +115,51 @@ final class IdentityFakes {
         }
     }
 
+    /** 표시 속성 저장. 가입이 실제로 이것을 채우는지 보려고 둔다. */
+    static final class FakePrincipalProfileRepository implements PrincipalProfileRepository {
+        final Map<String, PrincipalProfile> byPrincipalId = new LinkedHashMap<>();
+
+        @Override
+        public Optional<PrincipalProfile> findByPrincipalId(PrincipalId principalId) {
+            return Optional.ofNullable(byPrincipalId.get(principalId.value()));
+        }
+
+        @Override
+        public PrincipalProfile save(PrincipalProfile profile) {
+            byPrincipalId.put(profile.getPrincipalId().value(), profile);
+            return profile;
+        }
+    }
+
     static final class FakePasswordAccountRepository implements PasswordAccountRepository {
         /** 키가 유형+아이디다. 같은 loginId 가 realm 별로 따로 설 수 있다는 것이 이 저장소의 규칙이다. */
         final Map<String, PasswordAccount> byLoginId = new HashMap<>();
         int loginStateUpdates;
 
-        private static String key(SubjectType subjectType, String loginId) {
-            return subjectType + "|" + loginId;
+        private static String key(Realm realm, String loginId) {
+            return realm + "|" + loginId;
         }
 
         @Override
-        public Optional<PasswordAccount> findByLoginId(SubjectType subjectType, String loginId) {
-            return Optional.ofNullable(byLoginId.get(key(subjectType, loginId)));
+        public Optional<PasswordAccount> findByLoginId(Realm realm, String loginId) {
+            return Optional.ofNullable(byLoginId.get(key(realm, loginId)));
         }
 
         @Override
-        public boolean existsByLoginId(SubjectType subjectType, String loginId) {
-            return byLoginId.containsKey(key(subjectType, loginId));
+        public boolean existsByLoginId(Realm realm, String loginId) {
+            return byLoginId.containsKey(key(realm, loginId));
         }
 
         @Override
         public PasswordAccount save(PasswordAccount account) {
-            byLoginId.put(key(account.getSubjectType(), account.getLoginId()), account);
+            byLoginId.put(key(account.getRealm(), account.getLoginId()), account);
             return account;
         }
 
         @Override
         public void updateLoginState(PasswordAccount account) {
             loginStateUpdates++;
-            byLoginId.put(key(account.getSubjectType(), account.getLoginId()), account);
+            byLoginId.put(key(account.getRealm(), account.getLoginId()), account);
         }
     }
 
@@ -149,13 +167,13 @@ final class IdentityFakes {
         /** 키가 유형+이메일이다. 같은 이메일이 realm 별로 따로 설 수 있다는 것이 이 저장소의 규칙이다. */
         final Map<String, EmailAccount> byEmail = new HashMap<>();
 
-        private static String key(SubjectType subjectType, String email) {
-            return subjectType + "|" + email;
+        private static String key(Realm realm, String email) {
+            return realm + "|" + email;
         }
 
         @Override
-        public Optional<EmailAccount> findByEmail(SubjectType subjectType, String email) {
-            return Optional.ofNullable(byEmail.get(key(subjectType, email)));
+        public Optional<EmailAccount> findByEmail(Realm realm, String email) {
+            return Optional.ofNullable(byEmail.get(key(realm, email)));
         }
 
         @Override
@@ -167,7 +185,7 @@ final class IdentityFakes {
 
         @Override
         public EmailAccount save(EmailAccount account) {
-            byEmail.put(key(account.getSubjectType(), account.getEmail()), account);
+            byEmail.put(key(account.getRealm(), account.getEmail()), account);
             return account;
         }
     }
@@ -210,10 +228,10 @@ final class IdentityFakes {
         final List<SocialAccount> saved = new ArrayList<>();
 
         @Override
-        public Optional<SocialAccount> findByProvider(SubjectType subjectType, SocialProvider provider,
+        public Optional<SocialAccount> findByProvider(Realm realm, SocialProvider provider,
                                                      String providerUid) {
             return saved.stream()
-                    .filter(a -> a.getSubjectType() == subjectType && a.getProvider() == provider
+                    .filter(a -> a.getRealm() == realm && a.getProvider() == provider
                             && a.getProviderUid().equals(providerUid))
                     .findFirst();
         }
@@ -246,17 +264,23 @@ final class IdentityFakes {
         Realm issuedRealm;
         Realm verifiedRealm;
 
+        /** 마지막으로 발급을 요청받은 클라이언트 — aud 가 그 값에서 나온다. */
+        String issuedClientId;
+        /** 재발급이 refresh 토큰의 클라이언트를 그대로 쓰는지 보려고 둔다. */
+        String refreshTokenClientId = "test-client";
+
         @Override
-        public TokenPair issue(Realm realm, Principal principal) {
+        public TokenPair issue(Realm realm, Principal principal, String clientId) {
             this.issuedRealm = realm;
+            this.issuedClientId = clientId;
             return new TokenPair("access:" + realm + ":" + principal.getSubjectId().value(),
                     "refresh:" + principal.getSubjectId().value());
         }
 
         @Override
-        public String subjectIdFromRefreshToken(Realm realm, String refreshToken) {
+        public RefreshedSubject readRefreshToken(Realm realm, String refreshToken) {
             this.verifiedRealm = realm;
-            return refreshTokenSubjectId;
+            return new RefreshedSubject(refreshTokenSubjectId, refreshTokenClientId);
         }
     }
 

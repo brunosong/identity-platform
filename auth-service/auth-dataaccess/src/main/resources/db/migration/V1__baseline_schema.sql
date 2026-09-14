@@ -6,6 +6,10 @@
 --
 -- 두 realm(ADMIN/PORTAL)이 한 저장소를 공유하되 행은 realm 으로 분리된다. 그 분리가 코드의
 -- 규율로만 서 있으면 언젠가 샌다 — 아래 유니크와 외래키가 그것을 DB 수준에서 붙든다.
+--
+-- realm 이 유일한 파티션 키다. 전에는 identity 쪽이 subject_type(EMPLOYEE/CUSTOMER)으로,
+-- authz 쪽이 realm(ADMIN/PORTAL)으로 나뉘었는데 두 값은 끝까지 1:1 이었다 — 같은 분할선에
+-- 이름이 둘이었을 뿐이라 하나로 모았다.
 
 -- ============================================================================
 -- identity — 신원과 자격증명
@@ -15,24 +19,40 @@
 CREATE TABLE identity_principal
 (
     principal_id          varchar(36) PRIMARY KEY,
-    subject_id            varchar(64)  NOT NULL,
-    subject_type          varchar(20)  NOT NULL,
-    status                varchar(20)  NOT NULL,
+    subject_id            varchar(64) NOT NULL,
+    realm                 varchar(20) NOT NULL,
+    status                varchar(20) NOT NULL,
     last_authenticated_at timestamptz,
     created_at            timestamp(6),
     updated_at            timestamp(6),
 
-    CONSTRAINT ck_identity_principal_subject_type CHECK (subject_type IN ('EMPLOYEE', 'CUSTOMER')),
+    CONSTRAINT ck_identity_principal_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
     CONSTRAINT ck_identity_principal_status CHECK (status IN ('ACTIVE', 'SUSPENDED', 'WITHDRAWN')),
 
-    -- 주체는 (유형, 식별자)로 유일하다. subject_id 만으로는 유일하지 않다 — realm 마다 다른 체계에서
+    -- 주체는 (realm, 식별자)로 유일하다. subject_id 만으로는 유일하지 않다 — realm 마다 다른 체계에서
     -- 발급되기 때문이다(직원은 사번 성격의 값, 고객은 UUID).
-    CONSTRAINT uk_identity_principal_subject_type_subject_id UNIQUE (subject_type, subject_id),
+    CONSTRAINT uk_identity_principal_realm_subject_id UNIQUE (realm, subject_id),
 
-    -- 자격증명이 (principal_id, subject_type) 를 통째로 참조할 수 있게 하는 유니크다.
+    -- 자격증명이 (principal_id, realm) 을 통째로 참조할 수 있게 하는 유니크다.
     -- principal_id 가 이미 PK 라 유일성 자체는 새로울 것이 없지만, 외래키는 유니크한 열 조합만
     -- 참조할 수 있다. 이것이 아래 fk_*_principal 들의 대상이 된다.
-    CONSTRAINT uk_identity_principal_id_subject_type UNIQUE (principal_id, subject_type)
+    CONSTRAINT uk_identity_principal_id_realm UNIQUE (principal_id, realm)
+);
+
+-- 신원의 표시 속성. 로그인에는 쓰이지 않는다 — 자격증명이 아니라 "이 사람을 뭐라고 부르는가" 다.
+--
+-- identity_principal 에 열로 붙이지 않는다. 그 테이블은 인증 커널이고, 표시용 값이 섞이면
+-- "이름이 바뀌었다" 는 이유로 인증 애그리거트를 열게 된다.
+CREATE TABLE identity_principal_profile
+(
+    principal_id varchar(36) PRIMARY KEY,
+    name         varchar(100) NOT NULL,
+    phone_number varchar(30),
+    created_at   timestamptz  NOT NULL,
+    updated_at   timestamptz  NOT NULL,
+
+    CONSTRAINT fk_identity_principal_profile_principal
+        FOREIGN KEY (principal_id) REFERENCES identity_principal (principal_id)
 );
 
 -- 비밀번호 자격증명.
@@ -40,24 +60,24 @@ CREATE TABLE identity_password_account
 (
     password_account_id varchar(36) PRIMARY KEY,
     principal_id        varchar(36)  NOT NULL,
-    subject_type        varchar(20)  NOT NULL,
+    realm               varchar(20)  NOT NULL,
     login_id            varchar(100) NOT NULL,
     password_hash       varchar(100) NOT NULL,
     failed_attempts     integer      NOT NULL DEFAULT 0,
     locked_until        timestamptz,
     created_at          timestamptz,
 
-    CONSTRAINT ck_identity_password_account_subject_type CHECK (subject_type IN ('EMPLOYEE', 'CUSTOMER')),
+    CONSTRAINT ck_identity_password_account_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
 
     -- 아이디는 realm 안에서만 유일하다. 전역 유일로 두면 두 realm 이 아이디 네임스페이스를 공유하게 되고
-    -- (직원이 "hong" 을 쓰면 고객은 못 쓴다), 조회를 유형으로 좁힐 수도 없다.
-    CONSTRAINT uk_identity_password_account_subject_type_login_id UNIQUE (subject_type, login_id),
+    -- (직원이 "hong" 을 쓰면 고객은 못 쓴다), 조회를 realm 으로 좁힐 수도 없다.
+    CONSTRAINT uk_identity_password_account_realm_login_id UNIQUE (realm, login_id),
 
-    -- 자격증명의 subject_type 은 Principal 것을 복사한 값이라 어긋날 수 있다. 복합 외래키로 묶어
-    -- 어긋난 행을 DB 가 받아주지 않게 한다 — 그러지 않으면 고객 자격증명이 직원 신원에 매달릴 수 있다.
+    -- 자격증명의 realm 은 Principal 것을 복사한 값이라 어긋날 수 있다. 복합 외래키로 묶어
+    -- 어긋난 행을 DB 가 받아주지 않게 한다 — 그러지 않으면 포털 자격증명이 어드민 신원에 매달린다.
     CONSTRAINT fk_identity_password_account_principal
-        FOREIGN KEY (principal_id, subject_type)
-            REFERENCES identity_principal (principal_id, subject_type)
+        FOREIGN KEY (principal_id, realm)
+            REFERENCES identity_principal (principal_id, realm)
 );
 
 -- 이메일(OTP) 로그인 식별자.
@@ -65,16 +85,25 @@ CREATE TABLE identity_email_account
 (
     email_account_id varchar(36) PRIMARY KEY,
     principal_id     varchar(36)  NOT NULL,
-    subject_type     varchar(20)  NOT NULL,
+    realm            varchar(20)  NOT NULL,
     email            varchar(255) NOT NULL,
+
+    -- 이 주소의 소유가 확인됐는가. 인증번호를 받아냈거나 provider 가 검증한 경우에만 참이다.
+    --
+    -- 같은 문자열이라도 어떻게 들어왔는지에 따라 뜻이 다르다. 비밀번호 가입 폼에 적힌 주소나
+    -- 관리자가 대신 입력한 주소는 남의 것일 수 있다. 이 구분이 없으면 소셜 자동 연결이 계정
+    -- 탈취 경로가 된다 — 공격자가 남의 주소로 미확인 계정을 심어두고, 진짜 주인이 소셜로
+    -- 들어올 때 그 신원에 붙는다(pre-account hijacking).
+    verified         boolean      NOT NULL DEFAULT false,
+
     created_at       timestamptz,
 
-    CONSTRAINT ck_identity_email_account_subject_type CHECK (subject_type IN ('EMPLOYEE', 'CUSTOMER')),
-    -- 같은 사람이 직원이면서 고객일 수 있다. 이메일은 유형 안에서만 유일하다.
-    CONSTRAINT uk_identity_email_account_subject_type_email UNIQUE (subject_type, email),
+    CONSTRAINT ck_identity_email_account_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
+    -- 같은 사람이 직원이면서 고객일 수 있다. 이메일은 realm 안에서만 유일하다.
+    CONSTRAINT uk_identity_email_account_realm_email UNIQUE (realm, email),
     CONSTRAINT fk_identity_email_account_principal
-        FOREIGN KEY (principal_id, subject_type)
-            REFERENCES identity_principal (principal_id, subject_type)
+        FOREIGN KEY (principal_id, realm)
+            REFERENCES identity_principal (principal_id, realm)
 );
 
 -- 소셜 로그인 연결. 비밀(토큰/시크릿)은 담지 않는다 — 자격 검증은 provider 가 한다.
@@ -82,17 +111,17 @@ CREATE TABLE identity_social_account
 (
     social_account_id varchar(36) PRIMARY KEY,
     principal_id      varchar(36)  NOT NULL,
-    subject_type      varchar(20)  NOT NULL,
+    realm             varchar(20)  NOT NULL,
     provider          varchar(20)  NOT NULL,
     provider_uid      varchar(191) NOT NULL,
     created_at        timestamptz,
 
-    CONSTRAINT ck_identity_social_account_subject_type CHECK (subject_type IN ('EMPLOYEE', 'CUSTOMER')),
-    CONSTRAINT uk_identity_social_account_subject_type_provider_uid
-        UNIQUE (subject_type, provider, provider_uid),
+    CONSTRAINT ck_identity_social_account_realm CHECK (realm IN ('ADMIN', 'PORTAL')),
+    CONSTRAINT uk_identity_social_account_realm_provider_uid
+        UNIQUE (realm, provider, provider_uid),
     CONSTRAINT fk_identity_social_account_principal
-        FOREIGN KEY (principal_id, subject_type)
-            REFERENCES identity_principal (principal_id, subject_type)
+        FOREIGN KEY (principal_id, realm)
+            REFERENCES identity_principal (principal_id, realm)
 );
 
 -- 이메일 OTP 챌린지. 신원에 매달지 않는다 — 발송 시점에는 아직 인증된 주체가 없다.
@@ -114,6 +143,9 @@ CREATE INDEX ix_identity_email_otp_email_created_at ON identity_email_otp (email
 CREATE INDEX ix_identity_email_account_principal_id ON identity_email_account (principal_id);
 CREATE INDEX ix_identity_password_account_principal_id ON identity_password_account (principal_id);
 CREATE INDEX ix_identity_social_account_principal_id ON identity_social_account (principal_id);
+
+-- 미확인 계정을 골라내는 운영 질의용.
+CREATE INDEX ix_identity_email_account_verified ON identity_email_account (verified);
 
 -- ============================================================================
 -- authz — 역할·권한·URL 접근규칙

@@ -4,7 +4,6 @@ import com.brunosong.identityplatform.auth.service.application.identity.event.Pr
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalAuthenticatedEventPublisher;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
-import com.brunosong.identityplatform.auth.service.application.identity.SubjectRealm;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -28,16 +27,16 @@ class AuthenticationCompletion {
      *
      * <p>소비 측(최종접속 갱신 등)은 이벤트로 처리한다. 발행만 하고 누가 받는지는 알지 않는다.
      *
-     * <p>발급할 realm 은 Principal 자신이 들고 있는 주체 유형에서 끌어낸다. 로그인 경로가 realm 을
+     * <p>발급할 realm 은 Principal 자신이 들고 있다. 로그인 경로가 realm 을
      * 따로 넘기면 인증된 주체와 다른 realm 의 토큰이 나갈 여지가 생긴다 — 정확히 그 어긋남을 막는 중이다.
      */
-    AuthenticationResult complete(Principal principal) {
+    AuthenticationResult complete(Principal principal, String clientId) {
         principal.markAuthenticated();
         principalRepository.save(principal);
 
         authenticatedEventPublisher.publish(new PrincipalAuthenticatedEvent(
-                principal.getSubjectId().value(), principal.getSubjectType(), principal.getLastAuthenticatedAt()));
+                principal.getSubjectId().value(), principal.getRealm(), principal.getLastAuthenticatedAt()));
 
-        return tokenIssuance.resultFor(SubjectRealm.realmOf(principal.getSubjectType()), principal);
+        return tokenIssuance.resultFor(principal.getRealm(), principal, clientId);
     }
 }

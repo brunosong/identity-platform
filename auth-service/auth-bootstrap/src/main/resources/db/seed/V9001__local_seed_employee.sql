@@ -9,18 +9,25 @@
 
 -- 신원 ---------------------------------------------------------------------
 -- principal_id 를 고정값으로 둔다. 재현 가능한 개발 데이터가 디버깅에 낫다.
-INSERT INTO identity_principal (principal_id, subject_id, subject_type, status, created_at, updated_at)
-VALUES ('00000000-0000-0000-0000-0000000000a1', 'admin-esntl-0001', 'EMPLOYEE', 'ACTIVE', now(), now())
-ON CONFLICT (subject_type, subject_id) DO NOTHING;
+INSERT INTO identity_principal (principal_id, subject_id, realm, status, created_at, updated_at)
+VALUES ('00000000-0000-0000-0000-0000000000a1', 'admin-esntl-0001', 'ADMIN', 'ACTIVE', now(), now())
+ON CONFLICT (realm, subject_id) DO NOTHING;
+
+-- 표시 속성 ------------------------------------------------------------------
+-- 가입 API 는 이것을 함께 만든다. 시드는 principal 을 직접 꽂으므로 여기서도 같이 넣어야
+-- 관리 화면이 UUID 대신 이름을 보여준다.
+INSERT INTO identity_principal_profile (principal_id, name, phone_number, created_at, updated_at)
+VALUES ('00000000-0000-0000-0000-0000000000a1', '부트스트랩 관리자', NULL, now(), now())
+ON CONFLICT (principal_id) DO NOTHING;
 
 -- 로그인 식별자(이메일 OTP) ---------------------------------------------------
-INSERT INTO identity_email_account (email_account_id, principal_id, subject_type, email, created_at)
+INSERT INTO identity_email_account (email_account_id, principal_id, realm, email, created_at)
 VALUES ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000a1',
-        'EMPLOYEE', 'admin@example.com', now())
-ON CONFLICT (subject_type, email) DO NOTHING;
+        'ADMIN', 'admin@example.com', now())
+ON CONFLICT (realm, email) DO NOTHING;
 
 -- 역할 부여 ------------------------------------------------------------------
--- V9000 이 만든 EMPLOYEE/ADMIN 역할을 붙인다. 그 역할이 AUTHZ_MANAGE 권한을 갖고 있어
+-- V9000 이 만든 ADMIN 역할을 붙인다. 그 역할이 AUTHZ_MANAGE 권한을 갖고 있어
 -- 이 계정으로 로그인하면 RBAC 관리 API 와 직원 등록 API 를 부를 수 있다.
 INSERT INTO authz_subject_role (realm, subject_id, role_id, assigned_at)
 SELECT 'ADMIN', 'admin-esntl-0001', r.role_id, now()

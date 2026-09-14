@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.auth.service.application.identity.service
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.RefreshedSubject;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
@@ -21,16 +22,16 @@ class TokenIssuance {
     private final TokenIssuerPort tokenIssuer;
 
     /** 인증된 주체에게 그 realm 의 토큰을 발급해 인증 결과로 만든다. */
-    AuthenticationResult resultFor(Realm realm, Principal principal) {
+    AuthenticationResult resultFor(Realm realm, Principal principal, String clientId) {
         return new AuthenticationResult(
                 principal.getPrincipalId().value(),
                 principal.getSubjectId().value(),
-                principal.getSubjectType(),
-                tokenIssuer.issue(realm, principal));
+                principal.getRealm(),
+                tokenIssuer.issue(realm, principal, clientId));
     }
 
-    /** refresh 토큰에서 주체 식별자를 읽는다. 검증은 키를 쥔 발급기가 한다. */
-    String subjectIdFromRefreshToken(Realm realm, String refreshToken) {
-        return tokenIssuer.subjectIdFromRefreshToken(realm, refreshToken);
+    /** refresh 토큰에서 주체와 클라이언트를 읽는다. 검증은 키를 쥔 발급기가 한다. */
+    RefreshedSubject readRefreshToken(Realm realm, String refreshToken) {
+        return tokenIssuer.readRefreshToken(realm, refreshToken);
     }
 }

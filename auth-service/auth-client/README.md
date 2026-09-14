@@ -146,7 +146,7 @@ realm 마다 다른 체계에서 발급된다(직원은 사번 성격의 값, �
 ## 이 라이브러리가 auth 의 도메인을 의존하지 않는 이유
 
 `auth-domain`, `auth-application` 을 하나도 의존하지 않는다. 소비 서비스는 auth 의 도메인 모델
-(`Principal`, `Realm`, `SubjectType`…)을 알 필요가 없고, 알게 되면 auth 의 내부 변경이 남의 서비스
+(`Principal`, `Realm`, `EmailAccount`…)을 알 필요가 없고, 알게 되면 auth 의 내부 변경이 남의 서비스
 컴파일을 깨뜨린다. 주고받는 것은 **토큰 문자열과 그 안의 클레임뿐**이고 그것이 이 경계의 계약이다.
 그래서 realm 도 enum 이 아니라 문자열이다.
 

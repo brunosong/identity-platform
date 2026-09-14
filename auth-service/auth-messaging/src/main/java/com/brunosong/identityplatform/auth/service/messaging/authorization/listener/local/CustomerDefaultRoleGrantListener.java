@@ -2,7 +2,6 @@ package com.brunosong.identityplatform.auth.service.messaging.authorization.list
 
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.GrantRoleUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.event.SubjectRegisteredEvent;
-import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.SubjectType;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
@@ -17,7 +16,7 @@ import org.springframework.stereotype.Component;
  * 이벤트가 어디서 왔는지가 아니라 무엇을 하는지를 따른다.
  *
  * <p>realm 별 기본 역할은 정책이 서로 달라 공용 가입 서비스에 넣지 않는다. 그쪽은 realm 을 모른 채로
- * 두고, 이 리스너가 자기 realm 의 이벤트만 골라 받는다 — 아래 subjectType 검사가 그 필터다.
+ * 두고, 이 리스너가 자기 realm 의 이벤트만 골라 받는다 — 아래 realm 검사가 그 필터다.
  * 전에는 realm 프로퍼티로 리스너 자체를 껐지만, 한 서비스가 두 realm 을 담당하면 그렇게 가를 수 없다.
  *
  * <p>인가 저장소를 직접 만지지 않고 {@link GrantRoleUseCase} 를 부른다. 다른 서브도메인의
@@ -37,7 +36,7 @@ public class CustomerDefaultRoleGrantListener {
 
     @EventListener
     public void onSubjectRegistered(SubjectRegisteredEvent event) {
-        if (event.subjectType() != SubjectType.CUSTOMER) {
+        if (event.realm() != Realm.PORTAL) {
             return;
         }
         grantRole.grant(Realm.PORTAL, event.subjectId(), CUSTOMER_ROLE);

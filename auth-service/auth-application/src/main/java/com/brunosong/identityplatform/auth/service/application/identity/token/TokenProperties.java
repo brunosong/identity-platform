@@ -3,7 +3,10 @@ package com.brunosong.identityplatform.auth.service.application.identity.token;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,6 +44,49 @@ public class TokenProperties {
     private long accessExpiration = 7_200_000L;
     private long refreshExpiration = 86_400_000L;
     private Map<Realm, RealmKeyProperties> realms = new EnumMap<>(Realm.class);
+
+    /**
+     * 토큰을 받아 갈 클라이언트들. 키가 {@code clientId} 다.
+     *
+     * <pre>
+     * token:
+     *   clients:
+     *     customer-portal:
+     *       realm: PORTAL
+     *       audiences: customer-service
+     *     employee-admin:
+     *       realm: ADMIN
+     *       audiences: auth-service
+     * </pre>
+     *
+     * <p>한 클라이언트가 audience 를 <b>여럿</b> 가질 수 있다는 것이 요점이다. 그래서 사용자는 한 번만
+     * 로그인하고 그 토큰 하나로 나열된 서비스를 모두 쓴다 — 통합 로그인이 깨지지 않는다.
+     * 대신 나열되지 않은 서비스는 그 토큰을 받지 않는다.
+     */
+    private Map<String, ClientProperties> clients = new LinkedHashMap<>();
+
+    public static class ClientProperties {
+        /** 이 클라이언트가 속한 realm. 다른 realm 으로 토큰을 요청하면 거부된다. */
+        private Realm realm;
+        /** 이 클라이언트의 토큰을 받아들일 서비스들. 토큰의 {@code aud} 가 된다. */
+        private List<String> audiences = new ArrayList<>();
+
+        public Realm getRealm() {
+            return realm;
+        }
+
+        public void setRealm(Realm realm) {
+            this.realm = realm;
+        }
+
+        public List<String> getAudiences() {
+            return audiences;
+        }
+
+        public void setAudiences(List<String> audiences) {
+            this.audiences = audiences;
+        }
+    }
 
     public static class RealmKeyProperties {
         private String kid;
@@ -102,5 +148,13 @@ public class TokenProperties {
 
     public void setRealms(Map<Realm, RealmKeyProperties> realms) {
         this.realms = realms;
+    }
+
+    public Map<String, ClientProperties> getClients() {
+        return clients;
+    }
+
+    public void setClients(Map<String, ClientProperties> clients) {
+        this.clients = clients;
     }
 }
