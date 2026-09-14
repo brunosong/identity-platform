@@ -185,7 +185,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
                 .subject(subjectId)
                 .claim("type", "access")
                 .claim("realm_access", Map.of("roles", roles.realmRoles()))
-                .claim("resource_access", resourceAccess(roles.clientRoles()))
+                .claim("resource_access", resourceAccess(roles.clientPermissions()))
                 .claim("rbacRev", rbacRev)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMillis));
@@ -196,9 +196,9 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     }
 
     /** {@code {"customer-service": {"roles": [...]}}} 모양으로 감싼다 — Keycloak 과 같은 구조다. */
-    private static Map<String, Object> resourceAccess(Map<String, List<String>> clientRoles) {
+    private static Map<String, Object> resourceAccess(Map<String, List<String>> clientPermissions) {
         Map<String, Object> wrapped = new LinkedHashMap<>();
-        clientRoles.forEach((clientId, codes) -> wrapped.put(clientId, Map.of("roles", codes)));
+        clientPermissions.forEach((clientId, codes) -> wrapped.put(clientId, Map.of("roles", codes)));
         return wrapped;
     }
 

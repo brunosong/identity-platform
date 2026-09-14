@@ -220,7 +220,7 @@ class AccessControlServiceTest {
         }
 
         @Override
-        public java.util.Map<String, List<String>> clientRoleCodes(
+        public java.util.Map<String, List<String>> clientPermissionCodes(
                 Realm realm, String subjectId, java.util.Collection<String> clientIds) {
             return java.util.Map.of();
         }

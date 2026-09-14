@@ -111,7 +111,7 @@ public class AccessControlService implements CheckAccessUseCase, ListSubjectPerm
     public SubjectRoles of(Realm realm, String subjectId, java.util.Collection<String> clientIds) {
         return new SubjectRoles(
                 subjectRoleQuery.realmRoleCodes(realm, subjectId),
-                subjectRoleQuery.clientRoleCodes(realm, subjectId, clientIds));
+                subjectRoleQuery.clientPermissionCodes(realm, subjectId, clientIds));
     }
 
     @Override

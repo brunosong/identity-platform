@@ -27,17 +27,12 @@ VALUES ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000
 ON CONFLICT (realm, email) DO NOTHING;
 
 -- 역할 부여 ------------------------------------------------------------------
--- 둘을 붙인다.
---   ADMIN                      realm 공통 역할 — 조직에서 맡은 일
---   auth-service:AUTHZ_MANAGE  그 서비스에서 무엇을 열 수 있는가
---
--- 토큰에서도 두 칸으로 갈려 나간다:
---   realm_access.roles                        = ["ADMIN"]
---   resource_access["auth-service"].roles      = ["AUTHZ_MANAGE"]
+-- 역할 하나만 붙인다. 그 역할이 auth-service 의 AUTHZ_MANAGE 권한을 갖고 있어(V9000)
+-- 토큰이 이렇게 나간다:
+--   realm_access.roles                    = ["ADMIN"]
+--   resource_access["auth-service"].roles = ["AUTHZ_MANAGE"]
 INSERT INTO authz_subject_role (realm, subject_id, role_id, assigned_at)
 SELECT 'ADMIN', 'admin-esntl-0001', r.role_id, now()
 FROM authz_role r
-WHERE r.realm = 'ADMIN'
-  AND (r.client_id IS NULL AND r.role_code = 'ADMIN'
-       OR r.client_id = 'auth-service' AND r.role_code = 'AUTHZ_MANAGE')
+WHERE r.realm = 'ADMIN' AND r.role_code = 'ADMIN'
 ON CONFLICT DO NOTHING;

@@ -24,6 +24,11 @@ public interface SubjectRoleQuery {
     /** realm 공통 역할 코드(활성만) — 토큰의 {@code realm_access.roles}. */
     List<String> realmRoleCodes(Realm realm, String subjectId);
 
-    /** 서비스별 역할 코드(활성만) — 토큰의 {@code resource_access.{client}.roles}. */
-    Map<String, List<String>> clientRoleCodes(Realm realm, String subjectId, Collection<String> clientIds);
+    /**
+     * 그 서비스들에 대한 권한 코드(활성만) — 토큰의 {@code resource_access.{client}.roles}.
+     *
+     * <p>역할 → 권한을 타고 나온 결과를 서비스별로 가른다. 역할은 갈리지 않고 권한이 갈린다.
+     */
+    Map<String, List<String>> clientPermissionCodes(Realm realm, String subjectId,
+                                                    Collection<String> clientIds);
 }

@@ -29,18 +29,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CustomerDefaultRoleGrantListener {
 
-    /** 영역 공통 역할 — 이 사람이 포털에서 무엇인가(고객이다). */
-    private static final String CUSTOMER_ROLE = "CUSTOMER";
-
     /**
-     * 서비스별 역할 — 그 서비스에서 무엇을 열 수 있는가.
+     * 신규 포털 고객이 기본으로 받는 역할.
      *
-     * <p>둘을 함께 준다. realm 역할만 주면 customer-service 가 검사할 것이 없고, 서비스 역할만
-     * 주면 "이 사람이 포털에서 누구인가" 가 어디에도 없다. 토큰에서도 두 칸으로 갈려 나간다 —
-     * {@code realm_access.roles} 와 {@code resource_access["customer-service"].roles}.
+     * <p>역할 하나만 준다. 그 역할이 어느 서비스의 어떤 권한을 갖는지는
+     * {@code authz_role_permission} 이 정하고, 토큰 발급 때 펼쳐진다 — 서비스가 늘어도
+     * 이 리스너는 바뀌지 않는다.
      */
-    private static final String CUSTOMER_SERVICE_CLIENT = "customer-service";
-    private static final String PROFILE_ROLE = "PROFILE_READ";
+    private static final String CUSTOMER_ROLE = "CUSTOMER";
 
     private final GrantRoleUseCase grantRole;
 
@@ -50,6 +46,5 @@ public class CustomerDefaultRoleGrantListener {
             return;
         }
         grantRole.grant(Realm.PORTAL, event.subjectId(), CUSTOMER_ROLE);
-        grantRole.grant(Realm.PORTAL, event.subjectId(), CUSTOMER_SERVICE_CLIENT, PROFILE_ROLE);
     }
 }

@@ -68,36 +68,17 @@ class SubjectRoleServiceTest {
         assertThat(subjectRoleRepository.added).isEmpty();
     }
 
-    @Test
-    @DisplayName("같은 코드라도 realm 공통 역할과 서비스 역할은 서로 다른 역할이다")
-    void realmRoleAndClientRoleAreDifferent() {
-        roleRepository.add(Realm.PORTAL, "READ", 10L);
-        roleRepository.add(Realm.PORTAL, "order-service", "READ", 11L);
-
-        service.grant(Realm.PORTAL, "subject-1", null, "READ");
-        service.grant(Realm.PORTAL, "subject-1", "order-service", "READ");
-
-        // 이름이 같아도 다른 행이 붙는다 — 어휘가 서비스로 갈려 있어 부딪히지 않는다.
-        assertThat(subjectRoleRepository.added).containsExactly(10L, 11L);
-    }
-
     private static final class FakeRoleRepository implements RoleRepository {
         private final List<Role> roles = new ArrayList<>();
 
         void add(Realm realm, String roleCode, Long roleId) {
-            add(realm, null, roleCode, roleId);
-        }
-
-        void add(Realm realm, String clientId, String roleCode, Long roleId) {
-            roles.add(Role.restore(roleId, realm, clientId, roleCode, roleCode, null, true, List.of()));
+            roles.add(Role.restore(roleId, realm, roleCode, roleCode, null, true, List.of()));
         }
 
         @Override
-        public Optional<Role> findByCode(Realm realm, String clientId, String roleCode) {
+        public Optional<Role> findByCode(Realm realm, String roleCode) {
             return roles.stream()
-                    .filter(role -> role.getRealm() == realm
-                            && java.util.Objects.equals(role.getClientId(), clientId)
-                            && role.getRoleCode().equals(roleCode))
+                    .filter(role -> role.getRealm() == realm && role.getRoleCode().equals(roleCode))
                     .findFirst();
         }
 

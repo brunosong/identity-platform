@@ -39,8 +39,8 @@ public class RoleRepositoryAdapter implements RoleRepository {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Role> findByCode(Realm realm, String clientId, String roleCode) {
-        return roleRepository.findByCode(realm, clientId, roleCode).map(RoleRepositoryAdapter::toDomain);
+    public Optional<Role> findByCode(Realm realm, String roleCode) {
+        return roleRepository.findByRealmAndRoleCode(realm, roleCode).map(RoleRepositoryAdapter::toDomain);
     }
 
     @Override
@@ -51,7 +51,6 @@ public class RoleRepositoryAdapter implements RoleRepository {
                 : roleRepository.findById(role.getRoleId())
                         .orElseThrow(() -> AuthorizationNotFoundException.role(role.getRoleId()));
         entity.setRealm(role.getRealm());
-        entity.setClientId(role.getClientId());
         entity.setRoleCode(role.getRoleCode());
         entity.setRoleName(role.getRoleName());
         entity.setDescription(role.getDescription());
@@ -83,7 +82,6 @@ public class RoleRepositoryAdapter implements RoleRepository {
         return Role.restore(
                 entity.getRoleId(),
                 entity.getRealm(),
-                entity.getClientId(),
                 entity.getRoleCode(),
                 entity.getRoleName(),
                 entity.getDescription(),

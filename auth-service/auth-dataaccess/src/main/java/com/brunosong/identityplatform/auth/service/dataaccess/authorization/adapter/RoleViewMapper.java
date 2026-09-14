@@ -16,7 +16,6 @@ final class RoleViewMapper {
         return new RoleView(
                 entity.getRoleId(),
                 entity.getRealm(),
-                entity.getClientId(),
                 entity.getRoleCode(),
                 entity.getRoleName(),
                 entity.getDescription(),

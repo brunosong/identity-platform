@@ -49,20 +49,20 @@ public class SubjectRoleQueryAdapter implements SubjectRoleQuery {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, List<String>> clientRoleCodes(Realm realm, String subjectId,
-                                                     Collection<String> clientIds) {
+    public Map<String, List<String>> clientPermissionCodes(Realm realm, String subjectId,
+                                                           Collection<String> clientIds) {
         if (clientIds == null || clientIds.isEmpty()) {
             return Map.of();
         }
         Map<String, List<String>> byClient = new LinkedHashMap<>();
-        for (Object[] row : subjectRoleRepository.findClientRoleCodes(realm, subjectId, clientIds, ACTIVE)) {
+        for (Object[] row : subjectRoleRepository.findClientPermissionCodes(realm, subjectId, clientIds, ACTIVE)) {
             byClient.computeIfAbsent((String) row[0], k -> new java.util.ArrayList<>()).add((String) row[1]);
         }
         return byClient;
     }
 
     private static RoleView toView(AuthzRoleEntity entity) {
-        return new RoleView(entity.getRoleId(), entity.getRealm(), entity.getClientId(), entity.getRoleCode(),
-                entity.getRoleName(), entity.getDescription(), entity.isActive(), List.of());
+        return new RoleView(entity.getRoleId(), entity.getRealm(), entity.getRoleCode(), entity.getRoleName(),
+                entity.getDescription(), entity.isActive(), List.of());
     }
 }
