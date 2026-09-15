@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 토큰의 <b>이 서비스 칸</b>만 읽어 권한으로 옮긴다 — {@code resource_access.{audience}.roles}.
+ * 토큰의 <b>이 서비스 칸</b>만 읽어 권한으로 옮긴다: {@code resource_access.{audience}.roles}.
  *
  * <p>같은 토큰에 customer-service 의 칸도 함께 실려 있다. 통합 로그인이라 한 토큰이 두 서비스를
  * 다 상대하기 때문이다.

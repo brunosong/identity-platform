@@ -24,12 +24,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 이 서비스가 실제로 뜨는지, 그리고 <b>토큰 없이는 아무것도 열리지 않는지</b> 본다.
  *
  * <p>auth-service 를 띄우지 않고 돈다. 발급자 주소는 닿지 않는 곳을 가리키는데, 그래도 부팅은 성공해야
- * 한다 — 소비 서비스가 auth 보다 먼저 뜨는 일은 흔하고, 그때 부팅이 깨지면 기동 순서가 강제된다.
+ * 한다. 소비 서비스가 auth 보다 먼저 뜨는 일은 흔하고, 그때 부팅이 깨지면 기동 순서가 강제된다.
  * {@code issuer-uri} 를 쓰면 Spring 이 디코더 생성을 첫 검증까지 미루므로({@code SupplierJwtDecoder})
  * 부팅 시점에 auth 를 부르지 않는다.
  *
  * <p>키를 못 받으면 검증은 실패하고, 실패한 검증은 401 이다. auth 가 없는 동안 이 서비스는
- * "아무도 로그인하지 않은 상태" 로 동작한다 — 열린 채로 남지 않는다는 것이 중요하다.
+ * "아무도 로그인하지 않은 상태" 로 동작한다. 열린 채로 남지 않는다는 것이 중요하다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("local")
@@ -85,7 +85,7 @@ class OrderServiceApplicationTest {
     }
 
     @Test
-    @DisplayName("인증 실패는 표준대로 알린다 — WWW-Authenticate: Bearer")
+    @DisplayName("인증 실패는 표준대로 알린다: WWW-Authenticate: Bearer")
     void unauthorizedCarriesTheStandardChallenge() {
         assertThat(client().get().uri("/api/orders").retrieve().toBodilessEntity()
                 .getHeaders().getFirst("WWW-Authenticate"))

@@ -25,12 +25,12 @@ import java.util.List;
  * 고객 본인의 주문 API.
  *
  * <h2>customer-service 와 다른 점</h2>
- * {@code /api/customers/me} 는 조회 키가 요청에 <b>없었다</b> — 토큰의 {@code sub} 하나뿐이라 남의
+ * {@code /api/customers/me} 는 조회 키가 요청에 <b>없었다</b>. 토큰의 {@code sub} 하나뿐이라 남의
  * 것을 가리킬 방법 자체가 없었다. 여기는 다르다. 주문은 사람당 여럿이라 주문번호를 경로로 받고,
  * 그 자리에 <b>남의 주문번호를 적어 넣을 수 있다.</b>
  *
  * <p>그래서 조회 조건에 {@code sub} 를 함께 건다. 주문번호만으로 찾는 길은 이 서비스 어디에도 없다
- * ({@code OrderRepository} 에 그런 메서드가 없다) — 잊을 자리를 만들지 않는 편이 확인을 잊지 말자고
+ * ({@code OrderRepository} 에 그런 메서드가 없다). 잊을 자리를 만들지 않는 편이 확인을 잊지 말자고
  * 다짐하는 것보다 낫다.
  *
  * <h2>남의 주문은 403 이 아니라 404 다</h2>
@@ -40,7 +40,7 @@ import java.util.List;
  *
  * <p>인증 코드는 여전히 한 줄도 없다. 여기 도달했다는 것이 검증을 통과했다는 뜻이고
  * ({@code SecurityConfiguration}), 역할 검사도 필터가 끝낸다. 컨트롤러가 하는 확인은
- * <b>소유권 하나</b>다 — 그것만은 토큰도 게이트웨이도 대신 답할 수 없다.
+ * <b>소유권 하나</b>다. 그것만은 토큰도 게이트웨이도 대신 답할 수 없다.
  */
 @RestController
 @RequestMapping("/api/orders")

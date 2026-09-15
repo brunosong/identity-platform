@@ -19,7 +19,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * spring.security.oauth2.resourceserver.jwt.audiences:  order-service
  * </pre>
  *
- * 첫 줄이 realm 경계다 — 발급자 이름에 realm 이 들어 있고 그 발급자의 JWKS 만 받아오므로,
+ * 첫 줄이 realm 경계다. 발급자 이름에 realm 이 들어 있고 그 발급자의 JWKS 만 받아오므로,
  * 어드민 토큰은 서명 단계에서 죽는다. 이 서비스의 코드가 한 줄도 돌기 전에.
  *
  * <p>둘째 줄이 서비스 경계다. 발급자만 확인하면 그 realm 의 토큰이면 무엇이든 통하고, 다른
@@ -29,7 +29,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * 두 서비스가 같은 {@code issuer-uri} 를 보면서 각자 다른 {@code audiences} 를 요구한다. 고객
  * 포털의 토큰에는 {@code aud} 가 둘 다 실려 있어({@code token.clients.customer-portal.audiences})
  * 한 번 로그인한 토큰 하나가 둘 다 통한다. <b>"한 번만 로그인" 과 "아무 데나 통한다" 는 다른
- * 이야기다</b> — 포털 앱에 없는 서비스를 여기에 적으면 그 토큰은 이 서비스에서 거부된다.
+ * 이야기다</b>. 포털 앱에 없는 서비스를 여기에 적으면 그 토큰은 이 서비스에서 거부된다.
  *
  * <h2>역할을 둘로 가른다</h2>
  * customer-service 는 역할이 하나였다. 여기는 읽기와 쓰기가 갈린다.
@@ -47,7 +47,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * 엔드포인트를 늘려도 auth 를 배포하지 않고, 규칙이 엔드포인트와 같은 PR 에서 리뷰된다.
  *
  * <h2>무상태</h2>
- * 세션을 만들지 않는다. 토큰이 요청마다 신원을 들고 오므로 서버가 기억할 것이 없다. CSRF 도 끈다 —
+ * 세션을 만들지 않는다. 토큰이 요청마다 신원을 들고 오므로 서버가 기억할 것이 없다. CSRF 도 끈다.
  * 브라우저가 자동으로 붙여주는 자격증명(쿠키)이 없으면 CSRF 가 성립하지 않는다.
  */
 @Configuration

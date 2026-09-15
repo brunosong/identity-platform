@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * 공통 예외 매핑. auth-service, customer-service 의 그것과 같은 모양이다 — 서비스가 달라도 실패를
+ * 공통 예외 매핑. auth-service, customer-service 의 그것과 같은 모양이다. 서비스가 달라도 실패를
  * 알리는 방식은 같아야 호출자가 한 가지 규칙으로 다룰 수 있다.
  *
  * <p>서버 오류의 원인 메시지는 응답에 싣지 않는다. 자세한 내용은 로그에만 남긴다.

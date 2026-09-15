@@ -11,7 +11,7 @@
     <artifactId>order-service</artifactId>
     <packaging>pom</packaging>
     <name>order-service</name>
-    <description>주문 서비스 — 포털 realm 의 두 번째 소비 서비스</description>
+    <description>주문 서비스. 포털 realm 의 두 번째 소비 서비스</description>
 
     <properties>
         <testcontainers.version>1.21.4</testcontainers.version>

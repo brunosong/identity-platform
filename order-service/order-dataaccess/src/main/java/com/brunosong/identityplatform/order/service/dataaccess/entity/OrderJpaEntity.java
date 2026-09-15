@@ -15,14 +15,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * orders — 주문.
+ * orders: 주문.
  *
  * <p>표 이름이 {@code order} 가 아니라 {@code orders} 인 것은 {@code ORDER} 가 SQL 예약어라서다.
  * 따옴표로 감싸면 쓸 수는 있지만, 그러면 손으로 질의할 때마다 따옴표를 붙여야 한다.
  *
  * <p>{@code customer_id} 는 auth 의 {@code identity_principal} 을 가리키지만 <b>외래키는 걸 수 없다</b>.
  * 다른 서비스, 다른 데이터베이스다. customer-service 의 {@code customer_profile} 과도 마찬가지고,
- * 프로필 없이 주문만 있는 상태도 정상이다 — 두 서비스는 서로를 기다리지 않는다.
+ * 프로필 없이 주문만 있는 상태도 정상이다. 두 서비스는 서로를 기다리지 않는다.
  */
 @Entity
 @Table(name = "orders")

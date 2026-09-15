@@ -4,6 +4,7 @@ MSA 에서 인증·인가를 어떻게 나누는지 직접 만들어보는 샘�
 
 - **auth-service** — 로그인시키고 토큰을 발급한다. 공개키를 JWKS 로 내보낸다
 - **customer-service** — 그 토큰을 **auth 에 묻지 않고** 스스로 검증해 쓰는 소비 서비스
+- **order-service** — 같은 realm 의 **두 번째** 소비 서비스. 서비스가 둘이 되고 나서야 보이는 것들
 - **frontends** — 브라우저에서 실제로 눌러보는 화면
 
 두 realm(**ADMIN** / **PORTAL**)이 한 auth 를 공유하되 서로의 영역에는 들어가지 못한다.
@@ -25,8 +26,10 @@ MSA 에서 인증·인가를 어떻게 나누는지 직접 만들어보는 샘�
 |---|---|---|
 | auth 데이터베이스 | `localhost:55432` | DB `identity` |
 | customer 데이터베이스 | `localhost:55433` | DB `customer` |
+| order 데이터베이스 | `localhost:55434` | DB `orders` |
 | auth-service | `localhost:8080` | |
 | customer-service | `localhost:8081` | |
+| order-service | `localhost:8082` | |
 | 고객 포털 | `localhost:5173` | Vite + React |
 | 직원 관리자 | `localhost:5174` | Vite + React |
 
@@ -40,7 +43,7 @@ MSA 에서 인증·인가를 어떻게 나누는지 직접 만들어보는 샘�
 docker compose up -d
 ```
 
-이것 하나로 둘 다 뜬다. 상태 확인:
+이것 하나로 셋 다 뜬다. 상태 확인:
 
 ```bash
 docker compose ps
@@ -50,11 +53,12 @@ docker compose ps
 NAME          STATUS                    PORTS
 auth-pg       Up 11 seconds (healthy)   0.0.0.0:55432->5432/tcp
 customer-pg   Up 11 seconds (healthy)   0.0.0.0:55433->5432/tcp
+order-pg      Up 11 seconds (healthy)   0.0.0.0:55434->5432/tcp
 ```
 
 `healthy` 가 될 때까지 기다렸다가 앱을 띄운다. `starting` 인 동안 앱을 올리면 커넥션 오류로 죽는다.
 
-### 왜 두 개인가
+### 왜 따로따로인가
 
 **서비스마다 자기 DB 를 갖는 것이 MSA 의 기본 규칙이다.** 하나로 합치면 서비스는 나눴는데
 스키마로 다시 묶여서, 테이블 하나 바꾸려면 남의 배포를 기다려야 한다.
@@ -65,11 +69,11 @@ DB 에 맡기지 못하게 된다는 뜻이기도 하다. 그래서 "서명된 �
 
 ### 접속 정보
 
-| | auth | customer |
-|---|---|---|
-| 호스트 포트 | `55432` | `55433` |
-| 데이터베이스 | `identity` | `customer` |
-| 사용자 / 비밀번호 | `identity` / `identity` | `customer` / `customer` |
+| | auth | customer | order |
+|---|---|---|---|
+| 호스트 포트 | `55432` | `55433` | `55434` |
+| 데이터베이스 | `identity` | `customer` | `orders` |
+| 사용자 / 비밀번호 | `identity` / `identity` | `customer` / `customer` | `orders` / `orders` |
 
 호스트 포트를 `5432` 가 아니라 `55432` 로 옮겨둔 것은, 이미 PostgreSQL 이 깔려 있어도
 부딪히지 않게 하기 위해서다.
@@ -95,8 +99,9 @@ select * from flyway_schema_history;      -- 어떤 마이그레이션이 적용
 # 한 줄로 질의만
 docker exec auth-pg psql -U identity -d identity -c "select count(*) from identity_principal;"
 
-# customer 쪽
+# customer / order 쪽
 docker exec -it customer-pg psql -U customer -d customer
+docker exec -it order-pg psql -U orders -d orders
 ```
 
 ### 스키마를 갈아엎고 다시 보기
@@ -130,6 +135,10 @@ docker run -d --rm --name auth-pg \
 docker run -d --rm --name customer-pg \
   -e POSTGRES_DB=customer -e POSTGRES_USER=customer -e POSTGRES_PASSWORD=customer \
   -p 55433:5432 postgres:16-alpine
+
+docker run -d --rm --name order-pg \
+  -e POSTGRES_DB=orders -e POSTGRES_USER=orders -e POSTGRES_PASSWORD=orders \
+  -p 55434:5432 postgres:16-alpine
 ```
 
 `--rm` 이라 컨테이너를 지우면 데이터도 사라진다. 매번 깨끗한 상태로 시작하고 싶을 때는 이쪽이 편하다.
@@ -158,7 +167,7 @@ java -jar target/auth-bootstrap-0.0.1-SNAPSHOT.jar
 Migrating schema "public" to version "1 - baseline schema"
 Migrating schema "public" to version "9000 - local seed data"
 Migrating schema "public" to version "9001 - local seed employee"
-Migrating schema "public" to version "9002 - local seed customer service permission"
+Migrating schema "public" to version "9002 - local seed order"
 Started AuthServiceApplication
 ```
 
@@ -172,8 +181,21 @@ SPRING_PROFILES_ACTIVE=local \
 java -jar target/customer-bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
+**order-service** (터미널 3)
+
+```bash
+cd order-service/order-bootstrap
+DB_URL=jdbc:postgresql://localhost:55434/orders \
+DB_USERNAME=orders DB_PASSWORD=orders \
+SPRING_PROFILES_ACTIVE=local \
+java -jar target/order-bootstrap-0.0.1-SNAPSHOT.jar
+```
+
 > auth-service 보다 먼저 떠도 된다. 공개키는 첫 검증 때 받아온다. 그동안 들어온 요청은
 > 검증에 실패해 401 이 된다 — 열린 채로 남지 않는 것이 중요하다.
+
+> 두 소비 서비스가 **같은 발급자**를 보고 각자 다른 `aud` 를 요구한다. 그래서 고객은 한 번만
+> 로그인하고 그 토큰 하나로 둘 다 쓴다. 그 구조는 [`order-service/README.md`](order-service/README.md) 에 있다.
 
 ---
 
@@ -210,11 +232,17 @@ SERVER_PORT=8090 TOKEN_ISSUER=http://localhost:8090 \
 DB_URL=jdbc:postgresql://localhost:55432/identity SPRING_PROFILES_ACTIVE=local \
 java -jar target/auth-bootstrap-0.0.1-SNAPSHOT.jar
 
-# ② customer-service — 상대할 발급자 (realm 이 이름 안에 있고, 공개키 주소도 여기서 유도된다)
+# ② 소비 서비스 — 상대할 발급자 (realm 이 이름 안에 있고, 공개키 주소도 여기서 유도된다)
+#    두 서비스가 같은 값을 본다. 둘 중 하나만 바꾸면 그쪽만 401 이 된다.
 AUTH_ISSUER=http://localhost:8090/realms/portal \
 DB_URL=jdbc:postgresql://localhost:55433/customer \
 DB_USERNAME=customer DB_PASSWORD=customer SPRING_PROFILES_ACTIVE=local \
 java -jar target/customer-bootstrap-0.0.1-SNAPSHOT.jar
+
+AUTH_ISSUER=http://localhost:8090/realms/portal \
+DB_URL=jdbc:postgresql://localhost:55434/orders \
+DB_USERNAME=orders DB_PASSWORD=orders SPRING_PROFILES_ACTIVE=local \
+java -jar target/order-bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
 **③ 프론트엔드** — 화면 오른쪽 아래 **"연결 대상"** 에서 바꾸거나,
@@ -284,4 +312,5 @@ docker compose down -v    # 깨끗하게
 | [`examples/README.md`](examples/README.md) | 터미널로 전 구간 밟아보기 (`customer-login.sh`) |
 | [`frontends/README.md`](frontends/README.md) | 화면에서 눌러볼 것 |
 | [`customer-service/README.md`](customer-service/README.md) | **소비 서비스가 토큰을 검증하는 법** |
+| [`order-service/README.md`](order-service/README.md) | **서비스가 둘이 되면 달라지는 것**: 통합 로그인, 소유권, 역할 분리 |
 | [`auth-service/auth-client/README.md`](auth-service/auth-client/README.md) | 다른 서비스가 쓰는 검증 라이브러리 |
