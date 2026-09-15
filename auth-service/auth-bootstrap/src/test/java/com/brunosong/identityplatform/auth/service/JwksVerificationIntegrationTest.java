@@ -256,6 +256,31 @@ class JwksVerificationIntegrationTest {
     }
 
     @Test
+    @DisplayName("aud 는 시스템 하나이고, resource_access 는 서비스별로 갈린다")
+    void audienceIsTheSystemAndResourceAccessIsPerService() {
+        String email = "aud-" + UUID.randomUUID() + "@example.com";
+        registerCustomer(email);
+        Map<String, Object> payload = payloadOf(login(email));
+
+        // 서비스 이름이 아니라 시스템 하나다. 서비스를 붙여도 이 값은 바뀌지 않는다.
+        assertThat(payload.get("aud")).isEqualTo(List.of("portal"));
+
+        // 서비스 경계는 여기 있다. portal 시스템에 속한 서비스들만 실린다.
+        Map<?, ?> resourceAccess = (Map<?, ?>) payload.get("resource_access");
+        assertThat(resourceAccess.keySet().stream().map(String::valueOf).toList())
+                .containsExactlyInAnyOrder("customer-service", "order-service");
+
+        // 누가 받아갔는지는 따로 적는다. aud 와 다른 값이다.
+        assertThat(payload).containsEntry("azp", "customer-portal");
+    }
+
+    @Test
+    @DisplayName("어드민 토큰의 aud 는 admin 시스템이다")
+    void adminTokenTargetsTheAdminSystem() {
+        assertThat(payloadOf(loginAsAdmin()).get("aud")).isEqualTo(List.of("admin"));
+    }
+
+    @Test
     @DisplayName("다른 배포가 발급한 토큰은 서명이 맞아도 거부된다")
     void tokenFromAnotherDeploymentIsRejected() {
         String email = "issuer-" + UUID.randomUUID() + "@example.com";

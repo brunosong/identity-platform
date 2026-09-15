@@ -49,19 +49,23 @@ public class AuthClientProperties {
     private String jwksUri;
 
     /**
-     * 이 서비스의 이름 — 토큰의 {@code resource_access} 에서 읽을 칸이자, {@code aud} 검증 대상이다.
+     * 이 <b>서비스</b>의 이름. 토큰의 {@code resource_access} 에서 읽을 칸이다.
+     *
+     * <p>{@code aud} 검증 대상이 <b>아니다.</b> aud 에는 이 서비스가 속한 <b>시스템</b>이 실리고,
+     * 그것과 이 값은 다르다. (이 검증기는 aud 를 보지 않는다. 서명, 발급자, 만료, 용도까지만
+     * 본다. aud 대조가 필요하면 Spring Security 리소스 서버를 쓰는 편이 낫다.)
      *
      * <p>없으면 역할을 하나도 읽지 못한다. 남의 서비스 역할이 이 서비스의 문을 여는 것보다
      * 아무것도 못 여는 편이 안전하다.
      */
-    private String audience;
+    private String serviceId;
 
-    public String getAudience() {
-        return audience;
+    public String getServiceId() {
+        return serviceId;
     }
 
-    public void setAudience(String audience) {
-        this.audience = audience;
+    public void setServiceId(String serviceId) {
+        this.serviceId = serviceId;
     }
 
     /**

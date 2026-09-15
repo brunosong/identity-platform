@@ -20,12 +20,15 @@ server:
   port: ${SERVER_PORT:8080}
 
 # 이 서비스가 자기 관리 API 에서 요구하는 대상(aud). auth 도 자기 API 에 대해서는
-# 리소스 서버라, 자기 이름으로 발급된 토큰만 받아야 한다.
+# 리소스 서버라, 자기 시스템으로 발급된 토큰만 받아야 한다.
 #
-# token.clients.*.audiences 에 쓰는 이름과 같아야 한다 — 어드민 콘솔(employee-admin)의
-# audience 가 auth-service 인 것이 그 짝이다.
+# aud 는 시스템이므로 auth-service 가 아니라 admin 이다. token.clients.employee-admin.system
+# 과 짝이다. auth 자신이 그 시스템의 서비스 하나이고, 서비스 이름(auth-service)은
+# resource_access 의 칸 이름으로만 쓴다.
 auth:
-  audience: ${AUTH_AUDIENCE:auth-service}
+  audience: ${AUTH_AUDIENCE:admin}
+  # resource_access 에서 auth 자신의 칸 이름. authz_service.service_id 와 같아야 한다.
+  service-id: ${AUTH_SERVICE_ID:auth-service}
 
 authorization:
   # RBAC 편집·캐시 리로드 같은 운영 API 를 부르는 데 필요한 권한 코드.
@@ -48,33 +51,37 @@ token:
   # realm 마다 다른 키페어를 쓴다. kid 는 realm 전체에서 유일해야 한다 —
   # 겹치면 상대 realm 키로 검증이 통과한다(부팅에서 막는다).
   # 키는 base64(DER): private=PKCS#8, public=X.509 SubjectPublicKeyInfo.
-  # 토큰을 받아 갈 앱들. clientId 가 토큰의 aud 를 정한다.
+  # 토큰을 받아 갈 앱들. 앱이 상대하는 시스템이 토큰의 aud 가 된다.
   #
-  # 한 클라이언트가 audience 를 여럿 가질 수 있다 — 그래서 사용자는 한 번만 로그인하고 그 토큰
-  # 하나로 나열된 서비스를 모두 쓴다(통합 로그인). 서비스를 하나 붙이면 여기에 한 줄 더한다.
-  # 나열되지 않은 서비스는 그 토큰을 거부한다.
+  # 시스템은 마이크로서비스의 집합이다. 그 안에 서비스가 몇 개인지는 앱도 토큰도 모르고
+  # DB(authz_service)만 안다. 그래서 서비스를 하나 붙여도 여기는 바뀌지 않고, 이미 발급된
+  # 토큰도 그대로 새 서비스에 닿는다.
+  #
+  # 시스템을 여럿 적지 않는다. 통합 로그인은 세션이 맡는 일이지 aud 에 여럿을 나열해서 될
+  # 일이 아니다. 나열하면 가장 약한 시스템이 전체의 보안 수준이 되고, 시스템을 늘릴 때
+  # 설정을 고쳐야 하는 문제가 한 층 위로 옮겨갈 뿐이다.
   clients:
     customer-portal:
       realm: PORTAL
-      # 둘이다. 고객은 한 번 로그인하고 그 토큰 하나로 프로필과 주문을 모두 쓴다.
-      audiences: customer-service,order-service
+      system: portal
     employee-admin:
       realm: ADMIN
-      # 직원 앱이 상대하는 서비스는 아직 auth 자신뿐이다.
-      audiences: auth-service
+      system: admin
   realms:
     ADMIN:
       kid: ${ADMIN_KID:admin-1}
       privateKey: ${ADMIN_PRIVATE_KEY:}
       publicKey: ${ADMIN_PUBLIC_KEY:}
-      # 이 realm 에 있는 서비스들. 위 clients 의 audiences 는 여기 있는 것만 쓸 수 있다.
-      # 서비스는 realm 에 속한다 — 신뢰하는 발급자가 곧 realm 이기 때문이다.
-      audiences: auth-service
+      # 이 realm 에 있는 시스템들. 위 clients 의 system 은 여기 있는 것만 쓸 수 있다.
+      # 시스템은 realm 을 넘지 못한다. 신뢰하는 발급자가 곧 realm 이기 때문이다.
+      #
+      # 여기 적는 것은 시스템이지 서비스가 아니다. 서비스 목록은 DB 가 쥔다.
+      systems: admin
     PORTAL:
       kid: ${PORTAL_KID:portal-1}
       privateKey: ${PORTAL_PRIVATE_KEY:}
       publicKey: ${PORTAL_PUBLIC_KEY:}
-      audiences: customer-service,order-service
+      systems: portal
 
 logging:
   level:

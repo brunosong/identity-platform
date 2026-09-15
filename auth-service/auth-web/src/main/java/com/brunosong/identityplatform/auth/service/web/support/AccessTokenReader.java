@@ -34,19 +34,23 @@ import java.util.Optional;
  * auth 의 엔드포인트는 성격이 둘이라 대상 검사도 갈린다.
  *
  * <ul>
- *   <li><b>client 채널</b>({@code logout}, {@code my-permissions}) — <b>대조하지 않는다.</b>
+ *   <li><b>client 채널</b>({@code logout}, {@code my-permissions}): <b>대조하지 않는다.</b>
  *       이것들은 auth 의 자원을 다루는 것이 아니라 <b>그 토큰의 주인에 대한 것</b>이다.
- *       고객 포털 토큰({@code aud=[customer-service]})으로 로그아웃하는 것이 정상이므로,
- *       여기서 자기 이름을 요구하면 멀쩡한 흐름이 막힌다. (Keycloak 의 userinfo·logout 도
- *       클라이언트 audience 를 따지지 않는다.)</li>
- *   <li><b>admin 채널</b>({@code /api/admin/**}) — <b>대조한다.</b> auth 자신의 자원을 바꾸는
- *       API 라 customer-service 와 똑같은 자리다. 없으면 같은 realm 의 다른 클라이언트가 받은
- *       토큰이 관리 API 를 통과한다 — 지금은 어드민 클라이언트가 하나뿐이라 드러나지 않지만,
- *       둘이 되는 순간 보고서 앱 토큰으로 역할을 편집할 수 있게 된다.</li>
+ *       포털 시스템 토큰({@code aud=[portal]})으로 로그아웃하는 것이 정상이므로, 여기서
+ *       자기 시스템을 요구하면 멀쩡한 흐름이 막힌다. (Keycloak 의 userinfo, logout 도
+ *       audience 를 따지지 않는다.)</li>
+ *   <li><b>admin 채널</b>({@code /api/admin/**}): <b>대조한다.</b> auth 자신의 자원을 바꾸는
+ *       API 라 다른 소비 서비스와 똑같은 자리다. 없으면 같은 realm 의 다른 시스템이 받은
+ *       토큰이 관리 API 를 통과한다.</li>
  * </ul>
  *
+ * <h2>대조하는 값과 읽는 칸이 다르다</h2>
+ * {@code aud} 는 <b>시스템</b>({@code admin})이고, {@code resource_access} 에서 읽을 칸은
+ * <b>서비스</b>({@code auth-service})다. 전에는 둘이 같은 값이라 프로퍼티 하나로 썼는데,
+ * 시스템과 서비스를 가르면서 갈라졌다.
+ *
  * <p>키를 쥔 쪽이라 JWKS 를 자기한테 받으러 가지 않을 뿐, admin 채널의 <b>검증 항목은 다른
- * 서비스와 같다</b> — 서명 · 만료 · 발급자 · 대상.
+ * 서비스와 같다</b>: 서명, 만료, 발급자, 대상.
  */
 @Component
 public class AccessTokenReader {
@@ -54,22 +58,30 @@ public class AccessTokenReader {
     private final RealmSigningKeys signingKeys;
     private final RealmIssuers issuers;
     private final String audience;
+    private final String serviceId;
 
     public AccessTokenReader(RealmSigningKeys signingKeys, RealmIssuers issuers,
-                             @Value("${auth.audience:auth-service}") String audience) {
+                             @Value("${auth.audience:admin}") String audience,
+                             @Value("${auth.service-id:auth-service}") String serviceId) {
         this.signingKeys = signingKeys;
         this.issuers = issuers;
         this.audience = audience;
+        this.serviceId = serviceId;
+    }
+
+    /** 이 서비스가 속한 <b>시스템</b>. 토큰의 {@code aud} 대조 대상이다. */
+    public String audience() {
+        return audience;
     }
 
     /**
-     * 이 서비스의 이름. 토큰의 {@code aud} 대조 대상이자 {@code resource_access} 에서 읽을 칸이다.
+     * 이 <b>서비스</b>의 이름. {@code resource_access} 에서 읽을 칸이다.
      *
-     * <p>{@link AuthenticatedCaller} 가 이 값을 가져다 쓴다 — 두 곳에 따로 두면 언젠가 갈리고,
+     * <p>{@link AuthenticatedCaller} 가 이 값을 가져다 쓴다. 두 곳에 따로 두면 언젠가 갈리고,
      * 갈리면 "통과는 했는데 권한이 하나도 없다" 는 증상이 된다.
      */
-    public String audience() {
-        return audience;
+    public String serviceId() {
+        return serviceId;
     }
 
     /**
@@ -85,7 +97,7 @@ public class AccessTokenReader {
     /**
      * 위와 같되 <b>이 서비스 앞으로 발급된 토큰인지</b>까지 본다. admin 채널이 쓴다.
      *
-     * <p>auth 자신의 자원을 바꾸는 API 는 customer-service 와 같은 자리다 — 자기 이름이
+     * <p>auth 자신의 자원을 바꾸는 API 는 다른 소비 서비스와 같은 자리다. 자기 시스템이
      * {@code aud} 에 있어야 한다.
      */
     public Optional<Claims> readForSelf(Realm realm, String token) {

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -52,30 +53,33 @@ public class RbacTokenIssuerConfiguration {
     }
 
     /**
-     * 클라이언트 설정을 부팅에서 검증한다.
+     * 앱 설정을 부팅에서 검증한다.
      *
-     * <p><b>서비스는 realm 에 속한다</b> — 신뢰하는 발급자가 곧 realm 이다. 그래서 PORTAL 서비스를
-     * ADMIN 클라이언트의 audience 로 적으면 그 토큰은 그 서비스에 닿지도 못한다(서명·발급자에서
-     * 죽는다). 여기서 잡지 않으면 운영에서는 401 만 보이고 원인은 토큰 안에 있어 찾기 번거롭다.
-     * audience 오타도 같은 자리에서 걸린다.
+     * <p><b>시스템은 realm 에 속한다.</b> 신뢰하는 발급자가 곧 realm 이기 때문이다. 그래서 PORTAL
+     * 시스템을 ADMIN 앱에 적으면 그 토큰은 그 시스템에 닿지도 못한다(서명과 발급자에서 죽는다).
+     * 여기서 잡지 않으면 운영에서는 401 만 보이고 원인은 토큰 안에 있어 찾기 번거롭다.
+     * 시스템 이름 오타도 같은 자리에서 걸린다.
+     *
+     * <p>검사 대상이 <b>시스템</b>이지 서비스가 아니다. 서비스 목록은 DB(authz_service)가 쥐고
+     * 있어서, 서비스를 붙일 때 이 설정도 이 검사도 건드리지 않는다.
      */
     @Bean
     public TokenClients tokenClients(TokenProperties properties) {
         properties.getClients().forEach((clientId, client) -> {
             if (client.getRealm() == null) {
-                throw new IllegalStateException("클라이언트에 realm 이 없습니다: token.clients." + clientId);
+                throw new IllegalStateException("앱에 realm 이 없습니다: token.clients." + clientId);
+            }
+            if (!StringUtils.hasText(client.getSystem())) {
+                throw new IllegalStateException("앱에 system 이 없습니다: token.clients." + clientId);
             }
             TokenProperties.RealmKeyProperties realm = properties.getRealms().get(client.getRealm());
-            List<String> known = realm == null ? List.of() : realm.getAudiences();
-            client.getAudiences().stream()
-                    .filter(audience -> !known.contains(audience))
-                    .findFirst()
-                    .ifPresent(unknown -> {
-                        throw new IllegalStateException(
-                                "이 realm 에 없는 audience 입니다: token.clients." + clientId
-                                        + ".audiences=" + unknown + " (realm=" + client.getRealm()
-                                        + ", 이 realm 의 서비스=" + known + ")");
-                    });
+            List<String> known = realm == null ? List.of() : realm.getSystems();
+            if (!known.contains(client.getSystem())) {
+                throw new IllegalStateException(
+                        "이 realm 에 없는 system 입니다: token.clients." + clientId
+                                + ".system=" + client.getSystem() + " (realm=" + client.getRealm()
+                                + ", 이 realm 의 시스템=" + known + ")");
+            }
         });
         return new TokenClients(properties.getClients());
     }

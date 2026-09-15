@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,16 +48,15 @@ public class SubjectRoleQueryAdapter implements SubjectRoleQuery {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, List<String>> clientPermissionCodes(Realm realm, String subjectId,
-                                                           Collection<String> clientIds) {
-        if (clientIds == null || clientIds.isEmpty()) {
+    public Map<String, List<String>> servicePermissionCodes(Realm realm, String subjectId, String systemId) {
+        if (systemId == null || systemId.isBlank()) {
             return Map.of();
         }
-        Map<String, List<String>> byClient = new LinkedHashMap<>();
-        for (Object[] row : subjectRoleRepository.findClientPermissionCodes(realm, subjectId, clientIds, ACTIVE)) {
-            byClient.computeIfAbsent((String) row[0], k -> new java.util.ArrayList<>()).add((String) row[1]);
+        Map<String, List<String>> byService = new LinkedHashMap<>();
+        for (Object[] row : subjectRoleRepository.findServicePermissionCodes(realm, subjectId, systemId, ACTIVE)) {
+            byService.computeIfAbsent((String) row[0], k -> new java.util.ArrayList<>()).add((String) row[1]);
         }
-        return byClient;
+        return byService;
     }
 
     private static RoleView toView(AuthzRoleEntity entity) {

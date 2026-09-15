@@ -3,7 +3,6 @@ package com.brunosong.identityplatform.auth.service.application.authorization.po
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.RoleView;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -25,10 +24,10 @@ public interface SubjectRoleQuery {
     List<String> realmRoleCodes(Realm realm, String subjectId);
 
     /**
-     * 그 서비스들에 대한 권한 코드(활성만) — 토큰의 {@code resource_access.{client}.roles}.
+     * 그 <b>시스템</b>의 서비스별 권한 코드(활성만). 토큰의 {@code resource_access.{service}.roles}.
      *
-     * <p>역할 → 권한을 타고 나온 결과를 서비스별로 가른다. 역할은 갈리지 않고 권한이 갈린다.
+     * <p>좁히는 기준은 시스템이고, 결과를 가르는 기준은 서비스다. 토큰의 {@code aud} 가 시스템
+     * 하나를 가리키므로 그 시스템에 속한 서비스들만 실린다. 역할은 갈리지 않고 권한이 갈린다.
      */
-    Map<String, List<String>> clientPermissionCodes(Realm realm, String subjectId,
-                                                    Collection<String> clientIds);
+    Map<String, List<String>> servicePermissionCodes(Realm realm, String subjectId, String systemId);
 }

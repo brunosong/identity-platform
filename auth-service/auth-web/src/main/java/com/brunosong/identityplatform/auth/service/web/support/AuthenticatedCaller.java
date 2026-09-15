@@ -78,8 +78,9 @@ public class AuthenticatedCaller {
      * <p>전에는 권한 코드를 평면 목록({@code authLs})으로 읽었다. 이제는 서비스별로 갈려 있어
      * <b>자기 칸만</b> 본다 — 다른 서비스의 권한이 이 서비스의 문을 열지 않는다.
      *
-     * <p>칸 이름은 {@link AccessTokenReader#audience()} 에서 온다. {@code aud} 대조에 쓰는 값과
-     * 같은 값이어야 하므로 한 곳에서만 정한다.
+     * <p>칸 이름은 {@link AccessTokenReader#serviceId()} 에서 온다. {@code aud} 대조에 쓰는 값
+     * ({@code audience()}, 시스템)과는 <b>다른 값</b>이다. 시스템은 토큰이 향하는 곳이고, 여기
+     * 칸 이름은 그 안의 어느 서비스인가다.
      */
     @SuppressWarnings("unchecked")
     public List<String> permissionsOf(Claims claims) {
@@ -87,7 +88,7 @@ public class AuthenticatedCaller {
         if (!(resourceAccess instanceof Map<?, ?> byClient)) {
             return List.of();
         }
-        if (!(byClient.get(accessTokenReader.audience()) instanceof Map<?, ?> own)) {
+        if (!(byClient.get(accessTokenReader.serviceId()) instanceof Map<?, ?> own)) {
             return List.of();
         }
         if (!(own.get(ROLES_KEY) instanceof List<?> roles)) {

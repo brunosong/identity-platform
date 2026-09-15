@@ -104,14 +104,14 @@ public class AccessControlService implements CheckAccessUseCase, ListSubjectPerm
     /**
      * 토큰에 실을 역할을 realm 공통과 서비스별로 갈라 읽는다.
      *
-     * <p>요청한 서비스({@code clientIds} = 토큰의 aud)의 역할만 읽는다. 전부 읽으면 토큰이
-     * realm 전체 크기로 자란다.
+     * <p>{@code systemId} 는 토큰의 aud 다. 그 시스템에 속한 서비스들의 권한만 읽는다.
+     * 전부 읽으면 토큰이 realm 전체 크기로 자라고 다른 시스템의 권한까지 실려 나간다.
      */
     @Override
-    public SubjectRoles of(Realm realm, String subjectId, java.util.Collection<String> clientIds) {
+    public SubjectRoles of(Realm realm, String subjectId, String systemId) {
         return new SubjectRoles(
                 subjectRoleQuery.realmRoleCodes(realm, subjectId),
-                subjectRoleQuery.clientPermissionCodes(realm, subjectId, clientIds));
+                subjectRoleQuery.servicePermissionCodes(realm, subjectId, systemId));
     }
 
     @Override

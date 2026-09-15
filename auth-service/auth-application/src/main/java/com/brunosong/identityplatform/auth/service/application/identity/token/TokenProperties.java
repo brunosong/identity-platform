@@ -46,30 +46,34 @@ public class TokenProperties {
     private Map<Realm, RealmKeyProperties> realms = new EnumMap<>(Realm.class);
 
     /**
-     * 토큰을 받아 갈 클라이언트들. 키가 {@code clientId} 다.
+     * 토큰을 받아 갈 앱들. 키가 {@code clientId} 다.
      *
      * <pre>
      * token:
      *   clients:
      *     customer-portal:
      *       realm: PORTAL
-     *       audiences: customer-service
+     *       system: portal
      *     employee-admin:
      *       realm: ADMIN
-     *       audiences: auth-service
+     *       system: admin
      * </pre>
      *
-     * <p>한 클라이언트가 audience 를 <b>여럿</b> 가질 수 있다는 것이 요점이다. 그래서 사용자는 한 번만
-     * 로그인하고 그 토큰 하나로 나열된 서비스를 모두 쓴다 — 통합 로그인이 깨지지 않는다.
-     * 대신 나열되지 않은 서비스는 그 토큰을 받지 않는다.
+     * <p>앱은 <b>시스템 하나</b>를 상대한다. 그 시스템 안에 서비스가 몇 개인지는 앱도 토큰도 모른다.
+     * 서비스를 붙여도 여기는 바뀌지 않고, 이미 발급된 토큰도 그대로 새 서비스에 닿는다.
+     *
+     * <p>시스템을 여럿 적지 않는다. 적으면 가장 약한 시스템이 전체의 보안 수준이 되고, 시스템을
+     * 늘릴 때 설정을 고쳐야 하는 문제가 한 층 위로 옮겨갈 뿐이다. 통합 로그인은 세션이 맡는 일이다.
+     * 한 번 인증하고 시스템마다 토큰을 따로 받는 것이 표준이고(OIDC, Keycloak), 토큰 하나를
+     * 여러 시스템이 나눠 쓰는 것이 아니다.
      */
     private Map<String, ClientProperties> clients = new LinkedHashMap<>();
 
     public static class ClientProperties {
-        /** 이 클라이언트가 속한 realm. 다른 realm 으로 토큰을 요청하면 거부된다. */
+        /** 이 앱이 속한 realm. 다른 realm 으로 토큰을 요청하면 거부된다. */
         private Realm realm;
-        /** 이 클라이언트의 토큰을 받아들일 서비스들. 토큰의 {@code aud} 가 된다. */
-        private List<String> audiences = new ArrayList<>();
+        /** 이 앱이 상대하는 시스템. 토큰의 {@code aud} 가 된다. */
+        private String system;
 
         public Realm getRealm() {
             return realm;
@@ -79,34 +83,37 @@ public class TokenProperties {
             this.realm = realm;
         }
 
-        public List<String> getAudiences() {
-            return audiences;
+        public String getSystem() {
+            return system;
         }
 
-        public void setAudiences(List<String> audiences) {
-            this.audiences = audiences;
+        public void setSystem(String system) {
+            this.system = system;
         }
     }
 
     public static class RealmKeyProperties {
         /**
-         * 이 realm 에 <b>존재하는 서비스들</b>. 클라이언트의 audiences 는 여기 있는 것만 쓸 수 있다.
+         * 이 realm 에 <b>있는 시스템들</b>. 앱의 {@code system} 은 여기 있는 것만 쓸 수 있다.
          *
-         * <p>서비스는 realm 에 속한다 — 신뢰하는 발급자가 곧 realm 이기 때문이다. 그래서
-         * PORTAL 서비스를 ADMIN 클라이언트의 audience 로 적으면 그 토큰은 그 서비스에
-         * 닿지도 못한다(서명·발급자에서 죽는다). 부팅에서 잡지 않으면 401 만 보이고 원인은
-         * 토큰 안에 있어 찾기 번거롭다. 오타도 같은 자리에서 걸린다.
+         * <p>realm 하나에 시스템이 여럿일 수 있다. 다만 시스템은 realm 을 넘지 못한다. 신뢰하는
+         * 발급자가 곧 realm 이기 때문이다. PORTAL 시스템을 ADMIN 앱에 적으면 그 토큰은 그
+         * 시스템에 닿지도 못한다(서명과 발급자에서 죽는다). 부팅에서 잡지 않으면 401 만 보이고
+         * 원인은 토큰 안에 있어 찾기 번거롭다. 오타도 같은 자리에서 걸린다.
+         *
+         * <p>여기 적는 것은 <b>시스템</b>이지 서비스가 아니다. 서비스 목록은 DB(authz_service)가
+         * 쥐고 있어서, 서비스를 붙일 때 이 설정은 건드리지 않는다.
          */
-        private List<String> audiences = new ArrayList<>();
+        private List<String> systems = new ArrayList<>();
 
         private String kid;
 
-        public List<String> getAudiences() {
-            return audiences;
+        public List<String> getSystems() {
+            return systems;
         }
 
-        public void setAudiences(List<String> audiences) {
-            this.audiences = audiences;
+        public void setSystems(List<String> systems) {
+            this.systems = systems;
         }
 
         private String privateKey;
