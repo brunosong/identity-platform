@@ -10,6 +10,11 @@ MSA 에서 인증·인가를 어떻게 나누는지 직접 만들어보는 샘�
 두 realm(**ADMIN** / **PORTAL**)이 한 auth 를 공유하되 서로의 영역에는 들어가지 못한다.
 그 격리가 어떻게 지켜지는지가 이 저장소의 주제다.
 
+> **토큰은 네 층을 구분한다.** realm(`iss`, 서명키가 가른다) / 시스템(`aud`) /
+> 서비스(`resource_access` 의 칸) / 앱(`azp`). **`aud` 는 시스템이지 서비스가 아니다.**
+> 그래서 마이크로서비스를 늘려도 토큰 모양도 auth 설정도 바뀌지 않는다.
+> [자세히](order-service/README.md#1-한-번-로그인한-토큰-하나가-두-서비스에-통한다)
+>
 > **realm 이 유일한 파티션 키다.** 신원·자격증명·역할·권한·URL규칙이 전부 이 값으로 나뉜다.
 > 전에는 identity 쪽이 `SubjectType`(EMPLOYEE/CUSTOMER)으로, authz 쪽이 realm 으로 나뉘었는데
 > 두 값은 끝까지 1:1 이었다 — 같은 분할선에 이름이 둘이었을 뿐이라 하나로 모았다.
@@ -165,6 +170,7 @@ java -jar target/auth-bootstrap-0.0.1-SNAPSHOT.jar
 
 ```
 Migrating schema "public" to version "1 - baseline schema"
+Migrating schema "public" to version "2 - authz service"
 Migrating schema "public" to version "9000 - local seed data"
 Migrating schema "public" to version "9001 - local seed employee"
 Migrating schema "public" to version "9002 - local seed order"
@@ -194,8 +200,9 @@ java -jar target/order-bootstrap-0.0.1-SNAPSHOT.jar
 > auth-service 보다 먼저 떠도 된다. 공개키는 첫 검증 때 받아온다. 그동안 들어온 요청은
 > 검증에 실패해 401 이 된다 — 열린 채로 남지 않는 것이 중요하다.
 
-> 두 소비 서비스가 **같은 발급자**를 보고 각자 다른 `aud` 를 요구한다. 그래서 고객은 한 번만
-> 로그인하고 그 토큰 하나로 둘 다 쓴다. 그 구조는 [`order-service/README.md`](order-service/README.md) 에 있다.
+> 두 소비 서비스가 **같은 발급자**와 **같은 `aud`**(`portal`)를 본다. `aud` 는 서비스가 아니라
+> **시스템**이라서, 고객은 한 번 로그인하고 그 토큰 하나로 둘 다 쓴다. 서비스를 하나 더 붙여도
+> auth 설정은 바뀌지 않는다. 그 구조는 [`order-service/README.md`](order-service/README.md) 에 있다.
 
 ---
 

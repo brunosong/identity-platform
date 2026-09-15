@@ -25,7 +25,7 @@
 - auth 가 잠시 죽어도 이미 발급된 토큰은 계속 통과한다
 - auth 가 모든 요청 경로에 놓이지 않는다
 
-이 서비스가 auth 에 대해 아는 것은 설정 한 줄뿐이다.
+이 서비스가 auth 에 대해 아는 것은 설정 세 줄뿐이다.
 
 ```yaml
 spring:
@@ -34,10 +34,21 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8080/realms/portal
+          audiences: portal            # 이 토큰이 향하는 시스템
+
+app:
+  service-id: customer-service         # resource_access 에서 읽을 내 칸
 ```
 
-**이 한 줄이 이 서비스의 경계 전부**다. realm 이 발급자 이름 안에 있고, 공개키를 받아올 주소는
-발급자의 discovery 문서(`{issuer}/.well-known/openid-configuration`)가 알려준다.
+**첫 줄이 realm 경계다.** realm 이 발급자 이름 안에 있고, 공개키를 받아올 주소는 발급자의
+discovery 문서(`{issuer}/.well-known/openid-configuration`)가 알려준다.
+
+**둘째 줄이 시스템 경계다.** 발급자만 확인하면 그 realm 의 토큰이면 무엇이든 통한다.
+
+셋째 줄은 경계가 아니라 **인가**다. 같은 시스템 안의 다른 서비스와 이 서비스를 가른다.
+`aud` 가 시스템이라 order-service 도 같은 `portal` 을 요구하고, 둘을 가르는 것은 이 칸 이름이다.
+그래서 서비스를 하나 붙여도 auth 설정은 바뀌지 않는다. 자세한 것은
+[`order-service/README.md`](../order-service/README.md#1-한-번-로그인한-토큰-하나가-두-서비스에-통한다).
 
 auth 의 모듈을 하나도 의존하지 않는다. **표준 라이브러리(Spring Security 리소스 서버)뿐이다.**
 주고받는 것은 토큰 문자열과 그 안의 표준 클레임이고, 그것이 이 경계의 계약이다.
@@ -63,12 +74,13 @@ public ProfileResponse save(@AuthenticationPrincipal Jwt token, ...) {
 }
 ```
 
-### 세 겹으로 막는다
+### 네 겹으로 막는다
 
 | | 무엇을 보나 | 어디서 |
 |---|---|---|
 | **서명·만료·용도** | 이 토큰이 진짜 auth 가 만든 access 토큰인가 | Spring Security 필터 |
 | **발급자·realm** | 우리 auth 의 포털 것인가 | **설정** (`issuer-uri`) |
+| **대상·시스템** | 이 시스템 앞으로 발급된 토큰인가 | **설정** (`audiences`) |
 | **소유권** | 이 데이터가 이 사람 것인가 | 컨트롤러 |
 
 **realm 확인이 코드에 없다.** 사라진 것이 아니라 설정으로 옮겨갔다. JWKS 가 realm 별로 나뉘어 있어
@@ -95,10 +107,9 @@ public ProfileResponse save(@AuthenticationPrincipal Jwt token, ...) {
 설정으로 한 벌 더 띄우는** 것이 표준적인 방법이다. 한 프로세스가 두 realm 의 키를 다 쥐기
 시작하면 경계는 다시 코드의 몫이 되고, 한 곳에서 잊으면 뚫린다.
 
-> 그 배포를 위한 권한 코드 `CUSTOMER_PROFILE_READ` 는 auth 시드(`V9002`)에 남겨 뒀다.
-> 권한 코드는 auth 가 보관하지만 그 의미는 **자원을 가진 서비스**가 정한다 — auth 는 그 코드가
+> 권한 코드는 auth 가 보관하지만 그 의미는 **자원을 가진 서비스**가 정한다. auth 는 그 코드가
 > 무엇을 여는지 모르고, 이 서비스는 그 코드가 어떤 역할에 붙어 있는지 모른다. 그래서 코드
-> 이름에 이 서비스의 자원을 넣는다.
+> 이름에 이 서비스의 자원을 넣는다(`PROFILE_READ`).
 
 ## 자기 DB 를 쓴다
 

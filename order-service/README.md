@@ -11,7 +11,8 @@ customer-service 와 같은 레이어 구조, 같은 발급자, 같은 로그인
 | | customer-service | order-service |
 |---|---|---|
 | 발급자(`issuer-uri`) | `.../realms/portal` | **같다** |
-| 대상(`audiences`) | `customer-service` | `order-service` |
+| 대상(`audiences`) | `portal` | **같다** (시스템이다) |
+| `resource_access` 칸 | `customer-service` | `order-service` |
 | 역할 | `PROFILE_READ` 하나 | `ORDER_READ` / `ORDER_WRITE` 둘 |
 | 조회 키 | 토큰의 `sub` 뿐 | `sub` + **경로의 주문번호** |
 | DB | `customer`(55433) | `orders`(55434) |
@@ -21,23 +22,28 @@ customer-service 와 같은 레이어 구조, 같은 발급자, 같은 로그인
 
 ## 1. 한 번 로그인한 토큰 하나가 두 서비스에 통한다
 
-auth 의 고객 포털 클라이언트가 audience 를 둘 가지고 있다.
+`aud` 가 **시스템**이기 때문이다. 두 서비스가 같은 `portal` 을 요구한다.
 
 ```yaml
+# auth
 token:
   clients:
     customer-portal:
       realm: PORTAL
-      audiences: customer-service,order-service
+      system: portal
 ```
 
-그래서 로그인 한 번으로 받은 토큰의 `aud` 가 둘이고, 두 서비스가 각각 자기 이름만 요구해도
-같은 토큰이 둘 다 통과한다.
+```yaml
+# customer-service 와 order-service 가 똑같이
+spring.security.oauth2.resourceserver.jwt.audiences: portal
+app.service-id: customer-service   # 여기만 다르다
+```
 
 ```json
 {
   "iss": "http://localhost:8080/realms/portal",
-  "aud": ["customer-service", "order-service"],
+  "aud": ["portal"],
+  "azp": "customer-portal",
   "sub": "cust-...",
   "resource_access": {
     "customer-service": { "roles": ["PROFILE_READ"] },
@@ -46,26 +52,77 @@ token:
 }
 ```
 
-**"한 번만 로그인" 과 "아무 데나 통한다" 는 다른 이야기다.** `aud` 가 없으면 발급자만 맞는
-토큰이 realm 의 모든 서비스에 통하고, 서비스 하나가 침해되면 그 서비스로 들어온 토큰을 다른
-서비스에 그대로 재생할 수 있다. 서비스가 늘수록 **가장 약한 서비스 하나가 realm 전체의 보안
-수준**이 된다. 지금은 나열되지 않은 서비스가 그 토큰을 거부한다.
+### 네 층을 구분해야 이 표가 읽힌다
 
-서비스를 하나 붙이는 일은 auth 쪽에서 설정 두 줄과 시드 한 장이다.
+| | 예 | 토큰 어디 | 늘어날 때 auth 설정 |
+|---|---|---|---|
+| realm | `PORTAL` | `iss` (서명키가 가른다) | 바뀐다 (키페어) |
+| 시스템 | `portal` | `aud` **단일값** | 바뀐다 |
+| 서비스 | `customer-service`, `order-service` | `resource_access` 키 | **안 바뀐다** |
+| 앱 | `customer-portal` | `azp` | 바뀐다 |
+
+**시스템은 마이크로서비스의 집합이다.** 그 안에 서비스가 몇 개인지는 토큰도 앱도 모르고
+DB(`authz_service`)만 안다.
+
+### 왜 aud 에 서비스를 적으면 안 되나
+
+처음에는 `aud: customer-service,order-service` 로 나열했다. 그때 두 가지가 아팠다.
+
+**하나.** 서비스를 하나 붙일 때마다 auth 설정을 고쳐야 했다. 내부 분해가 토큰에 새어나가서,
+포털 앱의 설정이 "뒤에 마이크로서비스가 몇 개인지" 를 알아야 했다.
+
+**둘.** 더 나쁜 쪽이다. **이미 발급된 토큰에는 새 서비스가 없다.** order-service 를 띄운 순간
+기존 로그인 사용자는 전부 다시 로그인해야 그 서비스에 닿았다. 배포 하나가 전원 재로그인을
+부르는 구조였다.
+
+지금은 `aud` 가 `portal` 로 고정이라 둘 다 없다. 서비스를 붙이는 일은 DB 에 한 줄이다.
+
+```sql
+INSERT INTO authz_service (service_id, realm, system_id, service_name, ...)
+VALUES ('order-service', 'PORTAL', 'portal', 'Order service', ...);
+```
+
+### 그래도 aud 를 버리지는 않는다
+
+`aud` 가 아예 없으면 발급자만 맞는 토큰이 realm 의 **모든 것**에 통한다. 침해된 한 곳으로 들어온
+토큰을 다른 곳에 그대로 재생할 수 있고, 늘수록 **가장 약한 하나가 realm 전체의 보안 수준**이 된다.
+경계는 그대로 두고 그 눈금만 서비스에서 시스템으로 옮긴 것이다.
+
+### 시스템을 여럿 적지 않는다
+
+realm 하나에 시스템이 여럿일 수 있다. 하지만 **토큰 하나는 시스템 하나를 향한다.**
+`aud: portal,loyalty` 같은 것을 쓰지 않는다.
+
+통합 로그인은 **세션**이 맡는 일이다. 표준 흐름은 이렇다.
+
+```
+시스템 A 로 로그인  ->  auth 세션 생김  ->  A 용 토큰 (aud=A)
+시스템 B 로 이동    ->  세션이 이미 있음 ->  화면 없이 B 용 토큰 (aud=B)
+```
+
+사용자 눈에는 로그인 한 번이고 토큰은 둘이다. OIDC 도 Keycloak 도 이렇게 돈다.
+
+aud 에 나열하면 방금 고친 문제가 한 층 위에서 그대로 재현된다. 시스템을 늘릴 때 설정을 고쳐야
+하고 기존 토큰은 새 시스템에 닿지 못한다. 거기에 시스템 경계까지 잃는다. 시스템은 보통 팀도
+배포 주기도 다른데, `loyalty` 가 뚫리면 거기 들어온 토큰이 `portal` 에 그대로 통하게 된다.
+
+> 두 번째 시스템이 실제로 생기면 refresh 로 다른 시스템용 access 를 받는 경로를 연다.
+> 재료는 이미 있다(refresh 토큰의 `cid`, 세션의 `sid`). 지금 미리 만들지 않았다.
+
+### realm 쪽 화이트리스트
 
 ```yaml
 token:
-  clients:
-    customer-portal:
-      audiences: customer-service,order-service   # 이 앱이 받을 대상
   realms:
     PORTAL:
-      audiences: customer-service,order-service   # 이 realm 에 있는 서비스
+      systems: portal
 ```
 
-realm 쪽 목록은 화이트리스트다. 여기 없는 이름을 클라이언트에 적으면 **부팅에서 걸린다.**
-서비스는 realm 에 속하고, 다른 realm 의 서비스를 audience 로 적은 토큰은 그 서비스에 닿지도
-못한다. 그것을 운영에서 401 로 만나면 원인이 토큰 안에 있어 찾기 번거롭다.
+여기 없는 이름을 앱에 적으면 **부팅에서 걸린다.** 시스템은 realm 을 넘지 못한다. 신뢰하는 발급자가
+곧 realm 이라서, 다른 realm 의 시스템을 적은 토큰은 서명과 발급자에서 먼저 죽는다. 운영에서
+401 로 만나면 원인이 토큰 안에 있어 찾기 번거롭다.
+
+**적는 것은 시스템이지 서비스가 아니다.** 서비스 목록은 DB 가 쥔다.
 
 ## 2. 남의 주문번호는 403 이 아니라 404 다
 
@@ -107,9 +164,12 @@ customer-service 는 역할이 하나였다. 여기는 둘이다.
 `/api/orders/**` 가 POST 까지 먼저 잡아 쓰기가 `ORDER_READ` 로 열린다.
 
 그리고 여기서 **권한 어휘가 서비스로 갈려 있다는 것이 처음 효력을 낸다.** 같은 토큰에
-customer-service 의 칸도 실려 있는데, `ClientRoleAuthorities` 가 자기 칸만 읽으므로 남의 칸에
-같은 이름이 있어도 이 서비스의 문은 열리지 않는다. 권한이 realm 전역 평면 목록이었다면
-한쪽의 `READ` 가 다른 쪽 문까지 열었을 것이다.
+customer-service 의 칸도 실려 있는데, `ClientRoleAuthorities` 가 `app.service-id` 로 자기 칸만
+읽으므로 남의 칸에 같은 이름이 있어도 이 서비스의 문은 열리지 않는다.
+
+**`aud` 가 같아진 지금은 이것만이 두 서비스를 가른다.** 전에는 aud 도 서비스별이라 두 겹이었는데,
+그 겹은 서비스를 붙일 때마다 설정을 고치고 재로그인을 부르는 대가를 받고 있었다. 실제로 막던
+일은 이 칸이 다 하고 있었다.
 
 > **이 이름들이 무엇을 여는지는 이 서비스가 정한다.** auth 는 이름만 보관한다
 > (`authz_permission` 의 `(PORTAL, order-service, ORDER_READ)` 행). 그래서 엔드포인트를 늘려도
@@ -184,21 +244,26 @@ done
 # 한 번만 로그인한다
 TOKEN=$(login hong@example.com)
 
-# aud 가 둘이다
+# aud 는 시스템 하나, resource_access 는 서비스별로 두 칸
 python -c "
 import base64, json, sys
 p = sys.argv[1].split('.')[1]; p += '=' * (-len(p) % 4)
 c = json.loads(base64.urlsafe_b64decode(p))
 print('aud             =', c['aud'])
+print('azp             =', c['azp'])
 print('resource_access =', json.dumps(c['resource_access'], ensure_ascii=False))
 " "$TOKEN"
 ```
 
 ```
-aud             = ['customer-service', 'order-service']
+aud             = ['portal']
+azp             = customer-portal
 resource_access = {"customer-service": {"roles": ["PROFILE_READ"]},
                    "order-service": {"roles": ["ORDER_READ", "ORDER_WRITE"]}}
 ```
+
+`aud` 는 하나인데 칸은 둘이다. 그래서 이 토큰 하나가 두 서비스에 통하고, 서비스가 하나 더
+붙어도 `aud` 는 그대로다.
 
 그 토큰 하나로 두 서비스를 부른다.
 
