@@ -34,7 +34,7 @@ public class PermissionRepositoryAdapter implements PermissionRepository {
                 : permissionRepository.findById(permission.getPermissionId())
                         .orElseThrow(() -> AuthorizationNotFoundException.permission(permission.getPermissionId()));
         entity.setRealm(permission.getRealm());
-        entity.setClientId(permission.getClientId());
+        entity.setServiceId(permission.getServiceId());
         entity.setPermissionCode(permission.getPermissionCode());
         entity.setPermissionName(permission.getPermissionName());
         entity.setCategory(permission.getCategory());
@@ -53,7 +53,7 @@ public class PermissionRepositoryAdapter implements PermissionRepository {
         return Permission.restore(
                 entity.getPermissionId(),
                 entity.getRealm(),
-                entity.getClientId(),
+                entity.getServiceId(),
                 entity.getPermissionCode(),
                 entity.getPermissionName(),
                 entity.getCategory(),

@@ -12,14 +12,14 @@ import java.time.LocalDateTime;
 /**
  * authz_permission — realm 과 서비스로 스코프된 권한. permission_code 는 그 서비스 안에서 유일.
  *
- * <p>유니크는 부분 인덱스 둘로 갈려 있다(client_id 가 null 인 것과 아닌 것). JPA 의
+ * <p>유니크는 부분 인덱스 둘로 갈려 있다(service_id 가 null 인 것과 아닌 것). JPA 의
  * {@code @UniqueConstraint} 로는 표현되지 않으므로 여기에 선언하지 않고 스키마에만 둔다.
  */
 @Entity
 @Table(name = "authz_permission",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_authz_permission_realm_client_code",
-                columnNames = {"realm", "client_id", "permission_code"}))
+                name = "uk_authz_permission_realm_service_code",
+                columnNames = {"realm", "service_id", "permission_code"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -35,8 +35,8 @@ public class AuthzPermissionEntity {
     private Realm realm;
 
     /** null = 어드민 콘솔 자신의 권한. 값이 있으면 그 서비스의 권한이다. */
-    @Column(name = "client_id", length = 100)
-    private String clientId;
+    @Column(name = "service_id", length = 100)
+    private String serviceId;
 
     @Column(name = "permission_code", nullable = false, length = 100)
     private String permissionCode;

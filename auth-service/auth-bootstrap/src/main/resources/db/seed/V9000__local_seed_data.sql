@@ -22,16 +22,25 @@ VALUES
     ('ADMIN', 'ADMIN', 'Administrator', 'Employee administrator', 'Y', now(), now())
 ON CONFLICT DO NOTHING;
 
+-- 서비스 ------------------------------------------------------------------
+-- 서비스는 시스템에 속한다. 시스템이 토큰의 aud 가 되고, 서비스는 resource_access 의 칸이 된다.
+-- 서비스를 하나 붙이는 일이 여기 한 줄이고, auth 설정은 건드리지 않는다.
+INSERT INTO authz_service (service_id, realm, system_id, service_name, description, use_yn, created_at, updated_at)
+VALUES
+    -- 어드민 콘솔이 상대하는 서비스는 auth 자신이다.
+    ('auth-service', 'ADMIN', 'admin', 'Auth service', '인증인가 관리 API', 'Y', now(), now()),
+    ('customer-service', 'PORTAL', 'portal', 'Customer service', '고객 프로필 API', 'Y', now(), now())
+ON CONFLICT DO NOTHING;
+
 -- 권한 --------------------------------------------------------------------
--- 권한은 서비스로 갈린다(client_id). auth 는 이름만 보관하고, 그 이름이 어떤 URL 을 여는지는
--- 그 서비스가 자기 코드로 정한다 — 서비스가 엔드포인트를 늘려도 auth 를 배포하지 않는다.
+-- 권한은 서비스로 갈린다(service_id). auth 는 이름만 보관하고, 그 이름이 어떤 URL 을 여는지는
+-- 그 서비스가 자기 코드로 정한다. 서비스가 엔드포인트를 늘려도 auth 를 배포하지 않는다.
 --
 -- 어휘가 서비스로 갈려 있어 이름이 부딪히지 않는다: order-service 의 READ 와
 -- customer-service 의 READ 는 서로 다른 행이다.
-INSERT INTO authz_permission (realm, client_id, category, permission_code, permission_name, description, use_yn, created_at, updated_at)
+INSERT INTO authz_permission (realm, service_id, category, permission_code, permission_name, description, use_yn, created_at, updated_at)
 VALUES
     -- authorization.manage-permission 기본값과 같은 코드여야 한다.
-    -- 어드민 콘솔이 상대하는 서비스가 auth 자신이라 client_id 가 auth-service 다.
     ('ADMIN', 'auth-service', 'AUTHZ', 'AUTHZ_MANAGE', 'Manage authorization',
      'Edit roles/permissions/URL rules, register employees', 'Y', now(), now()),
     -- customer-service 가 요구하는 권한. 그 서비스의 SecurityConfiguration 이

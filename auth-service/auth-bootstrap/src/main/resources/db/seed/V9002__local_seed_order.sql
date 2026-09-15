@@ -5,13 +5,21 @@
 --
 -- 이 서비스가 오기 전에 이미 뜬 DB 도 있으므로 새 파일로 얹는다. 나간 마이그레이션은 고치지 않는다.
 
+-- 서비스 ------------------------------------------------------------------
+-- portal 시스템에 서비스가 하나 늘었다. 이 한 줄이 전부다. 토큰의 aud 는 여전히 portal 이라
+-- 이미 발급된 토큰도 그대로 이 서비스에 닿는다. 예전처럼 auth 설정을 고치고 재로그인을
+-- 시킬 일이 없다.
+INSERT INTO authz_service (service_id, realm, system_id, service_name, description, use_yn, created_at, updated_at)
+VALUES ('order-service', 'PORTAL', 'portal', 'Order service', '주문 API', 'Y', now(), now())
+ON CONFLICT DO NOTHING;
+
 -- 권한 --------------------------------------------------------------------
--- client_id 가 order-service 다. 어휘가 서비스로 갈려 있어 customer-service 에 같은 이름의 권한이
+-- service_id 가 order-service 다. 어휘가 서비스로 갈려 있어 customer-service 에 같은 이름의 권한이
 -- 생겨도 서로 다른 행이고, 한쪽에 준 것이 다른 쪽 문을 열지 않는다.
 --
 -- auth 는 이름만 보관한다. ORDER_READ 가 어떤 URL 을 여는지는 order-service 의
 -- SecurityConfiguration 이 정하고, 그 규칙은 그 서비스와 함께 배포된다.
-INSERT INTO authz_permission (realm, client_id, category, permission_code, permission_name, description, use_yn, created_at, updated_at)
+INSERT INTO authz_permission (realm, service_id, category, permission_code, permission_name, description, use_yn, created_at, updated_at)
 VALUES
     ('PORTAL', 'order-service', 'ORDER', 'ORDER_READ', 'Read own orders',
      'GET /api/orders', 'Y', now(), now()),
@@ -30,5 +38,5 @@ FROM authz_role r
          JOIN authz_permission p ON p.realm = r.realm
 WHERE r.realm = 'PORTAL'
   AND r.role_code = 'CUSTOMER'
-  AND p.client_id = 'order-service'
+  AND p.service_id = 'order-service'
 ON CONFLICT DO NOTHING;

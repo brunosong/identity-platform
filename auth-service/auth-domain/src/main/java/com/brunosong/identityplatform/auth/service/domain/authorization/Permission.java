@@ -6,11 +6,14 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 
 /**
- * 권한 — realm 과 <b>서비스</b>로 스코프된다. permissionCode 는 그 서비스 안에서 유일하다.
+ * 권한. realm 과 <b>서비스</b>로 스코프된다. permissionCode 는 그 서비스 안에서 유일하다.
  *
- * <p>{@code clientId} 가 이 권한이 어느 서비스의 것인지 말한다. null 이면 어드민 콘솔 자신의
- * 권한이다. 서비스가 늘수록 어휘가 전역이면 부딪히는데 — order-service 의 {@code READ} 와
- * customer-service 의 {@code READ} — 서비스로 가르면 그 충돌이 구조적으로 불가능해진다.
+ * <p>{@code serviceId} 가 이 권한이 어느 서비스의 것인지 말한다. null 이면 어드민 콘솔 자신의
+ * 권한이다. 서비스가 늘수록 어휘가 전역이면 부딪히는데(order-service 의 {@code READ} 와
+ * customer-service 의 {@code READ}), 서비스로 가르면 그 충돌이 구조적으로 불가능해진다.
+ *
+ * <p>서비스가 어느 <b>시스템</b>에 속하는지는 여기 없다. {@code authz_service} 가 안다.
+ * 시스템은 토큰의 {@code aud} 가 되고, 서비스는 {@code resource_access} 의 칸이 된다.
  *
  * <p><b>auth 는 이름만 보관한다.</b> 이 코드가 어떤 URL 을 여는지는 그 서비스가 자기 코드로
  * 정하고, 그 규칙은 그 서비스와 함께 배포된다. 토큰에서도 서비스별로 칸이 갈린다 —
@@ -27,7 +30,7 @@ public class Permission {
     private final Long permissionId;
     private final Realm realm;
     /** null = 어드민 콘솔 자신의 권한. 값이 있으면 그 서비스의 권한이다. */
-    private final String clientId;
+    private final String serviceId;
     private final String permissionCode;
     private final LocalDateTime createdAt;
 
@@ -36,12 +39,12 @@ public class Permission {
     private String description;
     private boolean active;
 
-    private Permission(Long permissionId, Realm realm, String clientId, String permissionCode,
+    private Permission(Long permissionId, Realm realm, String serviceId, String permissionCode,
                        String permissionName, String category, String description, boolean active,
                        LocalDateTime createdAt) {
         this.permissionId = permissionId;
         this.realm = realm;
-        this.clientId = normalize(clientId);
+        this.serviceId = normalize(serviceId);
         this.permissionCode = permissionCode;
         this.permissionName = permissionName;
         this.category = category;
@@ -56,18 +59,18 @@ public class Permission {
         return create(realm, null, permissionCode, permissionName, category, description);
     }
 
-    /** 그 서비스의 권한. {@code clientId} 가 null 이면 어드민 콘솔 자신의 권한이 된다. */
-    public static Permission create(Realm realm, String clientId, String permissionCode,
+    /** 그 서비스의 권한. {@code serviceId} 가 null 이면 어드민 콘솔 자신의 권한이 된다. */
+    public static Permission create(Realm realm, String serviceId, String permissionCode,
                                     String permissionName, String category, String description) {
         requireRealm(realm);
-        return new Permission(null, realm, clientId, requireCode(permissionCode),
+        return new Permission(null, realm, serviceId, requireCode(permissionCode),
                 requireName(permissionName), normalize(category), normalize(description), true, null);
     }
 
-    public static Permission restore(Long permissionId, Realm realm, String clientId, String permissionCode,
+    public static Permission restore(Long permissionId, Realm realm, String serviceId, String permissionCode,
                                      String permissionName, String category, String description,
                                      boolean active, LocalDateTime createdAt) {
-        return new Permission(permissionId, realm, clientId, permissionCode, permissionName,
+        return new Permission(permissionId, realm, serviceId, permissionCode, permissionName,
                 category, description, active, createdAt);
     }
 

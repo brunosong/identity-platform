@@ -59,16 +59,16 @@ public interface AuthzSubjectRoleJpaRepository
      * 주체가 <b>그 서비스들에 대해</b> 가진 권한 코드(활성만).
      *
      * <p>역할 → 권한을 조인해 나온 결과를 서비스별로 가른다. 토큰의
-     * {@code resource_access.{clientId}.roles} 가 된다.
+     * {@code resource_access.{serviceId}.roles} 가 된다.
      *
      * <p>요청한 서비스만 읽는다 — 토큰의 {@code aud} 에 있는 것들이다. 전부 읽으면 토큰이
      * realm 전체 크기로 자란다.
      */
-    @Query("SELECT DISTINCT p.clientId, p.permissionCode FROM AuthzSubjectRoleEntity sr "
+    @Query("SELECT DISTINCT p.serviceId, p.permissionCode FROM AuthzSubjectRoleEntity sr "
             + "JOIN AuthzRoleEntity r ON sr.roleId = r.roleId "
             + "JOIN r.permissions p "
             + "WHERE sr.realm = :realm AND sr.subjectId = :subjectId "
-            + "AND p.clientId IN :clientIds AND r.active = :active AND p.active = :active")
+            + "AND p.serviceId IN :clientIds AND r.active = :active AND p.active = :active")
     List<Object[]> findClientPermissionCodes(@Param("realm") Realm realm,
                                              @Param("subjectId") String subjectId,
                                              @Param("clientIds") Collection<String> clientIds,
