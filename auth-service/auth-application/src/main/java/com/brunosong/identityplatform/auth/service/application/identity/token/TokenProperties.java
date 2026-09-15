@@ -89,7 +89,26 @@ public class TokenProperties {
     }
 
     public static class RealmKeyProperties {
+        /**
+         * 이 realm 에 <b>존재하는 서비스들</b>. 클라이언트의 audiences 는 여기 있는 것만 쓸 수 있다.
+         *
+         * <p>서비스는 realm 에 속한다 — 신뢰하는 발급자가 곧 realm 이기 때문이다. 그래서
+         * PORTAL 서비스를 ADMIN 클라이언트의 audience 로 적으면 그 토큰은 그 서비스에
+         * 닿지도 못한다(서명·발급자에서 죽는다). 부팅에서 잡지 않으면 401 만 보이고 원인은
+         * 토큰 안에 있어 찾기 번거롭다. 오타도 같은 자리에서 걸린다.
+         */
+        private List<String> audiences = new ArrayList<>();
+
         private String kid;
+
+        public List<String> getAudiences() {
+            return audiences;
+        }
+
+        public void setAudiences(List<String> audiences) {
+            this.audiences = audiences;
+        }
+
         private String privateKey;
         private String publicKey;
 

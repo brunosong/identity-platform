@@ -66,10 +66,14 @@ token:
       kid: ${ADMIN_KID:admin-1}
       privateKey: ${ADMIN_PRIVATE_KEY:}
       publicKey: ${ADMIN_PUBLIC_KEY:}
+      # 이 realm 에 있는 서비스들. 위 clients 의 audiences 는 여기 있는 것만 쓸 수 있다.
+      # 서비스는 realm 에 속한다 — 신뢰하는 발급자가 곧 realm 이기 때문이다.
+      audiences: auth-service
     PORTAL:
       kid: ${PORTAL_KID:portal-1}
       privateKey: ${PORTAL_PRIVATE_KEY:}
       publicKey: ${PORTAL_PUBLIC_KEY:}
+      audiences: customer-service
 
 logging:
   level:
