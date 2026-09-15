@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.brunosong</groupId>
+        <artifactId>order-service</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>order-web</artifactId>
+
+    <!--
+      인바운드 어댑터. 여기가 auth 와 만나는 유일한 자리다.
+
+      auth 의 모듈을 하나도 의존하지 않는다. 주고받는 것은 토큰 문자열과 그 안의 표준 클레임이고,
+      그것을 다루는 일은 전부 표준 라이브러리(Spring Security 리소스 서버)가 한다.
+    -->
+
+    <dependencies>
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>order-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- JWKS 조회, 캐시, kid 선택, 서명/만료/발급자/대상 검증이 모두 여기 있다. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+    </dependencies>
+</project>

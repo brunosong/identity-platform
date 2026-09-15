@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.brunosong</groupId>
+        <artifactId>identity-platform</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>order-service</artifactId>
+    <packaging>pom</packaging>
+    <name>order-service</name>
+    <description>주문 서비스 — 포털 realm 의 두 번째 소비 서비스</description>
+
+    <properties>
+        <testcontainers.version>1.21.4</testcontainers.version>
+    </properties>
+
+    <!--
+      customer-service 와 같은 레이어 구조다. 다른 점은 이 서비스가 realm 의 두 번째 소비 서비스라는
+      것이고, 그래서 여기서만 보이는 것이 셋 있다.
+
+        - 통합 로그인: 고객 포털 토큰의 aud 가 [customer-service, order-service] 로 둘이다.
+          한 번 로그인한 토큰 하나가 두 서비스에 통한다.
+        - 경로로 받은 식별자의 소유권: /api/orders/{orderId} 는 남의 주문번호를 적어 넣을 수 있다.
+          customer-service 의 /me 에는 그 자리가 아예 없었다.
+        - 역할 두 개: 읽기와 쓰기를 가른다.
+
+      자기 DB 를 따로 쓴다. 서비스가 남의 테이블을 직접 읽기 시작하면 나눈 의미가 없어진다.
+    -->
+    <modules>
+        <module>order-domain</module>
+        <module>order-application</module>
+        <module>order-dataaccess</module>
+        <module>order-web</module>
+        <module>order-bootstrap</module>
+    </modules>
+
+</project>

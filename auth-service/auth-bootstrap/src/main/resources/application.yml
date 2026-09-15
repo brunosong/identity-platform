@@ -56,7 +56,8 @@ token:
   clients:
     customer-portal:
       realm: PORTAL
-      audiences: customer-service
+      # 둘이다. 고객은 한 번 로그인하고 그 토큰 하나로 프로필과 주문을 모두 쓴다.
+      audiences: customer-service,order-service
     employee-admin:
       realm: ADMIN
       # 직원 앱이 상대하는 서비스는 아직 auth 자신뿐이다.
@@ -73,7 +74,7 @@ token:
       kid: ${PORTAL_KID:portal-1}
       privateKey: ${PORTAL_PRIVATE_KEY:}
       publicKey: ${PORTAL_PUBLIC_KEY:}
-      audiences: customer-service
+      audiences: customer-service,order-service
 
 logging:
   level:
