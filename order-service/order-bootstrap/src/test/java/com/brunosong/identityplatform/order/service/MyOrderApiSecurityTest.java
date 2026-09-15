@@ -43,6 +43,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>같은 토큰에 실린 <b>다른 서비스의 역할</b>은 여기서 아무것도 열지 못한다</li>
  * </ol>
  *
+ * <p>토큰의 {@code aud} 는 {@code portal} 하나다. customer-service 도 같은 값을 요구하므로 한
+ * 토큰이 둘 다에 통한다. 서비스를 가르는 것은 {@code aud} 가 아니라 {@code resource_access} 의
+ * 칸이고, 아래 마지막 테스트가 그것을 확인한다.
+ *
  * <p>토큰을 여기서 직접 만든다. auth-service 를 띄우지 않고 검증 경로만 보려는 것이고, 실제 발급
  * 로직은 auth 쪽 테스트가 본다. auth 의 모듈을 의존하지 않고 표준 라이브러리로만 서명하는 것도
  * 그대로다. 이 서비스가 auth 에 대해 아는 것은 클레임 모양뿐이다.
@@ -53,7 +57,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MyOrderApiSecurityTest {
 
     private static final String ISSUER = "http://localhost:8080/realms/portal";
-    private static final String AUDIENCE = "order-service";
+    /** aud 는 시스템이다. customer-service 도 같은 값을 요구한다. */
+    private static final String SYSTEM = "portal";
+    /** resource_access 의 칸 이름. aud 와 다른 값이고, 이것이 서비스를 가른다. */
+    private static final String SERVICE_ID = "order-service";
 
     private static final KeyPair KEYS = generateKeys();
 
@@ -66,7 +73,8 @@ class MyOrderApiSecurityTest {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> ISSUER);
-        registry.add("spring.security.oauth2.resourceserver.jwt.audiences", () -> AUDIENCE);
+        registry.add("spring.security.oauth2.resourceserver.jwt.audiences", () -> SYSTEM);
+        registry.add("app.service-id", () -> SERVICE_ID);
     }
 
     /**
@@ -88,7 +96,7 @@ class MyOrderApiSecurityTest {
     @DisplayName("쓰기 권한으로 주문하고 읽기 권한으로 조회한다")
     void placeAndRead() {
         RestClient http = client();
-        String token = tokenFor("cust-1", Map.of(AUDIENCE, roles("ORDER_READ", "ORDER_WRITE")));
+        String token = tokenFor("cust-1", Map.of(SERVICE_ID, roles("ORDER_READ", "ORDER_WRITE")));
 
         Map<?, ?> placed = http.post().uri("/api/orders")
                 .header("Authorization", "Bearer " + token)
@@ -111,8 +119,8 @@ class MyOrderApiSecurityTest {
     @DisplayName("남의 주문번호는 404 다. 403 이면 그 주문이 있다는 사실이 새어나간다")
     void someoneElseOrderIsNotFound() {
         RestClient http = client();
-        String mine = tokenFor("cust-owner", Map.of(AUDIENCE, roles("ORDER_READ", "ORDER_WRITE")));
-        String theirs = tokenFor("cust-other", Map.of(AUDIENCE, roles("ORDER_READ")));
+        String mine = tokenFor("cust-owner", Map.of(SERVICE_ID, roles("ORDER_READ", "ORDER_WRITE")));
+        String theirs = tokenFor("cust-other", Map.of(SERVICE_ID, roles("ORDER_READ")));
 
         Map<?, ?> placed = http.post().uri("/api/orders")
                 .header("Authorization", "Bearer " + mine)
@@ -145,7 +153,7 @@ class MyOrderApiSecurityTest {
     void readRoleCannotWrite() {
         assertThat(client().post().uri("/api/orders")
                 .header("Authorization", "Bearer "
-                        + tokenFor("cust-1", Map.of(AUDIENCE, roles("ORDER_READ"))))
+                        + tokenFor("cust-1", Map.of(SERVICE_ID, roles("ORDER_READ"))))
                 .header("Content-Type", "application/json")
                 .body(Map.of("productName", "키보드", "quantity", 1, "unitPrice", 1000))
                 .retrieve().toBodilessEntity().getStatusCode().value())
@@ -184,7 +192,7 @@ class MyOrderApiSecurityTest {
         Instant now = Instant.now();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .issuer(ISSUER)
-                .audience(List.of(AUDIENCE))
+                .audience(List.of(SYSTEM))
                 .subject(subject)
                 .claim("type", "access")
                 .claim("realm_access", Map.of("roles", List.of("CUSTOMER")))

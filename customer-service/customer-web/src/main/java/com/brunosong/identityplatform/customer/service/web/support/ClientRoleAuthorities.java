@@ -14,7 +14,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 토큰의 <b>이 서비스 칸</b>만 읽어 권한으로 옮긴다 — {@code resource_access.{audience}.roles}.
+ * 토큰의 <b>이 서비스 칸</b>만 읽어 권한으로 옮긴다: {@code resource_access.{app.service-id}.roles}.
+ *
+ * <h2>칸 이름은 aud 가 아니다</h2>
+ * 전에는 칸 이름을 {@code jwt.audiences} 에서 읽었다. 그때는 aud 가 서비스 이름이라 같은 값이었다.
+ * 지금 aud 는 <b>시스템</b>({@code portal})이고 칸 이름은 <b>서비스</b>({@code customer-service})라
+ * 둘이 갈렸다. 그래서 {@code app.service-id} 로 따로 받는다.
  *
  * <h2>왜 자기 칸만 읽나</h2>
  * 전에는 auth 가 권한 코드를 평면 목록({@code authLs})으로 실었다. 어휘가 realm 전역이라 서비스가
@@ -48,10 +53,10 @@ public class ClientRoleAuthorities {
 
     @Bean
     public Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter(
-            @Value("${spring.security.oauth2.resourceserver.jwt.audiences}") String audience) {
+            @Value("${app.service-id}") String serviceId) {
 
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(jwt -> rolesFor(jwt, audience).stream()
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> rolesFor(jwt, serviceId).stream()
                 .map(SimpleGrantedAuthority::new)
                 .map(GrantedAuthority.class::cast)
                 .toList());
@@ -59,9 +64,9 @@ public class ClientRoleAuthorities {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<String> rolesFor(Jwt jwt, String audience) {
-        Map<String, Object> byClient = jwt.getClaimAsMap(RESOURCE_ACCESS);
-        if (byClient == null || !(byClient.get(audience) instanceof Map<?, ?> own)) {
+    private static List<String> rolesFor(Jwt jwt, String serviceId) {
+        Map<String, Object> byService = jwt.getClaimAsMap(RESOURCE_ACCESS);
+        if (byService == null || !(byService.get(serviceId) instanceof Map<?, ?> own)) {
             return List.of();
         }
         if (!(own.get(ROLES) instanceof List<?> roles)) {
