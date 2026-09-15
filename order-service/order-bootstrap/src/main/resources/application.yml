@@ -23,8 +23,8 @@ spring:
           # 토큰을 여기에 그대로 재생할 수 있다는 뜻이라 시스템까지 대조한다.
           #
           # 값이 order-service 가 아닌 것이 요점이다. 서비스 이름을 적으면 서비스를 붙일 때마다
-          # auth 설정을 고쳐야 하고, 이미 발급된 토큰은 새 서비스에 닿지 못한다. 서비스를
-          # 가르는 것은 aud 가 아니라 아래 app.service-id 와 resource_access 다.
+          # auth 를 재배포해야 하고, 이미 발급된 access 토큰은 재발급 전까지 새 서비스에 닿지
+          # 못한다. 서비스를 가르는 것은 aud 가 아니라 아래 app.service-id 와 resource_access 다.
           audiences: ${AUTH_AUDIENCE:shop}
   jpa:
     open-in-view: false

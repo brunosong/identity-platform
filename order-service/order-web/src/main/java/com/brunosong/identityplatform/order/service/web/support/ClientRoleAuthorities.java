@@ -18,8 +18,8 @@ import java.util.Map;
  *
  * <h2>칸 이름은 aud 가 아니다</h2>
  * {@code aud} 는 <b>시스템</b>({@code shop})이라 customer-service 와 같은 값이다. 둘을 가르는
- * 것은 여기 칸 이름({@code order-service})이다. aud 로 갈랐다면 서비스를 붙일 때마다 auth 설정을
- * 고쳐야 했고, 이미 발급된 토큰은 새 서비스에 닿지 못했다.
+ * 것은 여기 칸 이름({@code order-service})이다. aud 로 갈랐다면 서비스를 붙일 때마다 auth 를
+ * 재배포해야 했고, 이미 발급된 access 토큰은 재발급 전까지 새 서비스에 닿지 못했다.
  *
  * <p>같은 토큰에 customer-service 의 칸도 함께 실려 있다. 통합 로그인이라 한 토큰이 두 서비스를
  * 다 상대하기 때문이다.

@@ -17,7 +17,7 @@ import java.util.Map;
  *
  * <p><b>좁히는 기준은 시스템이다.</b> 토큰의 {@code aud} 가 시스템 하나를 가리키므로 그 시스템의
  * 서비스들만 읽는다. 전에는 aud 에 적힌 서비스 목록으로 좁혔는데, 그러면 서비스를 붙일 때마다
- * aud 를 고쳐야 했고 이미 발급된 토큰은 새 서비스에 닿지 못했다.
+ * auth 를 재배포해야 했고 이미 발급된 access 토큰은 재발급 전까지 새 서비스에 닿지 못했다.
  */
 public interface ListSubjectRolesUseCase {
 

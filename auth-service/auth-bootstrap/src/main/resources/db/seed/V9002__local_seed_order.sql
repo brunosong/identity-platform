@@ -7,8 +7,8 @@
 
 -- 서비스 ------------------------------------------------------------------
 -- shop 시스템에 서비스가 하나 늘었다. 이 한 줄이 전부다. 토큰의 aud 는 여전히 shop 이라
--- 이미 발급된 토큰도 그대로 이 서비스에 닿는다. 예전처럼 auth 설정을 고치고 재로그인을
--- 시킬 일이 없다.
+-- 이미 발급된 토큰도 그대로 이 서비스에 닿는다. 예전처럼 auth 를 재배포하고 토큰이 만료되기를
+-- 기다릴 일이 없다.
 INSERT INTO authz_service (service_id, realm, system_id, service_name, description, use_yn, created_at, updated_at)
 VALUES ('order-service', 'PORTAL', 'shop', 'Order service', '주문 API', 'Y', now(), now())
 ON CONFLICT DO NOTHING;

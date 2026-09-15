@@ -44,8 +44,8 @@ class TokenClientsTest {
     @DisplayName("서비스를 붙여도 이 값은 그대로다. 그것이 aud 를 시스템으로 올린 이유다")
     void addingAServiceDoesNotChangeTheAudience() {
         // customer-service 하나뿐이던 시절과 order-service 가 붙은 지금이 같은 값이다.
-        // 전에는 여기에 서비스를 나열해서, 하나 붙일 때마다 설정을 고치고 이미 발급된 토큰은
-        // 새 서비스에 닿지 못했다.
+        // 전에는 여기에 서비스를 나열해서, 하나 붙일 때마다 auth 를 재배포해야 했고 이미 발급된
+        // access 토큰은 재발급 전까지 새 서비스에 닿지 못했다.
         assertThat(clients.systemOf(Realm.PORTAL, "customer-portal")).isEqualTo("shop");
     }
 

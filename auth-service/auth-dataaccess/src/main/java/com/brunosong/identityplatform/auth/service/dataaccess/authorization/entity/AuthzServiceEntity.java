@@ -29,8 +29,8 @@ import java.time.LocalDateTime;
  * order-service      shop   ─┘  resource_access 는 서비스별로 두 칸
  * </pre>
  *
- * <p>서비스를 붙이는 일이 이 표에 한 줄이다. {@code aud} 는 그대로라서 auth 설정을 고칠 필요도,
- * 이미 발급된 토큰을 버릴 필요도 없다.
+ * <p>서비스를 붙이는 일이 이 표에 한 줄이다. {@code aud} 는 그대로라서 auth 를 재배포할 필요도,
+ * 이미 발급된 토큰이 만료되기를 기다릴 필요도 없다.
  *
  * <p>시스템 이름은 realm 과 다르게 짓는다. PORTAL realm 의 고객 시스템이 {@code shop} 이고
  * ADMIN realm 의 직원 시스템이 {@code backoffice} 다. 같은 글자를 쓰면 로그인 경로의 realm 과
