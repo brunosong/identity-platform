@@ -36,7 +36,7 @@ import java.util.Optional;
  * <ul>
  *   <li><b>client 채널</b>({@code logout}, {@code my-permissions}): <b>대조하지 않는다.</b>
  *       이것들은 auth 의 자원을 다루는 것이 아니라 <b>그 토큰의 주인에 대한 것</b>이다.
- *       포털 시스템 토큰({@code aud=[portal]})으로 로그아웃하는 것이 정상이므로, 여기서
+ *       고객 시스템 토큰({@code aud=[shop]})으로 로그아웃하는 것이 정상이므로, 여기서
  *       자기 시스템을 요구하면 멀쩡한 흐름이 막힌다. (Keycloak 의 userinfo, logout 도
  *       audience 를 따지지 않는다.)</li>
  *   <li><b>admin 채널</b>({@code /api/admin/**}): <b>대조한다.</b> auth 자신의 자원을 바꾸는
@@ -45,7 +45,7 @@ import java.util.Optional;
  * </ul>
  *
  * <h2>대조하는 값과 읽는 칸이 다르다</h2>
- * {@code aud} 는 <b>시스템</b>({@code admin})이고, {@code resource_access} 에서 읽을 칸은
+ * {@code aud} 는 <b>시스템</b>({@code backoffice})이고, {@code resource_access} 에서 읽을 칸은
  * <b>서비스</b>({@code auth-service})다. 전에는 둘이 같은 값이라 프로퍼티 하나로 썼는데,
  * 시스템과 서비스를 가르면서 갈라졌다.
  *
@@ -61,7 +61,7 @@ public class AccessTokenReader {
     private final String serviceId;
 
     public AccessTokenReader(RealmSigningKeys signingKeys, RealmIssuers issuers,
-                             @Value("${auth.audience:admin}") String audience,
+                             @Value("${auth.audience:backoffice}") String audience,
                              @Value("${auth.service-id:auth-service}") String serviceId) {
         this.signingKeys = signingKeys;
         this.issuers = issuers;

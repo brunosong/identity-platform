@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>같은 토큰에 실린 <b>다른 서비스의 역할</b>은 여기서 아무것도 열지 못한다</li>
  * </ol>
  *
- * <p>토큰의 {@code aud} 는 {@code portal} 하나다. customer-service 도 같은 값을 요구하므로 한
+ * <p>토큰의 {@code aud} 는 {@code shop} 하나다. customer-service 도 같은 값을 요구하므로 한
  * 토큰이 둘 다에 통한다. 서비스를 가르는 것은 {@code aud} 가 아니라 {@code resource_access} 의
  * 칸이고, 아래 마지막 테스트가 그것을 확인한다.
  *
@@ -58,7 +58,7 @@ class MyOrderApiSecurityTest {
 
     private static final String ISSUER = "http://localhost:8080/realms/portal";
     /** aud 는 시스템이다. customer-service 도 같은 값을 요구한다. */
-    private static final String SYSTEM = "portal";
+    private static final String SYSTEM = "shop";
     /** resource_access 의 칸 이름. aud 와 다른 값이고, 이것이 서비스를 가른다. */
     private static final String SERVICE_ID = "order-service";
 

@@ -24,12 +24,16 @@ ON CONFLICT DO NOTHING;
 
 -- 서비스 ------------------------------------------------------------------
 -- 서비스는 시스템에 속한다. 시스템이 토큰의 aud 가 되고, 서비스는 resource_access 의 칸이 된다.
+--
+-- 시스템 이름을 realm 과 다르게 짓는다. PORTAL realm 의 고객 시스템이 shop, ADMIN realm 의
+-- 직원 시스템이 backoffice 다. 같은 글자를 쓰면 로그인 경로의 realm 과 토큰의 aud 가 구분되지
+-- 않아, 둘이 다른 개념이라는 사실이 이름에서 지워진다.
 -- 서비스를 하나 붙이는 일이 여기 한 줄이고, auth 설정은 건드리지 않는다.
 INSERT INTO authz_service (service_id, realm, system_id, service_name, description, use_yn, created_at, updated_at)
 VALUES
     -- 어드민 콘솔이 상대하는 서비스는 auth 자신이다.
-    ('auth-service', 'ADMIN', 'admin', 'Auth service', '인증인가 관리 API', 'Y', now(), now()),
-    ('customer-service', 'PORTAL', 'portal', 'Customer service', '고객 프로필 API', 'Y', now(), now())
+    ('auth-service', 'ADMIN', 'backoffice', 'Auth service', '인증인가 관리 API', 'Y', now(), now()),
+    ('customer-service', 'PORTAL', 'shop', 'Customer service', '고객 프로필 API', 'Y', now(), now())
 ON CONFLICT DO NOTHING;
 
 -- 권한 --------------------------------------------------------------------

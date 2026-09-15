@@ -34,7 +34,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8080/realms/portal
-          audiences: portal            # 이 토큰이 향하는 시스템
+          audiences: shop              # 이 토큰이 향하는 시스템
 
 app:
   service-id: customer-service         # resource_access 에서 읽을 내 칸
@@ -46,7 +46,7 @@ discovery 문서(`{issuer}/.well-known/openid-configuration`)가 알려준다.
 **둘째 줄이 시스템 경계다.** 발급자만 확인하면 그 realm 의 토큰이면 무엇이든 통한다.
 
 셋째 줄은 경계가 아니라 **인가**다. 같은 시스템 안의 다른 서비스와 이 서비스를 가른다.
-`aud` 가 시스템이라 order-service 도 같은 `portal` 을 요구하고, 둘을 가르는 것은 이 칸 이름이다.
+`aud` 가 시스템이라 order-service 도 같은 `shop` 을 요구하고, 둘을 가르는 것은 이 칸 이름이다.
 그래서 서비스를 하나 붙여도 auth 설정은 바뀌지 않는다. 자세한 것은
 [`order-service/README.md`](../order-service/README.md#1-한-번-로그인한-토큰-하나가-두-서비스에-통한다).
 

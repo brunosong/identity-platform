@@ -38,7 +38,7 @@ import java.util.Map;
  * <p>이제 Keycloak 과 같은 모양으로 나눈다.
  *
  * <pre>
- * "aud":             ["portal"]
+ * "aud":             ["shop"]
  * "realm_access":    { "roles": ["CUSTOMER"] }
  * "resource_access": {
  *     "customer-service": { "roles": ["PROFILE_READ"] },

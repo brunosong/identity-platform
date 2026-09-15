@@ -6,11 +6,11 @@
 -- 이 서비스가 오기 전에 이미 뜬 DB 도 있으므로 새 파일로 얹는다. 나간 마이그레이션은 고치지 않는다.
 
 -- 서비스 ------------------------------------------------------------------
--- portal 시스템에 서비스가 하나 늘었다. 이 한 줄이 전부다. 토큰의 aud 는 여전히 portal 이라
+-- shop 시스템에 서비스가 하나 늘었다. 이 한 줄이 전부다. 토큰의 aud 는 여전히 shop 이라
 -- 이미 발급된 토큰도 그대로 이 서비스에 닿는다. 예전처럼 auth 설정을 고치고 재로그인을
 -- 시킬 일이 없다.
 INSERT INTO authz_service (service_id, realm, system_id, service_name, description, use_yn, created_at, updated_at)
-VALUES ('order-service', 'PORTAL', 'portal', 'Order service', '주문 API', 'Y', now(), now())
+VALUES ('order-service', 'PORTAL', 'shop', 'Order service', '주문 API', 'Y', now(), now())
 ON CONFLICT DO NOTHING;
 
 -- 권한 --------------------------------------------------------------------

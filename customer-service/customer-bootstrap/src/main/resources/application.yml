@@ -30,13 +30,16 @@ spring:
           # 토큰을 여기에 그대로 재생할 수 있다는 뜻이고, 늘수록 가장 약한 하나가 realm
           # 전체의 보안 수준이 된다.
           #
-          # 값이 서비스 이름(customer-service)이 아니라 시스템 이름(portal)이다. 그래서
-          # portal 시스템에 서비스가 몇 개 늘어도 이 줄은 바뀌지 않고, 이미 발급된 토큰도
+          # 값이 서비스 이름(customer-service)이 아니라 시스템 이름(shop)이다. 그래서
+          # shop 시스템에 서비스가 몇 개 늘어도 이 줄은 바뀌지 않고, 이미 발급된 토큰도
           # 그대로 통한다. 그 안에서 서비스를 가르는 것은 아래 app.service-id 다.
+          #
+          # 로그인 경로의 realm(/realms/portal)과는 다른 값이다. realm 은 어느 서랍에서
+          # 계정을 찾을지이고, 이것은 그 토큰을 누가 받아주는지다.
           #
           # Boot 3.4 가 더한 프로퍼티다. 3.3 에서는 이것을 위해 JwtDecoder 를 직접 만들어
           # 기본 검증기를 감싸야 했다(AudiencePolicy). 그 클래스를 지우고 이 두 줄로 바꿨다.
-          audiences: ${AUTH_AUDIENCE:portal}
+          audiences: ${AUTH_AUDIENCE:shop}
   jpa:
     open-in-view: false
     hibernate:

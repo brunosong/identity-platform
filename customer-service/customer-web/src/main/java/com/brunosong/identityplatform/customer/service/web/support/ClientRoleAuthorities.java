@@ -18,7 +18,7 @@ import java.util.Map;
  *
  * <h2>칸 이름은 aud 가 아니다</h2>
  * 전에는 칸 이름을 {@code jwt.audiences} 에서 읽었다. 그때는 aud 가 서비스 이름이라 같은 값이었다.
- * 지금 aud 는 <b>시스템</b>({@code portal})이고 칸 이름은 <b>서비스</b>({@code customer-service})라
+ * 지금 aud 는 <b>시스템</b>({@code shop})이고 칸 이름은 <b>서비스</b>({@code customer-service})라
  * 둘이 갈렸다. 그래서 {@code app.service-id} 로 따로 받는다.
  *
  * <h2>왜 자기 칸만 읽나</h2>

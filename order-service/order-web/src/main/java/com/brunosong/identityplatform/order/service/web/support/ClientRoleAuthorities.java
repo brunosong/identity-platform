@@ -17,7 +17,7 @@ import java.util.Map;
  * 토큰의 <b>이 서비스 칸</b>만 읽어 권한으로 옮긴다: {@code resource_access.{app.service-id}.roles}.
  *
  * <h2>칸 이름은 aud 가 아니다</h2>
- * {@code aud} 는 <b>시스템</b>({@code portal})이라 customer-service 와 같은 값이다. 둘을 가르는
+ * {@code aud} 는 <b>시스템</b>({@code shop})이라 customer-service 와 같은 값이다. 둘을 가르는
  * 것은 여기 칸 이름({@code order-service})이다. aud 로 갈랐다면 서비스를 붙일 때마다 auth 설정을
  * 고쳐야 했고, 이미 발급된 토큰은 새 서비스에 닿지 못했다.
  *
@@ -25,7 +25,7 @@ import java.util.Map;
  * 다 상대하기 때문이다.
  *
  * <pre>
- * "aud":             ["portal"]                                       ← 시스템. 두 서비스가 같다
+ * "aud":             ["shop"]                                         ← 시스템. 두 서비스가 같다
  * "realm_access":    { "roles": ["CUSTOMER"] }                        ← 영역 공통(여기선 안 읽는다)
  * "resource_access": {
  *     "customer-service": { "roles": ["PROFILE_READ"] },              ← 남의 칸

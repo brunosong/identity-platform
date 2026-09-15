@@ -263,9 +263,9 @@ class JwksVerificationIntegrationTest {
         Map<String, Object> payload = payloadOf(login(email));
 
         // 서비스 이름이 아니라 시스템 하나다. 서비스를 붙여도 이 값은 바뀌지 않는다.
-        assertThat(payload.get("aud")).isEqualTo(List.of("portal"));
+        assertThat(payload.get("aud")).isEqualTo(List.of("shop"));
 
-        // 서비스 경계는 여기 있다. portal 시스템에 속한 서비스들만 실린다.
+        // 서비스 경계는 여기 있다. shop 시스템에 속한 서비스들만 실린다.
         Map<?, ?> resourceAccess = (Map<?, ?>) payload.get("resource_access");
         assertThat(resourceAccess.keySet().stream().map(String::valueOf).toList())
                 .containsExactlyInAnyOrder("customer-service", "order-service");
@@ -275,9 +275,9 @@ class JwksVerificationIntegrationTest {
     }
 
     @Test
-    @DisplayName("어드민 토큰의 aud 는 admin 시스템이다")
+    @DisplayName("어드민 토큰의 aud 는 backoffice 시스템이다")
     void adminTokenTargetsTheAdminSystem() {
-        assertThat(payloadOf(loginAsAdmin()).get("aud")).isEqualTo(List.of("admin"));
+        assertThat(payloadOf(loginAsAdmin()).get("aud")).isEqualTo(List.of("backoffice"));
     }
 
     @Test

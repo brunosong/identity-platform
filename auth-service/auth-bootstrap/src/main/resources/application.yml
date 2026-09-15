@@ -22,11 +22,11 @@ server:
 # 이 서비스가 자기 관리 API 에서 요구하는 대상(aud). auth 도 자기 API 에 대해서는
 # 리소스 서버라, 자기 시스템으로 발급된 토큰만 받아야 한다.
 #
-# aud 는 시스템이므로 auth-service 가 아니라 admin 이다. token.clients.employee-admin.system
+# aud 는 시스템이므로 auth-service 가 아니라 backoffice 다. token.clients.employee-admin.system
 # 과 짝이다. auth 자신이 그 시스템의 서비스 하나이고, 서비스 이름(auth-service)은
 # resource_access 의 칸 이름으로만 쓴다.
 auth:
-  audience: ${AUTH_AUDIENCE:admin}
+  audience: ${AUTH_AUDIENCE:backoffice}
   # resource_access 에서 auth 자신의 칸 이름. authz_service.service_id 와 같아야 한다.
   service-id: ${AUTH_SERVICE_ID:auth-service}
 
@@ -63,10 +63,10 @@ token:
   clients:
     customer-portal:
       realm: PORTAL
-      system: portal
+      system: shop
     employee-admin:
       realm: ADMIN
-      system: admin
+      system: backoffice
   realms:
     ADMIN:
       kid: ${ADMIN_KID:admin-1}
@@ -76,12 +76,12 @@ token:
       # 시스템은 realm 을 넘지 못한다. 신뢰하는 발급자가 곧 realm 이기 때문이다.
       #
       # 여기 적는 것은 시스템이지 서비스가 아니다. 서비스 목록은 DB 가 쥔다.
-      systems: admin
+      systems: backoffice
     PORTAL:
       kid: ${PORTAL_KID:portal-1}
       privateKey: ${PORTAL_PRIVATE_KEY:}
       publicKey: ${PORTAL_PUBLIC_KEY:}
-      systems: portal
+      systems: shop
 
 logging:
   level:

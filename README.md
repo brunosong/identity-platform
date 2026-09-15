@@ -200,7 +200,7 @@ java -jar target/order-bootstrap-0.0.1-SNAPSHOT.jar
 > auth-service 보다 먼저 떠도 된다. 공개키는 첫 검증 때 받아온다. 그동안 들어온 요청은
 > 검증에 실패해 401 이 된다 — 열린 채로 남지 않는 것이 중요하다.
 
-> 두 소비 서비스가 **같은 발급자**와 **같은 `aud`**(`portal`)를 본다. `aud` 는 서비스가 아니라
+> 두 소비 서비스가 **같은 발급자**와 **같은 `aud`**(`shop`)를 본다. `aud` 는 서비스가 아니라
 > **시스템**이라서, 고객은 한 번 로그인하고 그 토큰 하나로 둘 다 쓴다. 서비스를 하나 더 붙여도
 > auth 설정은 바뀌지 않는다. 그 구조는 [`order-service/README.md`](order-service/README.md) 에 있다.
 

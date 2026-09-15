@@ -16,7 +16,7 @@ spring:
           # 어드민 토큰은 이 발급자의 JWKS 에 없는 키로 서명돼 있어 서명 단계에서 죽는다.
           issuer-uri: ${AUTH_ISSUER:http://localhost:8080/realms/portal}
 
-          # customer-service 와 똑같은 값이다. 둘 다 portal 시스템에 속하기 때문이고,
+          # customer-service 와 똑같은 값이다. 둘 다 shop 시스템에 속하기 때문이고,
           # 그래서 한 토큰이 둘 다에 통한다.
           #
           # 발급자만 확인하면 포털 realm 의 토큰이면 무엇이든 통한다. 다른 시스템으로 들어온
@@ -25,7 +25,7 @@ spring:
           # 값이 order-service 가 아닌 것이 요점이다. 서비스 이름을 적으면 서비스를 붙일 때마다
           # auth 설정을 고쳐야 하고, 이미 발급된 토큰은 새 서비스에 닿지 못한다. 서비스를
           # 가르는 것은 aud 가 아니라 아래 app.service-id 와 resource_access 다.
-          audiences: ${AUTH_AUDIENCE:portal}
+          audiences: ${AUTH_AUDIENCE:shop}
   jpa:
     open-in-view: false
     hibernate:

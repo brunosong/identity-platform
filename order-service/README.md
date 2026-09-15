@@ -11,7 +11,7 @@ customer-service 와 같은 레이어 구조, 같은 발급자, 같은 로그인
 | | customer-service | order-service |
 |---|---|---|
 | 발급자(`issuer-uri`) | `.../realms/portal` | **같다** |
-| 대상(`audiences`) | `portal` | **같다** (시스템이다) |
+| 대상(`audiences`) | `shop` | **같다** (시스템이다) |
 | `resource_access` 칸 | `customer-service` | `order-service` |
 | 역할 | `PROFILE_READ` 하나 | `ORDER_READ` / `ORDER_WRITE` 둘 |
 | 조회 키 | 토큰의 `sub` 뿐 | `sub` + **경로의 주문번호** |
@@ -22,7 +22,7 @@ customer-service 와 같은 레이어 구조, 같은 발급자, 같은 로그인
 
 ## 1. 한 번 로그인한 토큰 하나가 두 서비스에 통한다
 
-`aud` 가 **시스템**이기 때문이다. 두 서비스가 같은 `portal` 을 요구한다.
+`aud` 가 **시스템**이기 때문이다. 두 서비스가 같은 `shop` 을 요구한다.
 
 ```yaml
 # auth
@@ -30,19 +30,19 @@ token:
   clients:
     customer-portal:
       realm: PORTAL
-      system: portal
+      system: shop
 ```
 
 ```yaml
 # customer-service 와 order-service 가 똑같이
-spring.security.oauth2.resourceserver.jwt.audiences: portal
+spring.security.oauth2.resourceserver.jwt.audiences: shop
 app.service-id: customer-service   # 여기만 다르다
 ```
 
 ```json
 {
   "iss": "http://localhost:8080/realms/portal",
-  "aud": ["portal"],
+  "aud": ["shop"],
   "azp": "customer-portal",
   "sub": "cust-...",
   "resource_access": {
@@ -52,12 +52,16 @@ app.service-id: customer-service   # 여기만 다르다
 }
 ```
 
+> **시스템 이름을 realm 과 다르게 지었다.** 로그인 경로는 `/realms/portal` 인데 시스템은 `shop` 이다.
+> 같은 글자를 쓰면 둘이 다른 개념이라는 사실이 이름에서 지워진다. realm 은 "어느 서랍에서 계정을
+> 찾나" 이고 시스템은 "이 토큰을 누가 받아주나" 다.
+
 ### 네 층을 구분해야 이 표가 읽힌다
 
 | | 예 | 토큰 어디 | 늘어날 때 auth 설정 |
 |---|---|---|---|
 | realm | `PORTAL` | `iss` (서명키가 가른다) | 바뀐다 (키페어) |
-| 시스템 | `portal` | `aud` **단일값** | 바뀐다 |
+| 시스템 | `shop` | `aud` **단일값** | 바뀐다 |
 | 서비스 | `customer-service`, `order-service` | `resource_access` 키 | **안 바뀐다** |
 | 앱 | `customer-portal` | `azp` | 바뀐다 |
 
@@ -75,11 +79,11 @@ DB(`authz_service`)만 안다.
 기존 로그인 사용자는 전부 다시 로그인해야 그 서비스에 닿았다. 배포 하나가 전원 재로그인을
 부르는 구조였다.
 
-지금은 `aud` 가 `portal` 로 고정이라 둘 다 없다. 서비스를 붙이는 일은 DB 에 한 줄이다.
+지금은 `aud` 가 `shop` 으로 고정이라 둘 다 없다. 서비스를 붙이는 일은 DB 에 한 줄이다.
 
 ```sql
 INSERT INTO authz_service (service_id, realm, system_id, service_name, ...)
-VALUES ('order-service', 'PORTAL', 'portal', 'Order service', ...);
+VALUES ('order-service', 'PORTAL', 'shop', 'Order service', ...);
 ```
 
 ### 그래도 aud 를 버리지는 않는다
@@ -91,7 +95,7 @@ VALUES ('order-service', 'PORTAL', 'portal', 'Order service', ...);
 ### 시스템을 여럿 적지 않는다
 
 realm 하나에 시스템이 여럿일 수 있다. 하지만 **토큰 하나는 시스템 하나를 향한다.**
-`aud: portal,loyalty` 같은 것을 쓰지 않는다.
+`aud: shop,loyalty` 같은 것을 쓰지 않는다.
 
 통합 로그인은 **세션**이 맡는 일이다. 표준 흐름은 이렇다.
 
@@ -104,7 +108,7 @@ realm 하나에 시스템이 여럿일 수 있다. 하지만 **토큰 하나는 
 
 aud 에 나열하면 방금 고친 문제가 한 층 위에서 그대로 재현된다. 시스템을 늘릴 때 설정을 고쳐야
 하고 기존 토큰은 새 시스템에 닿지 못한다. 거기에 시스템 경계까지 잃는다. 시스템은 보통 팀도
-배포 주기도 다른데, `loyalty` 가 뚫리면 거기 들어온 토큰이 `portal` 에 그대로 통하게 된다.
+배포 주기도 다른데, `loyalty` 가 뚫리면 거기 들어온 토큰이 `shop` 에 그대로 통하게 된다.
 
 > 두 번째 시스템이 실제로 생기면 refresh 로 다른 시스템용 access 를 받는 경로를 연다.
 > 재료는 이미 있다(refresh 토큰의 `cid`, 세션의 `sid`). 지금 미리 만들지 않았다.
@@ -115,7 +119,7 @@ aud 에 나열하면 방금 고친 문제가 한 층 위에서 그대로 재현�
 token:
   realms:
     PORTAL:
-      systems: portal
+      systems: shop
 ```
 
 여기 없는 이름을 앱에 적으면 **부팅에서 걸린다.** 시스템은 realm 을 넘지 못한다. 신뢰하는 발급자가
@@ -256,7 +260,7 @@ print('resource_access =', json.dumps(c['resource_access'], ensure_ascii=False))
 ```
 
 ```
-aud             = ['portal']
+aud             = ['shop']
 azp             = customer-portal
 resource_access = {"customer-service": {"roles": ["PROFILE_READ"]},
                    "order-service": {"roles": ["ORDER_READ", "ORDER_WRITE"]}}

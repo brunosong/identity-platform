@@ -29,15 +29,15 @@ class TokenClientsTest {
     }
 
     private final TokenClients clients = new TokenClients(Map.of(
-            "customer-portal", client(Realm.PORTAL, "portal"),
-            "employee-admin", client(Realm.ADMIN, "admin"),
+            "customer-portal", client(Realm.PORTAL, "shop"),
+            "employee-admin", client(Realm.ADMIN, "backoffice"),
             "broken", client(Realm.PORTAL, null)));
 
     @Test
     @DisplayName("앱이 상대하는 시스템 하나가 aud 가 된다")
     void clientResolvesToOneSystem() {
-        assertThat(clients.systemOf(Realm.PORTAL, "customer-portal")).isEqualTo("portal");
-        assertThat(clients.systemOf(Realm.ADMIN, "employee-admin")).isEqualTo("admin");
+        assertThat(clients.systemOf(Realm.PORTAL, "customer-portal")).isEqualTo("shop");
+        assertThat(clients.systemOf(Realm.ADMIN, "employee-admin")).isEqualTo("backoffice");
     }
 
     @Test
@@ -46,7 +46,7 @@ class TokenClientsTest {
         // customer-service 하나뿐이던 시절과 order-service 가 붙은 지금이 같은 값이다.
         // 전에는 여기에 서비스를 나열해서, 하나 붙일 때마다 설정을 고치고 이미 발급된 토큰은
         // 새 서비스에 닿지 못했다.
-        assertThat(clients.systemOf(Realm.PORTAL, "customer-portal")).isEqualTo("portal");
+        assertThat(clients.systemOf(Realm.PORTAL, "customer-portal")).isEqualTo("shop");
     }
 
     @Test
