@@ -13,10 +13,6 @@
     <name>order-service</name>
     <description>주문 서비스. 포털 realm 의 두 번째 소비 서비스</description>
 
-    <properties>
-        <testcontainers.version>1.21.4</testcontainers.version>
-    </properties>
-
     <!--
       customer-service 와 같은 레이어 구조다. 다른 점은 이 서비스가 realm 의 두 번째 소비 서비스라는
       것이고, 그래서 여기서만 보이는 것이 셋 있다.

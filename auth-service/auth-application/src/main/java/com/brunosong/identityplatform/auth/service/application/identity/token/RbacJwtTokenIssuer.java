@@ -1,7 +1,5 @@
 package com.brunosong.identityplatform.auth.service.application.identity.token;
 
-import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.GetAuthorizationRevisionUseCase;
-import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectRolesUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SessionRegistryPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
@@ -19,37 +17,27 @@ import org.springframework.util.StringUtils;
 
 import java.security.PublicKey;
 import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
- * 표준 JWT 토큰 발급기(RBAC 적재형). subjectId + 역할 + RBAC 리비전을 담아 RS256 으로 서명한다.
+ * 표준 JWT 토큰 발급기. <b>신원만</b> 담아 RS256 으로 서명한다.
  *
- * <p>요청마다 권한 DB 를 뒤지지 않도록 역할을 토큰에 싣고, realm 의 권한 정책이 바뀌면 리비전
- * bump 로 옛 토큰을 무효화한다.
+ * <h2>인가에 쓸 값은 토큰에 싣지 않는다</h2>
+ * 전에는 역할과 권한을 실었다({@code realm_access}, {@code resource_access}) 그리고 그것이 낡았는지
+ * 가리는 리비전({@code rbacRev})까지 함께 실었다. 토큰 하나가 신원과 인가를 겸하면서, 같은
+ * 판단이 세 군데(토큰 클레임, authz DB, 소비 서비스의 matcher)에 나뉘어 읽기 어려웠다.
  *
- * <h2>권한이 아니라 역할을 싣는다</h2>
- * 전에는 권한 코드를 평면 목록({@code authLs})으로 실었다. 그러면 두 가지가 아프다 —
- * 어휘가 전역이라 서비스가 늘수록 이름이 부딪히고(order-service 의 READ 와 customer-service 의
- * READ), <b>auth 가 모든 서비스의 권한 이름을 알아야 한다.</b> 새 서비스를 붙일 때마다 auth 스키마에
- * 등록해야 하므로 배포가 서로 묶인다.
- *
- * <p>이제 Keycloak 과 같은 모양으로 나눈다.
+ * <p>지금 토큰이 답하는 것은 하나다. <b>이 요청이 누구인가.</b>
  *
  * <pre>
- * "aud":             ["shop"]
- * "realm_access":    { "roles": ["CUSTOMER"] }
- * "resource_access": {
- *     "customer-service": { "roles": ["PROFILE_READ"] },
- *     "order-service":    { "roles": ["ORDER_READ", "ORDER_WRITE"] }
- * }
+ * "iss":  "http://localhost:8080/realms/portal"   어느 realm 이 발급했나
+ * "aud":  ["shop"]                                 어느 시스템이 받아주나
+ * "sub":  "a4120a37-..."                           누구인가
+ * "type": "access"
  * </pre>
  *
- * <b>{@code resource_access} 에는 이 토큰의 {@code aud}, 즉 그 시스템에 속한 서비스만 싣는다.</b>
- * 전부 실으면 토큰이 realm 전체 크기로 자란다. 어느 서비스가 그 시스템에 속하는지는
- * {@code authz_service} 가 안다. 그 이름이 무엇을 여는지는 각 서비스가 자기 코드로 정하므로,
- * auth 는 이름만 보관하고 URL 규칙은 그 서비스와 함께 배포된다.
+ * <p>인가는 아직 자리를 정하지 않았다. 권한 데이터는 authz 표에 그대로 있고
+ * ({@code authz_role}, {@code authz_permission}, {@code authz_service}), auth 자신의 관리 API 는
+ * 그 표를 직접 조회해 판정한다. 소비 서비스가 어떻게 판정할지는 다음에 정한다.
  *
  * <p><b>서명:</b> RS256(비대칭). realm 마다 다른 RSA 키페어를 쓴다({@link RealmSigningKeys}).
  * 한 프로세스가 두 realm 을 모두 담당하므로 발급기가 두 벌을 다 쥐고 realm 에 맞는 키를 고른다 —
@@ -87,14 +75,9 @@ import java.util.Map;
  * 포털 공개키로만 검증되는 편이 강하다. 그래서 모든 엔드포인트가 realm 을 경로로 받고, 검증하는 쪽은
  * 그 realm 의 키 하나만 쓴다(Keycloak 도 같다 — realm 은 {@code iss} 에 있고 별도 클레임은 없다).
  *
- * <p><b>주의(리비전 입도):</b> rbacRev 는 realm <b>전역</b> 정책 변경을 무효화한다. 개별 주체의 역할
- * 부여/회수(subject-role)는 전역 bump 대상이 아니다 — 그 변경은 해당 주체의 다음 토큰 갱신 때 반영된다
- * (즉시 회수가 필요하면 짧은 accessToken TTL 로 좁힌다).
  */
 public class RbacJwtTokenIssuer implements TokenIssuerPort {
 
-    private final ListSubjectRolesUseCase subjectRoles;
-    private final GetAuthorizationRevisionUseCase revision;
     private final ObjectProvider<SessionRegistryPort> sessionRegistryProvider;
     private final RealmSigningKeys signingKeys;
     private final RealmIssuers issuers;
@@ -102,15 +85,11 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     private final long accessExpirationMillis;
     private final long refreshExpirationMillis;
 
-    public RbacJwtTokenIssuer(ListSubjectRolesUseCase subjectRoles,
-                              GetAuthorizationRevisionUseCase revision,
-                              ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
+    public RbacJwtTokenIssuer(ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
                               RealmSigningKeys signingKeys,
                               RealmIssuers issuers,
                               TokenClients clients,
                               long accessExpirationMillis, long refreshExpirationMillis) {
-        this.subjectRoles = subjectRoles;
-        this.revision = revision;
         this.sessionRegistryProvider = sessionRegistryProvider;
         this.signingKeys = signingKeys;
         this.issuers = issuers;
@@ -125,17 +104,13 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         // 모르는 앱이거나 realm 이 어긋나면 여기서 인증 실패로 끝난다.
         String systemId = clients.systemOf(realm, clientId);
 
-        ListSubjectRolesUseCase.SubjectRoles roles = subjectRoles.of(realm, subjectId, systemId);
-        long rbacRev = revision.current(realm);
-
         // 단일 세션을 켠 설정에서만 sid 발급(기존 세션 무효화). 미활성이면 sid 없이 다중 로그인 허용.
         SessionRegistryPort sessionRegistry = sessionRegistryProvider.getIfAvailable();
         String sid = sessionRegistry == null ? null : sessionRegistry.open(realm, subjectId);
 
         RealmSigningKeys.RealmKey key = signingKeys.of(realm);
         String issuer = issuers.of(realm);
-        String access = buildAccess(key, issuer, subjectId, systemId, clientId, roles, rbacRev, sid,
-                accessExpirationMillis);
+        String access = buildAccess(key, issuer, subjectId, systemId, sid, accessExpirationMillis);
         String refresh = buildRefresh(key, issuer, subjectId, clientId, sid, refreshExpirationMillis);
         return new TokenPair(access, refresh);
     }
@@ -183,38 +158,22 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         }
     }
 
-    /** access 토큰. 요청당 DB 조회 없이 인가하도록 신원 + 역할(realm/서비스별) + 리비전을 싣는다. */
+    /** access 토큰. <b>신원만 싣는다.</b> 인가에 쓸 값은 담지 않는다. */
     private String buildAccess(RealmSigningKeys.RealmKey key, String issuer, String subjectId,
-                               String systemId, String clientId,
-                               ListSubjectRolesUseCase.SubjectRoles roles,
-                               long rbacRev, String sid, long ttlMillis) {
+                               String systemId, String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
                 .issuer(issuer)
-                // 시스템 하나다. 그 안의 서비스들은 아래 resource_access 가 가른다.
                 .audience().add(systemId).and()
                 .subject(subjectId)
                 .claim("type", "access")
-                // 누가 이 토큰을 받아갔나. aud 와 다른 값이고, 사고 조사 때 "어느 앱으로 들어온
-                // 토큰인가" 를 답한다. 인가 판정에 쓰라고 두는 값은 아니다.
-                .claim("azp", clientId)
-                .claim("realm_access", Map.of("roles", roles.realmRoles()))
-                .claim("resource_access", resourceAccess(roles.servicePermissions()))
-                .claim("rbacRev", rbacRev)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMillis));
         if (StringUtils.hasText(sid)) {
             builder.claim("sid", sid);
         }
         return builder.signWith(key.privateKey(), Jwts.SIG.RS256).compact();
-    }
-
-    /** {@code {"customer-service": {"roles": [...]}}} 모양으로 감싼다. Keycloak 과 같은 구조다. */
-    private static Map<String, Object> resourceAccess(Map<String, List<String>> servicePermissions) {
-        Map<String, Object> wrapped = new LinkedHashMap<>();
-        servicePermissions.forEach((serviceId, codes) -> wrapped.put(serviceId, Map.of("roles", codes)));
-        return wrapped;
     }
 
     /**

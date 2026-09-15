@@ -6,8 +6,6 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 
 import java.security.Key;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -52,29 +50,17 @@ public class AuthTokenVerifier {
 
     private static final String TYPE_CLAIM = "type";
     private static final String ACCESS_TYPE = "access";
-    private static final String RESOURCE_ACCESS_CLAIM = "resource_access";
-    private static final String ROLES_KEY = "roles";
-    private static final String REVISION_CLAIM = "rbacRev";
 
     private final JwksKeySource keySource;
     /** 이 검증기가 통과시키는 유일한 발급자. 토큰에서 읽는 값이 아니라 설정이 정하는 값이다. */
     private final String issuer;
-    /**
-     * 이 <b>서비스</b>의 이름. 토큰의 {@code resource_access} 에서 이 칸만 읽는다.
-     *
-     * <p>{@code aud} 와는 다른 값이다. aud 에는 이 서비스가 속한 시스템이 실리고, 이 검증기는
-     * aud 를 보지 않는다.
-     */
-    private final String serviceId;
-
-    public AuthTokenVerifier(JwksKeySource keySource, String issuer, String serviceId) {
+    public AuthTokenVerifier(JwksKeySource keySource, String issuer) {
         if (issuer == null || issuer.isBlank()) {
             // 발급자 없이 뜨면 발급자 대조를 조용히 건너뛰게 된다. 그 약한 모드가 가장 위험하다.
             throw new IllegalStateException("auth.client.issuer 가 필요합니다.");
         }
         this.keySource = keySource;
         this.issuer = issuer;
-        this.serviceId = serviceId;
     }
 
     /** 이 서비스가 상대하는 발급자. */
@@ -102,11 +88,7 @@ public class AuthTokenVerifier {
         if (!ACCESS_TYPE.equals(claims.get(TYPE_CLAIM, String.class))) {
             return Optional.empty();
         }
-        return Optional.of(new AuthenticatedToken(
-                claims.getIssuer(),
-                claims.getSubject(),
-                permissionsOf(claims, serviceId),
-                revisionOf(claims)));
+        return Optional.of(new AuthenticatedToken(claims.getIssuer(), claims.getSubject()));
     }
 
     /** {@code Authorization: Bearer ...} 헤더 값에서 바로 검증한다. */
@@ -122,32 +104,4 @@ public class AuthTokenVerifier {
         return kid == null ? null : keySource.find(kid.toString());
     }
 
-    /**
-     * 이 서비스에 대한 역할만 읽는다: {@code resource_access.{serviceId}.roles}.
-     *
-     * <p>전에는 권한 코드를 평면 목록({@code authLs})으로 읽었다. 그러면 어휘가 realm 전역이라
-     * 서비스가 늘수록 이름이 부딪히고, 남의 서비스 권한이 이 서비스의 문을 열 수 있었다.
-     * 이제 서비스로 갈려 있어 <b>자기 칸만</b> 본다.
-     */
-    @SuppressWarnings("unchecked")
-    private static List<String> permissionsOf(Claims claims, String serviceId) {
-        if (serviceId == null || serviceId.isBlank()) {
-            return List.of();
-        }
-        if (!(claims.get(RESOURCE_ACCESS_CLAIM) instanceof Map<?, ?> byClient)) {
-            return List.of();
-        }
-        if (!(byClient.get(serviceId) instanceof Map<?, ?> own)) {
-            return List.of();
-        }
-        if (!(own.get(ROLES_KEY) instanceof List<?> roles)) {
-            return List.of();
-        }
-        return ((List<Object>) roles).stream().map(String::valueOf).toList();
-    }
-
-    private static long revisionOf(Claims claims) {
-        Number revision = claims.get(REVISION_CLAIM, Number.class);
-        return revision == null ? 0L : revision.longValue();
-    }
 }

@@ -1,7 +1,5 @@
 package com.brunosong.identityplatform.auth.service.application.identity.token;
 
-import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.GetAuthorizationRevisionUseCase;
-import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectRolesUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SessionRegistryPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
@@ -86,15 +84,13 @@ public class RbacTokenIssuerConfiguration {
 
     @Bean
     public TokenIssuerPort rbacJwtTokenIssuer(
-            ListSubjectRolesUseCase subjectRoles,
-            GetAuthorizationRevisionUseCase revision,
             ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
             RealmSigningKeys signingKeys,
             RealmIssuers issuers,
             TokenClients clients,
             TokenProperties properties) {
         return new RbacJwtTokenIssuer(
-                subjectRoles, revision, sessionRegistryProvider, signingKeys, issuers, clients,
+                sessionRegistryProvider, signingKeys, issuers, clients,
                 properties.getAccessExpiration(), properties.getRefreshExpiration());
     }
 }

@@ -86,7 +86,7 @@ class JwksVerificationIntegrationTest {
     @BeforeEach
     void setUp() {
         http = RestClient.create("http://localhost:" + port);
-        verifier = new AuthTokenVerifier(portalKeys(), PORTAL_ISSUER, "customer-service");
+        verifier = new AuthTokenVerifier(portalKeys(), PORTAL_ISSUER);
     }
 
     @Test
@@ -252,32 +252,28 @@ class JwksVerificationIntegrationTest {
                 // realm 은 표준 자리인 iss 안에 있다.
                 .containsEntry("iss", PORTAL_ISSUER)
                 .containsEntry("type", "access")
-                .containsKeys("sub", "realm_access", "resource_access", "rbacRev", "exp");
+                .containsKeys("sub", "aud", "exp");
     }
 
     @Test
-    @DisplayName("aud 는 시스템 하나이고, resource_access 는 서비스별로 갈린다")
-    void audienceIsTheSystemAndResourceAccessIsPerService() {
+    @DisplayName("aud 는 시스템 하나다. 서비스를 붙여도 바뀌지 않는다")
+    void audienceIsTheSystem() {
         String email = "aud-" + UUID.randomUUID() + "@example.com";
         registerCustomer(email);
-        Map<String, Object> payload = payloadOf(login(email));
 
-        // 서비스 이름이 아니라 시스템 하나다. 서비스를 붙여도 이 값은 바뀌지 않는다.
-        assertThat(payload.get("aud")).isEqualTo(List.of("shop"));
-
-        // 서비스 경계는 여기 있다. shop 시스템에 속한 서비스들만 실린다.
-        Map<?, ?> resourceAccess = (Map<?, ?>) payload.get("resource_access");
-        assertThat(resourceAccess.keySet().stream().map(String::valueOf).toList())
-                .containsExactlyInAnyOrder("customer-service", "order-service");
-
-        // 누가 받아갔는지는 따로 적는다. aud 와 다른 값이다.
-        assertThat(payload).containsEntry("azp", "customer-portal");
+        assertThat(payloadOf(login(email)).get("aud")).isEqualTo(List.of("shop"));
+        assertThat(payloadOf(loginAsAdmin()).get("aud")).isEqualTo(List.of("backoffice"));
     }
 
     @Test
-    @DisplayName("어드민 토큰의 aud 는 backoffice 시스템이다")
-    void adminTokenTargetsTheAdminSystem() {
-        assertThat(payloadOf(loginAsAdmin()).get("aud")).isEqualTo(List.of("backoffice"));
+    @DisplayName("토큰은 인가에 쓸 값을 싣지 않는다")
+    void tokenCarriesNothingForAuthorization() {
+        String email = "noauthz-" + UUID.randomUUID() + "@example.com";
+        registerCustomer(email);
+
+        // 역할도 권한도 정책 리비전도 없다. 토큰이 답하는 것은 "이 요청이 누구인가" 까지다.
+        assertThat(payloadOf(login(email)))
+                .doesNotContainKeys("realm_access", "resource_access", "rbacRev", "azp");
     }
 
     @Test
@@ -290,7 +286,7 @@ class JwksVerificationIntegrationTest {
         // 이 검증기는 같은 JWKS 를 보므로 서명은 통과한다. realm 도 같고 클레임도 같다.
         // 다른 것은 발급자 이름 하나뿐이다 — staging 토큰이 prod 를 여는 상황이 정확히 이 모양이다.
         AuthTokenVerifier otherDeployment =
-                new AuthTokenVerifier(portalKeys(), "https://auth.example.com/realms/portal", "customer-service");
+                new AuthTokenVerifier(portalKeys(), "https://auth.example.com/realms/portal");
 
         assertThat(otherDeployment.verify(accessToken)).isEmpty();
         assertThat(verifier.verify(accessToken)).isPresent();

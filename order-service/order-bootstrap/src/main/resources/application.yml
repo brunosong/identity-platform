@@ -35,12 +35,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-app:
-  # 토큰의 resource_access 에서 읽을 칸 이름. auth 의 authz_service.service_id 와 같아야 한다.
-  #
-  # 같은 토큰에 customer-service 의 칸도 실려 있다. 이 값이 그중 내 칸을 고른다.
-  service-id: ${APP_SERVICE_ID:order-service}
-
 server:
   port: ${SERVER_PORT:8082}
 

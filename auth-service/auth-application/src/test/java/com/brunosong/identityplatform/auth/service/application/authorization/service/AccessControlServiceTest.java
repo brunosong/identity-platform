@@ -214,15 +214,5 @@ class AccessControlServiceTest {
             return List.of();
         }
 
-        @Override
-        public List<String> realmRoleCodes(Realm realm, String subjectId) {
-            return List.of();
-        }
-
-        @Override
-        public java.util.Map<String, List<String>> servicePermissionCodes(
-                Realm realm, String subjectId, String systemId) {
-            return java.util.Map.of();
-        }
     }
 }

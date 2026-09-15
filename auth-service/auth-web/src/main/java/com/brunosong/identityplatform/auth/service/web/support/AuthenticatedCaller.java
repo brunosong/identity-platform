@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.web.support;
 
+import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectPermissionsUseCase;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,7 +10,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -32,11 +32,10 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AuthenticatedCaller {
 
-    private static final String RESOURCE_ACCESS_CLAIM = "resource_access";
-    private static final String ROLES_KEY = "roles";
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final AccessTokenReader accessTokenReader;
+    private final ListSubjectPermissionsUseCase subjectPermissions;
 
     /**
      * 그 realm 의 토큰이 있고 유효하면 claims. 없거나 무효면 비어 있다(비로그인을 정상 흐름으로 다루는
@@ -62,7 +61,7 @@ public class AuthenticatedCaller {
         Claims claims = bearerToken(request)
                 .flatMap(token -> accessTokenReader.readForSelf(realm, token))
                 .orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
-        if (!permissionsOf(claims).contains(permissionCode)) {
+        if (!permissionsOf(realm, claims).contains(permissionCode)) {
             throw new ForbiddenException("이 작업에 필요한 권한이 없습니다: " + permissionCode);
         }
         return claims;
@@ -73,31 +72,23 @@ public class AuthenticatedCaller {
     }
 
     /**
-     * 이 서비스에 대해 호출자가 가진 역할 코드.
+     * 호출자가 가진 권한 코드. <b>토큰이 아니라 DB 에서 읽는다.</b>
      *
-     * <p>전에는 권한 코드를 평면 목록({@code authLs})으로 읽었다. 이제는 서비스별로 갈려 있어
-     * <b>자기 칸만</b> 본다 — 다른 서비스의 권한이 이 서비스의 문을 열지 않는다.
+     * <p>전에는 토큰의 {@code resource_access} 칸을 읽었다. 토큰에서 인가 클레임을 걷어내면서
+     * 그 자리가 없어졌고, auth 는 authz 표를 직접 쥐고 있으므로 조회하면 된다.
      *
-     * <p>칸 이름은 {@link AccessTokenReader#serviceId()} 에서 온다. {@code aud} 대조에 쓰는 값
-     * ({@code audience()}, 시스템)과는 <b>다른 값</b>이다. 시스템은 토큰이 향하는 곳이고, 여기
-     * 칸 이름은 그 안의 어느 서비스인가다.
+     * <p>요청마다 DB 를 한 번 더 타는 대가가 있다. 대신 권한을 회수하면 <b>즉시</b> 반영된다.
+     * 토큰에 실어 두었을 때는 그 토큰이 만료될 때까지 살아 있었다.
+     *
+     * <p>토큰에 실을지 DB 를 볼지는 <b>소비 서비스</b>에서 다시 걸리는 문제다. 그쪽은 auth 의 DB 가
+     * 없어서 같은 선택지를 갖지 못한다. 아직 정하지 않았다.
      */
-    @SuppressWarnings("unchecked")
-    public List<String> permissionsOf(Claims claims) {
-        Object resourceAccess = claims.get(RESOURCE_ACCESS_CLAIM);
-        if (!(resourceAccess instanceof Map<?, ?> byClient)) {
+    public List<String> permissionsOf(Realm realm, Claims claims) {
+        String subjectId = claims.getSubject();
+        if (!StringUtils.hasText(subjectId)) {
             return List.of();
         }
-        if (!(byClient.get(accessTokenReader.serviceId()) instanceof Map<?, ?> own)) {
-            return List.of();
-        }
-        if (!(own.get(ROLES_KEY) instanceof List<?> roles)) {
-            return List.of();
-        }
-        return ((List<Object>) roles).stream()
-                .map(String::valueOf)
-                .filter(StringUtils::hasText)
-                .toList();
+        return subjectPermissions.of(realm, subjectId);
     }
 
     private Optional<String> bearerToken(HttpServletRequest request) {

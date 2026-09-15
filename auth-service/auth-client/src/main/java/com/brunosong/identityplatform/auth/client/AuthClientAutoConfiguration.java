@@ -39,6 +39,6 @@ public class AuthClientAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public AuthTokenVerifier authTokenVerifier(JwksKeySource keySource, AuthClientProperties properties) {
-        return new AuthTokenVerifier(keySource, properties.getIssuer(), properties.getServiceId());
+        return new AuthTokenVerifier(keySource, properties.getIssuer());
     }
 }

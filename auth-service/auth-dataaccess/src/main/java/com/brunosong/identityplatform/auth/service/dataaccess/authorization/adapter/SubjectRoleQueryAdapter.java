@@ -9,9 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 주체-역할 배정 조회 어댑터.
@@ -38,25 +36,6 @@ public class SubjectRoleQueryAdapter implements SubjectRoleQuery {
         return subjectRoleRepository.findAssignedRoles(realm, subjectId).stream()
                 .map(SubjectRoleQueryAdapter::toView)
                 .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<String> realmRoleCodes(Realm realm, String subjectId) {
-        return subjectRoleRepository.findRealmRoleCodes(realm, subjectId, ACTIVE);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Map<String, List<String>> servicePermissionCodes(Realm realm, String subjectId, String systemId) {
-        if (systemId == null || systemId.isBlank()) {
-            return Map.of();
-        }
-        Map<String, List<String>> byService = new LinkedHashMap<>();
-        for (Object[] row : subjectRoleRepository.findServicePermissionCodes(realm, subjectId, systemId, ACTIVE)) {
-            byService.computeIfAbsent((String) row[0], k -> new java.util.ArrayList<>()).add((String) row[1]);
-        }
-        return byService;
     }
 
     private static RoleView toView(AuthzRoleEntity entity) {

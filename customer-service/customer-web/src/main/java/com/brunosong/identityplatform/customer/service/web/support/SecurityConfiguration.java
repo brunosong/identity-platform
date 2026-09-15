@@ -38,17 +38,15 @@ import org.springframework.security.web.SecurityFilterChain;
  * <p><b>auth 보다 먼저 떠도 된다.</b> {@code issuer-uri} 를 쓰면 Spring 이 디코더 생성을 첫 검증까지
  * 미룬다({@code SupplierJwtDecoder}). 부팅 시점에 auth 를 부르지 않는다.
  *
- * <h2>권한은 토큰에서 오고, 규칙은 여기 있다</h2>
- * 전에는 auth 가 권한 코드를 평면 목록으로 실어주고 게이트웨이가 URL 규칙까지 auth 에서
- * 가져다 판정했다. 그러면 이 서비스가 엔드포인트를 하나 추가할 때마다 auth 에 등록해야 하고,
- * 배포가 서로 묶인다.
+ * <h2>지금 이 서비스에 역할 검사가 없다</h2>
+ * 토큰에서 인가 클레임을 걷어냈다. 전에는 {@code resource_access} 의 이 서비스 칸을 authority 로
+ * 옮겨 {@code PROFILE_READ} 를 요구했는데, 그 칸이 더 이상 오지 않는다.
  *
- * <p>지금은 auth 가 <b>역할 이름</b>만 주고({@code resource_access["customer-service"].roles}),
- * 그 이름이 어느 URL 을 여는지는 이 클래스가 정한다. 규칙이 코드와 같이 배포되므로
- * "환불 API 를 만들었다" 와 "환불 역할 규칙" 이 같은 PR 에서 리뷰된다.
+ * <p>그래서 <b>지금은 인증만 통과하면 이 API 들이 열린다.</b> 인가를 어디서 판정할지는 아직
+ * 정하지 않았다. 권한 데이터 자체는 auth 에 그대로 있고, 없어진 것은 그것을 토큰으로 나르던 길이다.
  *
- * <p>규칙을 <b>배포 없이</b> 바꿔야 한다면 그때 이 서비스의 DB 로 내리면 된다. 대부분의 업무
- * API 는 규칙이 엔드포인트와 같은 속도로 바뀌므로 코드가 맞다.
+ * <p><b>소유권 확인은 그대로다.</b> {@code /api/customers/me} 는 조회 키를 토큰의 {@code sub} 로만
+ * 잡으므로, 인가가 빠져도 남의 프로필은 열리지 않는다. 그것은 역할이 아니라 조회 키의 문제였다.
  *
  * <h2>무상태</h2>
  * 세션을 만들지 않는다. 토큰이 요청마다 신원을 들고 오므로 서버가 기억할 것이 없고, 기억하기
@@ -58,15 +56,6 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
-
-    /**
-     * 이 서비스가 요구하는 역할. auth 에는 {@code (PORTAL, customer-service, PROFILE_READ)} 행으로
-     * 등록돼 있고, 가입할 때 자동으로 부여된다.
-     *
-     * <p><b>이 이름이 무엇을 여는지는 여기서 정한다.</b> auth 는 이름만 보관한다 — 그래서
-     * 이 서비스가 엔드포인트를 늘려도 auth 를 배포하지 않는다.
-     */
-    private static final String PROFILE_READ = "PROFILE_READ";
 
     @Bean
     public SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
@@ -79,14 +68,9 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 기본이 거부다. 여는 것을 잊는 실수는 401 로 드러나고, 막는 것을 잊는 실수는 생기지 않는다.
                 //
-                // 그리고 여기가 이 서비스의 인가 규칙이 사는 자리다. 토큰의
-                // resource_access["customer-service"].roles 가 authority 로 들어와 있으므로
-                // (ClientRoleAuthorities) 그대로 요구하면 된다.
-                //
-                // 규칙이 auth 가 아니라 이 코드에 있다는 것이 요점이다 — 엔드포인트를 추가하면서
-                // 같은 PR 에서 규칙도 바뀌고, auth 스키마를 건드리지 않고 배포된다.
+                // 지금 요구하는 것은 인증뿐이다. 역할 검사는 토큰에서 인가 클레임을 걷어내면서
+                // 함께 빠졌고, 어디서 판정할지 정해지면 이 자리로 돌아온다.
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/api/customers/**").hasAuthority(PROFILE_READ)
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .build();

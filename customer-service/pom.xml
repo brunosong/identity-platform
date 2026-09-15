@@ -13,10 +13,6 @@
     <name>customer-service</name>
     <description>고객 프로필 서비스 — auth-service 가 발급한 토큰을 검증해 쓰는 소비 서비스</description>
 
-    <properties>
-        <testcontainers.version>1.21.4</testcontainers.version>
-    </properties>
-
     <!--
       auth-service 와 같은 레이어 구조를 쓴다. 다른 점은 이 서비스가 인증을 하지 않는다는 것뿐이다 —
       토큰을 만들지 않고, 받아서 검증만 한다(auth-client).

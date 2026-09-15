@@ -49,26 +49,6 @@ public class AuthClientProperties {
     private String jwksUri;
 
     /**
-     * 이 <b>서비스</b>의 이름. 토큰의 {@code resource_access} 에서 읽을 칸이다.
-     *
-     * <p>{@code aud} 검증 대상이 <b>아니다.</b> aud 에는 이 서비스가 속한 <b>시스템</b>이 실리고,
-     * 그것과 이 값은 다르다. (이 검증기는 aud 를 보지 않는다. 서명, 발급자, 만료, 용도까지만
-     * 본다. aud 대조가 필요하면 Spring Security 리소스 서버를 쓰는 편이 낫다.)
-     *
-     * <p>없으면 역할을 하나도 읽지 못한다. 남의 서비스 역할이 이 서비스의 문을 여는 것보다
-     * 아무것도 못 여는 편이 안전하다.
-     */
-    private String serviceId;
-
-    public String getServiceId() {
-        return serviceId;
-    }
-
-    public void setServiceId(String serviceId) {
-        this.serviceId = serviceId;
-    }
-
-    /**
      * 받아온 키를 이만큼 믿는다. 짧게 잡을 이유는 크지 않다 — 모르는 kid 를 만나면 TTL 과 무관하게
      * 다시 받아오므로, 키 교체는 이 값이 아니라 그 경로가 처리한다.
      */

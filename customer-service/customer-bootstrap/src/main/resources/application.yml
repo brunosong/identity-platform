@@ -49,13 +49,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-app:
-  # 토큰의 resource_access 에서 읽을 칸 이름. auth 의 authz_service.service_id 와 같아야 한다.
-  #
-  # aud(시스템)와 다른 값이다. aud 는 "이 토큰이 어느 시스템을 향하나" 이고, 이 값은
-  # "그 시스템 안에서 나는 어느 서비스인가" 다. 전에는 둘이 같아서 aud 하나로 썼다.
-  service-id: ${APP_SERVICE_ID:customer-service}
-
 server:
   port: ${SERVER_PORT:8081}
 
