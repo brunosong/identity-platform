@@ -22,12 +22,12 @@ class TokenIssuance {
     private final TokenIssuerPort tokenIssuer;
 
     /** 인증된 주체에게 그 realm 의 토큰을 발급해 인증 결과로 만든다. */
-    AuthenticationResult resultFor(Realm realm, Principal principal, String clientId) {
+    AuthenticationResult resultFor(Realm realm, Principal principal) {
         return new AuthenticationResult(
                 principal.getPrincipalId().value(),
                 principal.getSubjectId().value(),
                 principal.getRealm(),
-                tokenIssuer.issue(realm, principal, clientId));
+                tokenIssuer.issue(realm, principal));
     }
 
     /** refresh 토큰에서 주체와 클라이언트를 읽는다. 검증은 키를 쥔 발급기가 한다. */

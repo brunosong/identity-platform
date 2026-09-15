@@ -29,7 +29,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class AuthenticateWithSocialServiceTest {
 
-    private static final String CLIENT_ID = "test-client";
 
     private static final String PROVIDER_UID = "google-uid-1";
     private static final String EMAIL = "user@example.com";
@@ -62,7 +61,7 @@ class AuthenticateWithSocialServiceTest {
     }
 
     private SocialAuthCommand command() {
-        return new SocialAuthCommand(Realm.PORTAL, SocialProvider.GOOGLE, "auth-code", CLIENT_ID);
+        return new SocialAuthCommand(Realm.PORTAL, SocialProvider.GOOGLE, "auth-code");
     }
 
     @Test

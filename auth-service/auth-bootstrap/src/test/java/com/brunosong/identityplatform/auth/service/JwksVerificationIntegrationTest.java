@@ -466,8 +466,7 @@ class JwksVerificationIntegrationTest {
 
         Map<?, ?> response = http.post().uri("/api/auth/realms/admin/login/email-otp")
                 .header("Content-Type", "application/json")
-                .body(Map.of("email", "admin@example.com", "verificationCode", "123456",
-                        "clientId", "employee-admin"))
+                .body(Map.of("email", "admin@example.com", "verificationCode", "123456"))
                 .retrieve().body(Map.class);
 
         cachedAdminToken = (String) ((Map<?, ?>) response.get("tokens")).get("accessToken");
@@ -489,8 +488,7 @@ class JwksVerificationIntegrationTest {
         return Optional.ofNullable(http.post()
                         .uri("/api/auth/realms/portal/login")
                         .header("Content-Type", "application/json")
-                        .body(Map.of("loginId", email, "password", "pw12345678",
-                                "clientId", "customer-portal"))
+                        .body(Map.of("loginId", email, "password", "pw12345678"))
                         .retrieve()
                         .body(Map.class))
                 .orElseThrow(() -> new IllegalStateException("로그인 응답이 비어 있다"));

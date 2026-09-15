@@ -24,7 +24,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class AuthenticateWithPasswordServiceTest {
 
-    private static final String CLIENT_ID = "test-client";
 
     private static final String LOGIN_ID = "gildong";
     private static final String PASSWORD = "pw1234!";
@@ -58,7 +57,7 @@ class AuthenticateWithPasswordServiceTest {
     @Test
     @DisplayName("비밀번호가 맞으면 토큰이 발급되고 인증 이벤트가 나간다")
     void authenticateIssuesTokenAndPublishesEvent() {
-        AuthenticationResult result = service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD, CLIENT_ID));
+        AuthenticationResult result = service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
         assertThat(result.realm()).isEqualTo(Realm.PORTAL);
@@ -70,7 +69,7 @@ class AuthenticateWithPasswordServiceTest {
     @Test
     @DisplayName("로그인 성공은 Principal 의 최종 인증 시각을 남긴다")
     void authenticateMarksPrincipal() {
-        service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD, CLIENT_ID));
+        service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         assertThat(principal.getLastAuthenticatedAt()).isNotNull();
     }
@@ -78,11 +77,11 @@ class AuthenticateWithPasswordServiceTest {
     @Test
     @DisplayName("없는 아이디와 틀린 비밀번호는 같은 메시지로 실패한다(계정 열거 방지)")
     void unknownIdAndWrongPasswordShareMessage() {
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, "nobody", PASSWORD, CLIENT_ID)))
+        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, "nobody", PASSWORD)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAIL);
 
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong", CLIENT_ID)))
+        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAIL);
     }
@@ -96,7 +95,7 @@ class AuthenticateWithPasswordServiceTest {
                 new PasswordCredentialVerifier(accountRepo, new FakePasswordEncoder()),
                 new AuthenticationCompletion(principalRepo, eventPublisher, new TokenIssuance(issuer)));
 
-        svc.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD, CLIENT_ID));
+        svc.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         // 한 프로세스가 두 realm 의 키를 모두 쥐므로, 발급 realm 이 어긋나면 상대 realm 토큰이 나간다.
         assertThat(issuer.issuedRealm).isEqualTo(Realm.PORTAL);
@@ -108,7 +107,7 @@ class AuthenticateWithPasswordServiceTest {
         // 자격증명은 정확하지만 직원 realm 에는 이 계정이 없다. 조회가 유형으로 좁혀지지 않으면
         // 고객 자격증명으로 직원 토큰이 발급된다 — 그것을 막는 것이 이 검증의 목적이다.
         assertThatThrownBy(() -> service.authenticate(
-                new PasswordAuthCommand(Realm.ADMIN, LOGIN_ID, PASSWORD, CLIENT_ID)))
+                new PasswordAuthCommand(Realm.ADMIN, LOGIN_ID, PASSWORD)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAIL);
     }
@@ -121,7 +120,7 @@ class AuthenticateWithPasswordServiceTest {
                 LOGIN_ID, new FakePasswordEncoder().encode("other-pw")));
 
         AuthenticationResult customer = service.authenticate(
-                new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD, CLIENT_ID));
+                new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         // 나중에 저장한 직원 계정이 고객 계정을 덮어쓰지 않았다 — 서로 다른 신원이다.
         assertThat(customer.subjectId()).isEqualTo("customer-uuid-1");
@@ -131,7 +130,7 @@ class AuthenticateWithPasswordServiceTest {
     @Test
     @DisplayName("비밀번호가 틀리면 실패 상태가 저장된다(인증 트랜잭션과 별개로 남아야 함)")
     void wrongPasswordPersistsFailure() {
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong", CLIENT_ID)))
+        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
                 .isInstanceOf(AuthenticationFailedException.class);
 
         assertThat(accountRepo.loginStateUpdates).isEqualTo(1);
@@ -142,11 +141,11 @@ class AuthenticateWithPasswordServiceTest {
     @DisplayName("연속 5회 실패하면 계정이 잠기고 이후엔 올바른 비밀번호도 거부된다")
     void locksAfterFiveFailures() {
         for (int i = 0; i < 5; i++) {
-            assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong", CLIENT_ID)))
+            assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
                     .isInstanceOf(AuthenticationFailedException.class);
         }
 
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD, CLIENT_ID)))
+        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("일시적으로 잠겼습니다");
     }
@@ -154,10 +153,10 @@ class AuthenticateWithPasswordServiceTest {
     @Test
     @DisplayName("실패가 쌓여 있어도 성공하면 실패 상태가 초기화된다")
     void successResetsFailureState() {
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong", CLIENT_ID)))
+        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
                 .isInstanceOf(AuthenticationFailedException.class);
 
-        service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD, CLIENT_ID));
+        service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         PasswordAccount account = accountRepo.findByLoginId(Realm.PORTAL, LOGIN_ID).orElseThrow();
         assertThat(account.getFailedAttempts()).isZero();

@@ -27,9 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>실패 매핑은 {@code AuthApiExceptionHandler} 가 맡는다 — 자격증명 실패는 401 이고,
  * 아이디 미존재와 비밀번호 불일치는 같은 메시지로 나간다(계정 열거 방지).
 
- * <p>{@code clientId} 는 <b>어느 앱이 요청했는가</b>다. 그 값이 토큰의 {@code aud} 를 정하고,
- * 나열되지 않은 서비스는 그 토큰을 거부한다. 모르는 값이거나 realm 이 어긋나면 401 이다 —
- * 400 이 아닌 이유는 어떤 clientId 가 존재하는지 응답으로 훑을 수 없게 하기 위해서다.
  */
 @RestController
 @RequestMapping("/api/auth/realms/{realm}/login")
@@ -42,14 +39,13 @@ public class AuthLoginApiController {
     @PostMapping
     public LoginResponse login(@PathVariable String realm, @Valid @RequestBody LoginRequest request) {
         AuthenticationResult result = authenticateWithPassword.authenticate(new PasswordAuthCommand(
-                authenticationRealm.of(realm), request.loginId(), request.password(), request.clientId()));
+                authenticationRealm.of(realm), request.loginId(), request.password()));
 
         return new LoginResponse(result.subjectId(), result.realm().name(),
                 IssuedTokens.of(result.tokens()));
     }
 
-    public record LoginRequest(@NotBlank String loginId, @NotBlank String password,
-                               @NotBlank String clientId) {
+    public record LoginRequest(@NotBlank String loginId, @NotBlank String password) {
     }
 
     public record LoginResponse(String subjectId, String realm, IssuedTokens tokens) {

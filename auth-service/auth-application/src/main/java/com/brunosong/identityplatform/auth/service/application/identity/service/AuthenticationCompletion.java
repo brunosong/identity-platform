@@ -30,13 +30,13 @@ class AuthenticationCompletion {
      * <p>발급할 realm 은 Principal 자신이 들고 있다. 로그인 경로가 realm 을
      * 따로 넘기면 인증된 주체와 다른 realm 의 토큰이 나갈 여지가 생긴다 — 정확히 그 어긋남을 막는 중이다.
      */
-    AuthenticationResult complete(Principal principal, String clientId) {
+    AuthenticationResult complete(Principal principal) {
         principal.markAuthenticated();
         principalRepository.save(principal);
 
         authenticatedEventPublisher.publish(new PrincipalAuthenticatedEvent(
                 principal.getSubjectId().value(), principal.getRealm(), principal.getLastAuthenticatedAt()));
 
-        return tokenIssuance.resultFor(principal.getRealm(), principal, clientId);
+        return tokenIssuance.resultFor(principal.getRealm(), principal);
     }
 }

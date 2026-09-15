@@ -19,14 +19,6 @@ import { request } from './http';
 
 const REALM = 'admin';
 
-/**
- * 이 앱의 클라이언트 식별자. 로그인 요청에 실으면 auth 가 이 클라이언트의 audience 로 토큰을 만든다.
- *
- * 고객 포털과 다른 클라이언트라 audience 도 다르다 — 이 토큰은 customer-service 가 받지 않는다.
- * 통합 로그인이 깨지는 것이 아니라, 이 앱이 상대하는 서비스가 auth 하나뿐이라서다.
- */
-const CLIENT_ID = 'employee-admin';
-
 const authUrl = () => endpoints().auth;
 
 /**
@@ -46,7 +38,7 @@ export function sendCode(email) {
 /** 인증번호 검증 → 토큰 발급. 응답에 권한 목록도 함께 온다(화면 렌더용). */
 export function login({ email, verificationCode }) {
     return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login/email-otp`, {
-        body: { email, verificationCode, clientId: CLIENT_ID },
+        body: { email, verificationCode },
     });
 }
 
@@ -130,16 +122,14 @@ export function sendCodeToOtherRealm(realm, email) {
 
 /** realm 격리 실험 — 그 코드로 포털 realm 로그인을 시도한다. 성공해도 토큰을 쓰지 않는다. */
 export function loginToOtherRealm(realm, { email, verificationCode }) {
-    // clientId 는 그대로 둔다. 이 클라이언트는 어드민 realm 소속이라 포털로는 토큰이 나오지 않는다 —
-    // 자격증명이 맞아도 클라이언트 단계에서 먼저 걸린다.
     return request(authUrl(), 'POST', `/api/auth/realms/${realm}/login/email-otp`, {
-        body: { email, verificationCode, clientId: CLIENT_ID },
+        body: { email, verificationCode },
     });
 }
 
 /** realm 격리 실험 — 어드민 realm 에서 소셜 로그인을 시도한다. 404 여야 한다. */
 export function trySocialHere() {
     return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login/social`, {
-        body: { provider: 'KAKAO', authorizationCode: 'x', clientId: CLIENT_ID },
+        body: { provider: 'KAKAO', authorizationCode: 'x' },
     });
 }

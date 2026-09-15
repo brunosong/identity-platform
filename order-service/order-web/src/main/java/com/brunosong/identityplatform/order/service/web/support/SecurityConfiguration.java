@@ -26,8 +26,7 @@ import org.springframework.security.web.SecurityFilterChain;
  *
  * <h2>customer-service 와 같은 발급자를 본다</h2>
  * 두 서비스가 같은 {@code issuer-uri} 를 보면서 각자 다른 {@code audiences} 를 요구한다. 고객
- * 포털의 토큰에는 {@code aud} 가 둘 다 실려 있어({@code token.clients.customer-portal.audiences})
- * 한 번 로그인한 토큰 하나가 둘 다 통한다. <b>"한 번만 로그인" 과 "아무 데나 통한다" 는 다른
+ * 포털 realm 의 토큰은 {@code aud} 가 {@code shop} 하나라서, 한 번 로그인한 토큰이 둘 다 통한다. <b>"한 번만 로그인" 과 "아무 데나 통한다" 는 다른
  * 이야기다</b>. 포털 앱에 없는 서비스를 여기에 적으면 그 토큰은 이 서비스에서 거부된다.
  *
  * <h2>지금 이 서비스에 역할 검사가 없다</h2>

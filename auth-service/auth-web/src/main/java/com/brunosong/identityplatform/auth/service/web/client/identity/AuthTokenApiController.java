@@ -32,8 +32,7 @@ public class AuthTokenApiController {
 
     @PostMapping("/refresh")
     public RefreshResponse refresh(@PathVariable String realm, @Valid @RequestBody RefreshRequest request) {
-        // clientId 를 받지 않는다. refresh 토큰이 발급 시점의 클라이언트를 기억하므로 audience 가
-        // 그대로 유지된다 — 요청에서 받으면 토큰을 쥔 쪽이 그것을 갈아끼울 수 있다.
+        // 재발급될 토큰의 aud 는 경로의 realm 이 정한다. 이 토큰을 쥔 쪽이 향할 곳을 고를 수 없다.
         AuthenticationResult result = refreshToken.refresh(
                 authenticationRealm.of(realm), request.refreshToken());
 

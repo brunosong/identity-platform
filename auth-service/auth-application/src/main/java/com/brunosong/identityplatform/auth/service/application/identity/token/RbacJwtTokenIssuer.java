@@ -81,28 +81,27 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     private final ObjectProvider<SessionRegistryPort> sessionRegistryProvider;
     private final RealmSigningKeys signingKeys;
     private final RealmIssuers issuers;
-    private final TokenClients clients;
+    private final RealmSystems systems;
     private final long accessExpirationMillis;
     private final long refreshExpirationMillis;
 
     public RbacJwtTokenIssuer(ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
                               RealmSigningKeys signingKeys,
                               RealmIssuers issuers,
-                              TokenClients clients,
+                              RealmSystems systems,
                               long accessExpirationMillis, long refreshExpirationMillis) {
         this.sessionRegistryProvider = sessionRegistryProvider;
         this.signingKeys = signingKeys;
         this.issuers = issuers;
-        this.clients = clients;
+        this.systems = systems;
         this.accessExpirationMillis = accessExpirationMillis;
         this.refreshExpirationMillis = refreshExpirationMillis;
     }
 
     @Override
-    public TokenPair issue(Realm realm, Principal principal, String clientId) {
+    public TokenPair issue(Realm realm, Principal principal) {
         String subjectId = principal.getSubjectId().value();
-        // 모르는 앱이거나 realm 이 어긋나면 여기서 인증 실패로 끝난다.
-        String systemId = clients.systemOf(realm, clientId);
+        String systemId = systems.of(realm);
 
         // 단일 세션을 켠 설정에서만 sid 발급(기존 세션 무효화). 미활성이면 sid 없이 다중 로그인 허용.
         SessionRegistryPort sessionRegistry = sessionRegistryProvider.getIfAvailable();
@@ -111,7 +110,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         RealmSigningKeys.RealmKey key = signingKeys.of(realm);
         String issuer = issuers.of(realm);
         String access = buildAccess(key, issuer, subjectId, systemId, sid, accessExpirationMillis);
-        String refresh = buildRefresh(key, issuer, subjectId, clientId, sid, refreshExpirationMillis);
+        String refresh = buildRefresh(key, issuer, subjectId, sid, refreshExpirationMillis);
         return new TokenPair(access, refresh);
     }
 
@@ -124,8 +123,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
             throw new AuthenticationFailedException("리프레시 토큰이 유효하지 않습니다.");
         }
         String subjectId = claims.getSubject();
-        String clientId = claims.get("cid", String.class);
-        if (!StringUtils.hasText(subjectId) || !StringUtils.hasText(clientId)) {
+        if (!StringUtils.hasText(subjectId)) {
             throw new AuthenticationFailedException("리프레시 토큰이 유효하지 않습니다.");
         }
         // 단일 세션 활성 시 refresh 의 sid 가 현재 세션과 일치해야 재발급을 허용한다
@@ -136,7 +134,7 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
                 && !sessionRegistry.isCurrent(realm, subjectId, sid)) {
             throw new AuthenticationFailedException("다른 곳에서 로그인되어 세션이 만료되었습니다.");
         }
-        return new RefreshedSubject(subjectId, clientId);
+        return new RefreshedSubject(subjectId);
     }
 
     /**
@@ -177,14 +175,17 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     }
 
     /**
-     * refresh 토큰 — 재발급에 필요한 최소 클레임만 담는다: 주체({@code sub}), 클라이언트({@code cid}),
-     * 단일 세션(sid). <b>audience 는 싣지 않는다</b> — 이 토큰이 갈 곳은 재발급 엔드포인트 하나뿐이고,
-     * 그곳은 auth 자신이다.
-     * 표시정보/권한/리비전은 재발급 때 Principal 에서 다시 실으므로 넣지 않는다(헤더 크기 절감).
-     * access 와 구분되도록 {@code type=refresh} 를 박고, 재발급 시 이 타입을 검증한다.
+     * refresh 토큰. 재발급에 필요한 최소 클레임만 담는다: 주체({@code sub})와 단일 세션({@code sid}).
+     *
+     * <p><b>audience 는 싣지 않는다.</b> 이 토큰이 갈 곳은 재발급 엔드포인트 하나뿐이고 그곳은 auth
+     * 자신이다. 재발급될 access 토큰의 {@code aud} 는 <b>경로의 realm</b> 이 정하므로, 이 토큰을
+     * 쥔 쪽이 향할 시스템을 갈아끼울 방법이 없다. 한때 {@code cid} 를 박아 그것을 막았는데,
+     * 요청에서 받을 값 자체가 없어지면서 함께 필요 없어졌다.
+     *
+     * <p>access 와 구분되도록 {@code type=refresh} 를 박고, 재발급 시 이 타입을 검증한다.
      */
     private String buildRefresh(RealmSigningKeys.RealmKey key, String issuer, String subjectId,
-                                String clientId, String sid, long ttlMillis) {
+                                String sid, long ttlMillis) {
         long now = System.currentTimeMillis();
         JwtBuilder builder = Jwts.builder()
                 // 헤더의 typ 으로 access 와 가른다. 표준 JWT 처리기는 typ 이 "JWT"(또는 없음)일 때만
@@ -194,9 +195,6 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
                 .issuer(issuer)
                 .subject(subjectId)
                 .claim("type", "refresh")
-                // 재발급이 같은 audience 를 유지하도록 발급 시점의 클라이언트를 기억한다.
-                // 요청에서 다시 받으면 refresh 토큰을 쥔 쪽이 audience 를 갈아끼울 수 있다.
-                .claim("cid", clientId)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMillis));
         if (StringUtils.hasText(sid)) {

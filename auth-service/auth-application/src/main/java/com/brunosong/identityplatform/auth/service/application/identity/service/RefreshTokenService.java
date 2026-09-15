@@ -36,6 +36,6 @@ public class RefreshTokenService implements RefreshTokenUseCase {
         //
         // 클라이언트는 요청이 아니라 refresh 토큰이 정한다. 요청에서 받으면 refresh 토큰을 쥔 쪽이
         // audience 를 갈아끼울 수 있다 — 포털 토큰으로 어드민 서비스용 audience 를 받아내는 길이 열린다.
-        return tokenIssuance.resultFor(realm, principal, refreshed.clientId());
+        return tokenIssuance.resultFor(realm, principal);
     }
 }

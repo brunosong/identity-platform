@@ -55,6 +55,6 @@ public class AuthenticateWithEmailOtpService implements AuthenticateWithEmailOtp
             emailAccountRepository.save(emailAccount);
         }
 
-        return authenticationCompletion.complete(principal, command.clientId());
+        return authenticationCompletion.complete(principal);
     }
 }

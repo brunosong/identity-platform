@@ -31,9 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>실패는 HTTP 상태코드로 알린다. 예전에는 인증 실패도 처리 오류도 200 + {@code success:false} 로
  * 나갔다 — 호출자와 모니터링 어느 쪽도 실패를 구분할 수 없었다.
 
- * <p>{@code clientId} 는 <b>어느 앱이 요청했는가</b>다. 그 값이 토큰의 {@code aud} 를 정하고,
- * 나열되지 않은 서비스는 그 토큰을 거부한다. 모르는 값이거나 realm 이 어긋나면 401 이다 —
- * 400 이 아닌 이유는 어떤 clientId 가 존재하는지 응답으로 훑을 수 없게 하기 위해서다.
  */
 @RestController
 @RequestMapping("/api/auth/realms/{realm}/login/email-otp")
@@ -56,7 +53,7 @@ public class EmailOtpLoginApiController {
     @PostMapping
     public LoginResponse login(@PathVariable String realm, @Valid @RequestBody LoginRequest request) {
         AuthenticationResult result = authenticateOtp.authenticate(new EmailOtpAuthCommand(
-                authenticationRealm.of(realm), request.email(), request.verificationCode(), request.clientId()));
+                authenticationRealm.of(realm), request.email(), request.verificationCode()));
 
         // 권한 목록을 따로 싣지 않는다. 토큰이 이미 realm_access/resource_access 로 들고 있고,
         // 두 곳에서 같은 것을 내보내면 언젠가 갈린다. 화면은 토큰을 읽는다.
@@ -66,8 +63,7 @@ public class EmailOtpLoginApiController {
     public record SendCodeRequest(@NotBlank @Email String email) {
     }
 
-    public record LoginRequest(@NotBlank @Email String email, @NotBlank String verificationCode,
-                               @NotBlank String clientId) {
+    public record LoginRequest(@NotBlank @Email String email, @NotBlank String verificationCode) {
     }
 
     public record LoginResponse(String subjectId, IssuedTokens tokens) {

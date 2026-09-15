@@ -3,10 +3,7 @@ package com.brunosong.identityplatform.auth.service.application.identity.token;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,43 +42,23 @@ public class TokenProperties {
     private long refreshExpiration = 86_400_000L;
     private Map<Realm, RealmKeyProperties> realms = new EnumMap<>(Realm.class);
 
-    /**
-     * 토큰을 받아 갈 앱들. 키가 {@code clientId} 다.
-     *
-     * <pre>
-     * token:
-     *   clients:
-     *     customer-portal:
-     *       realm: PORTAL
-     *       system: portal
-     *     employee-admin:
-     *       realm: ADMIN
-     *       system: admin
-     * </pre>
-     *
-     * <p>앱은 <b>시스템 하나</b>를 상대한다. 그 시스템 안에 서비스가 몇 개인지는 앱도 토큰도 모른다.
-     * 서비스를 붙여도 여기는 바뀌지 않고, 이미 발급된 토큰도 그대로 새 서비스에 닿는다.
-     *
-     * <p>시스템을 여럿 적지 않는다. 적으면 가장 약한 시스템이 전체의 보안 수준이 되고, 시스템을
-     * 늘릴 때 설정을 고쳐야 하는 문제가 한 층 위로 옮겨갈 뿐이다. 통합 로그인은 세션이 맡는 일이다.
-     * 한 번 인증하고 시스템마다 토큰을 따로 받는 것이 표준이고(OIDC, Keycloak), 토큰 하나를
-     * 여러 시스템이 나눠 쓰는 것이 아니다.
-     */
-    private Map<String, ClientProperties> clients = new LinkedHashMap<>();
-
-    public static class ClientProperties {
-        /** 이 앱이 속한 realm. 다른 realm 으로 토큰을 요청하면 거부된다. */
-        private Realm realm;
-        /** 이 앱이 상대하는 시스템. 토큰의 {@code aud} 가 된다. */
+    public static class RealmKeyProperties {
+        /**
+         * 이 realm 의 토큰이 향하는 <b>시스템</b>. 토큰의 {@code aud} 가 된다.
+         *
+         * <p>시스템은 마이크로서비스의 집합이다. 그 안에 서비스가 몇 개인지는 토큰도 앱도 모르고
+         * DB({@code authz_service})만 안다. 서비스를 붙여도 이 값은 바뀌지 않는다.
+         *
+         * <p><b>realm 당 하나다.</b> 한때 앱({@code clientId})이 시스템을 고르게 했는데, realm 과
+         * 시스템이 1:1 이라 앱은 새 정보를 더하지 않으면서 "앱과 realm 이 어긋나는" 실패 모드만
+         * 만들었다. realm 은 경로에 있으므로 여기서 바로 유도한다.
+         *
+         * <p>한 realm 에 시스템이 둘 이상 필요해지면 그때 고를 값을 다시 들인다. 그 값이 없으면
+         * 경로만으로는 어느 시스템인지 정할 수 없기 때문이다.
+         */
         private String system;
 
-        public Realm getRealm() {
-            return realm;
-        }
-
-        public void setRealm(Realm realm) {
-            this.realm = realm;
-        }
+        private String kid;
 
         public String getSystem() {
             return system;
@@ -89,31 +66,6 @@ public class TokenProperties {
 
         public void setSystem(String system) {
             this.system = system;
-        }
-    }
-
-    public static class RealmKeyProperties {
-        /**
-         * 이 realm 에 <b>있는 시스템들</b>. 앱의 {@code system} 은 여기 있는 것만 쓸 수 있다.
-         *
-         * <p>realm 하나에 시스템이 여럿일 수 있다. 다만 시스템은 realm 을 넘지 못한다. 신뢰하는
-         * 발급자가 곧 realm 이기 때문이다. PORTAL 시스템을 ADMIN 앱에 적으면 그 토큰은 그
-         * 시스템에 닿지도 못한다(서명과 발급자에서 죽는다). 부팅에서 잡지 않으면 401 만 보이고
-         * 원인은 토큰 안에 있어 찾기 번거롭다. 오타도 같은 자리에서 걸린다.
-         *
-         * <p>여기 적는 것은 <b>시스템</b>이지 서비스가 아니다. 서비스 목록은 DB(authz_service)가
-         * 쥐고 있어서, 서비스를 붙일 때 이 설정은 건드리지 않는다.
-         */
-        private List<String> systems = new ArrayList<>();
-
-        private String kid;
-
-        public List<String> getSystems() {
-            return systems;
-        }
-
-        public void setSystems(List<String> systems) {
-            this.systems = systems;
         }
 
         private String privateKey;
@@ -176,11 +128,4 @@ public class TokenProperties {
         this.realms = realms;
     }
 
-    public Map<String, ClientProperties> getClients() {
-        return clients;
-    }
-
-    public void setClients(Map<String, ClientProperties> clients) {
-        this.clients = clients;
-    }
 }

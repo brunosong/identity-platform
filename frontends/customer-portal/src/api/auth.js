@@ -16,16 +16,6 @@ import { request } from './http';
 
 const REALM = 'portal';
 
-/**
- * 이 앱의 클라이언트 식별자. 로그인 요청에 실으면 auth 가 이 클라이언트의 audience 로 토큰을 만든다.
- *
- * <b>통합 로그인은 그대로다.</b> 한 클라이언트가 audience 를 여럿 가질 수 있어서, 서비스가 늘면
- * auth 설정(token.clients.customer-portal.audiences)에 한 줄 더하면 같은 토큰이 그 서비스에도 통한다.
- * 달라지는 것은 나열되지 않은 서비스가 이 토큰을 거부한다는 것뿐이다 — 서비스 하나가 침해돼도
- * 그 토큰을 다른 서비스에 재생할 수 없다.
- */
-const CLIENT_ID = 'customer-portal';
-
 const authUrl = () => endpoints().auth;
 
 /** 고객 가입. 이메일이 곧 로그인 아이디다(고객은 별도 아이디가 없다). */
@@ -64,7 +54,7 @@ export function registerWithEmail({ email, name, phoneNumber, verificationCode }
 
 export function login({ loginId, password }) {
     return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login`, {
-        body: { loginId, password, clientId: CLIENT_ID },
+        body: { loginId, password },
     });
 }
 
@@ -101,8 +91,7 @@ export function jwks() {
 
 /** realm 격리 실험 — 같은 자격증명을 다른 realm 에 넣어본다. 성공해도 토큰을 쓰지 않는다. */
 export function tryOtherRealm(realm, { loginId, password }) {
-    // clientId 는 그대로 둔다. realm 이 어긋나면 자격증명 이전에 클라이언트에서 먼저 걸린다.
     return request(authUrl(), 'POST', `/api/auth/realms/${realm}/login`, {
-        body: { loginId, password, clientId: CLIENT_ID },
+        body: { loginId, password },
     });
 }

@@ -11,7 +11,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -21,8 +20,7 @@ import java.util.Map;
  * 라이브러리였고 호스트가 {@code authorization.token.issuer=rbac} 로 켜는 선택 기능이었다.
  * 키가 설정에 없으면 부팅에서 실패한다. 토큰을 못 만드는 인증 서비스는 떠 있어도 소용이 없다.
  *
- * <p>realm 별 키페어를 모두 읽어 한 발급기에 넘긴다. 토큰에 실을 권한과 리비전은 auth 자체
- * ({@link ListSubjectRolesUseCase}/{@link GetAuthorizationRevisionUseCase})가 낸다.
+ * <p>realm 별 키페어와 그 realm 이 향할 시스템을 읽어 한 발급기에 넘긴다.
  */
 @Configuration
 @EnableConfigurationProperties(TokenProperties.class)
@@ -51,35 +49,25 @@ public class RbacTokenIssuerConfiguration {
     }
 
     /**
-     * 앱 설정을 부팅에서 검증한다.
+     * realm 마다 향할 시스템을 읽고 부팅에서 검증한다.
      *
-     * <p><b>시스템은 realm 에 속한다.</b> 신뢰하는 발급자가 곧 realm 이기 때문이다. 그래서 PORTAL
-     * 시스템을 ADMIN 앱에 적으면 그 토큰은 그 시스템에 닿지도 못한다(서명과 발급자에서 죽는다).
-     * 여기서 잡지 않으면 운영에서는 401 만 보이고 원인은 토큰 안에 있어 찾기 번거롭다.
-     * 시스템 이름 오타도 같은 자리에서 걸린다.
+     * <p>{@code aud} 가 없는 토큰은 만들 이유가 없다. 없으면 발급자만 맞으면 누구든 받아들이게 되어,
+     * 한 곳이 침해되면 그 토큰을 realm 의 다른 곳에 그대로 재생할 수 있다. 설정을 빠뜨렸을 때
+     * 조용히 약해지는 것보다 부팅에서 죽는 편이 낫다.
      *
      * <p>검사 대상이 <b>시스템</b>이지 서비스가 아니다. 서비스 목록은 DB(authz_service)가 쥐고
      * 있어서, 서비스를 붙일 때 이 설정도 이 검사도 건드리지 않는다.
      */
     @Bean
-    public TokenClients tokenClients(TokenProperties properties) {
-        properties.getClients().forEach((clientId, client) -> {
-            if (client.getRealm() == null) {
-                throw new IllegalStateException("앱에 realm 이 없습니다: token.clients." + clientId);
+    public RealmSystems realmSystems(TokenProperties properties) {
+        Map<Realm, String> byRealm = new EnumMap<>(Realm.class);
+        properties.getRealms().forEach((realm, config) -> {
+            if (!StringUtils.hasText(config.getSystem())) {
+                throw new IllegalStateException("realm 에 system 이 없습니다: token.realms." + realm + ".system");
             }
-            if (!StringUtils.hasText(client.getSystem())) {
-                throw new IllegalStateException("앱에 system 이 없습니다: token.clients." + clientId);
-            }
-            TokenProperties.RealmKeyProperties realm = properties.getRealms().get(client.getRealm());
-            List<String> known = realm == null ? List.of() : realm.getSystems();
-            if (!known.contains(client.getSystem())) {
-                throw new IllegalStateException(
-                        "이 realm 에 없는 system 입니다: token.clients." + clientId
-                                + ".system=" + client.getSystem() + " (realm=" + client.getRealm()
-                                + ", 이 realm 의 시스템=" + known + ")");
-            }
+            byRealm.put(realm, config.getSystem().trim());
         });
-        return new TokenClients(properties.getClients());
+        return new RealmSystems(byRealm);
     }
 
     @Bean
@@ -87,10 +75,10 @@ public class RbacTokenIssuerConfiguration {
             ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
             RealmSigningKeys signingKeys,
             RealmIssuers issuers,
-            TokenClients clients,
+            RealmSystems systems,
             TokenProperties properties) {
         return new RbacJwtTokenIssuer(
-                sessionRegistryProvider, signingKeys, issuers, clients,
+                sessionRegistryProvider, signingKeys, issuers, systems,
                 properties.getAccessExpiration(), properties.getRefreshExpiration());
     }
 }

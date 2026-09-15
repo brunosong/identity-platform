@@ -25,10 +25,9 @@ customer-service 와 같은 레이어 구조, 같은 발급자, 같은 로그인
 ```yaml
 # auth
 token:
-  clients:
-    customer-portal:
-      realm: PORTAL
-      system: shop
+  realms:
+    PORTAL:
+      system: shop      # 이 realm 의 토큰이 향하는 시스템
 ```
 
 ```yaml
@@ -58,10 +57,14 @@ spring.security.oauth2.resourceserver.jwt.audiences: shop
 | realm | `PORTAL` | `iss` (서명키가 가른다) | 바뀐다 (키페어) |
 | 시스템 | `shop` | `aud` **단일값** | 바뀐다 |
 | 서비스 | `customer-service`, `order-service` | **토큰에 없다** | **안 바뀐다** |
-| 앱 | `customer-portal` | 토큰에 없다 | 바뀐다 |
+| 앱 | `customer-portal` | 토큰에 없다 | **auth 는 앱을 모른다** |
 
 **시스템은 마이크로서비스의 집합이다.** 그 안에 서비스가 몇 개인지는 토큰도 앱도 모르고
 DB(`authz_service`)만 안다.
+
+realm 과 시스템이 1:1 이라 **auth 는 앱이 누구인지 묻지 않는다.** 한때 로그인 요청이 `clientId` 를
+보내고 그 앱이 속한 시스템을 골랐는데, realm 이 경로에 있으니 새 정보가 없었다. 한 realm 에
+시스템이 둘 이상 필요해지면 그때 고를 값을 다시 들인다.
 
 ### 왜 aud 에 서비스를 적으면 안 되나
 
@@ -106,20 +109,12 @@ aud 에 나열하면 방금 고친 문제가 한 층 위에서 그대로 재현�
 배포 주기도 다른데, `loyalty` 가 뚫리면 거기 들어온 토큰이 `shop` 에 그대로 통하게 된다.
 
 > 두 번째 시스템이 실제로 생기면 refresh 로 다른 시스템용 access 를 받는 경로를 연다.
-> 재료는 이미 있다(refresh 토큰의 `cid`, 세션의 `sid`). 지금 미리 만들지 않았다.
+> 지금 미리 만들지 않았다.
 
-### realm 쪽 화이트리스트
+### 설정을 빠뜨리면 부팅에서 죽는다
 
-```yaml
-token:
-  realms:
-    PORTAL:
-      systems: shop
-```
-
-여기 없는 이름을 앱에 적으면 **부팅에서 걸린다.** 시스템은 realm 을 넘지 못한다. 신뢰하는 발급자가
-곧 realm 이라서, 다른 realm 의 시스템을 적은 토큰은 서명과 발급자에서 먼저 죽는다. 운영에서
-401 로 만나면 원인이 토큰 안에 있어 찾기 번거롭다.
+`token.realms.*.system` 이 없으면 뜨지 않는다. `aud` 없는 토큰은 만들 이유가 없는데, 설정 누락으로
+조용히 약해지는 것보다 부팅에서 걸리는 편이 낫다.
 
 **적는 것은 시스템이지 서비스가 아니다.** 서비스 목록은 DB 가 쥔다.
 
@@ -224,14 +219,14 @@ ORDER=http://localhost:8082/api/orders
 
 login() {
     curl -s -X POST $AUTH/realms/portal/login -H 'Content-Type: application/json' \
-        -d "{\"loginId\":\"$1\",\"password\":\"pw12345678\",\"clientId\":\"customer-portal\"}" \
+        -d "{\"loginId\":\"$1\",\"password\":\"pw12345678\"}" \
         | python -c "import json,sys;print(json.load(sys.stdin)['tokens']['accessToken'])"
 }
 
 for who in hong kim; do
     curl -s -o /dev/null -X POST $AUTH/realms/portal/register \
         -H 'Content-Type: application/json' \
-        -d "{\"email\":\"$who@example.com\",\"password\":\"pw12345678\",\"name\":\"$who\",\"clientId\":\"customer-portal\"}"
+        -d "{\"email\":\"$who@example.com\",\"password\":\"pw12345678\",\"name\":\"$who\"}"
 done
 
 # 한 번만 로그인한다

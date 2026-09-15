@@ -265,14 +265,11 @@ final class IdentityFakes {
         Realm verifiedRealm;
 
         /** 마지막으로 발급을 요청받은 클라이언트 — aud 가 그 값에서 나온다. */
-        String issuedClientId;
         /** 재발급이 refresh 토큰의 클라이언트를 그대로 쓰는지 보려고 둔다. */
-        String refreshTokenClientId = "test-client";
 
         @Override
-        public TokenPair issue(Realm realm, Principal principal, String clientId) {
+        public TokenPair issue(Realm realm, Principal principal) {
             this.issuedRealm = realm;
-            this.issuedClientId = clientId;
             return new TokenPair("access:" + realm + ":" + principal.getSubjectId().value(),
                     "refresh:" + principal.getSubjectId().value());
         }
@@ -280,7 +277,7 @@ final class IdentityFakes {
         @Override
         public RefreshedSubject readRefreshToken(Realm realm, String refreshToken) {
             this.verifiedRealm = realm;
-            return new RefreshedSubject(refreshTokenSubjectId, refreshTokenClientId);
+            return new RefreshedSubject(refreshTokenSubjectId);
         }
     }
 

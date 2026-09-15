@@ -35,9 +35,6 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>provider 검증은 아웃바운드 어댑터가 수행한다(미설정 시 소셜 미지원).
 
- * <p>{@code clientId} 는 <b>어느 앱이 요청했는가</b>다. 그 값이 토큰의 {@code aud} 를 정하고,
- * 나열되지 않은 서비스는 그 토큰을 거부한다. 모르는 값이거나 realm 이 어긋나면 401 이다 —
- * 400 이 아닌 이유는 어떤 clientId 가 존재하는지 응답으로 훑을 수 없게 하기 위해서다.
  */
 @RestController
 @RequestMapping("/api/auth/realms/{realm}/login/social")
@@ -52,14 +49,13 @@ public class AuthSocialLoginApiController {
         Realm resolved = authenticationRealm.requireRealm(realm, Realm.PORTAL);
 
         AuthenticationResult result = authenticateWithSocial.authenticate(new SocialAuthCommand(
-                resolved, request.provider(), request.authorizationCode(), request.clientId()));
+                resolved, request.provider(), request.authorizationCode()));
 
         return new LoginResponse(result.subjectId(), result.realm().name(),
                 IssuedTokens.of(result.tokens()));
     }
 
-    public record LoginRequest(@NotNull SocialProvider provider, @NotBlank String authorizationCode,
-                               @NotBlank String clientId) {
+    public record LoginRequest(@NotNull SocialProvider provider, @NotBlank String authorizationCode) {
     }
 
     public record LoginResponse(String subjectId, String realm, IssuedTokens tokens) {

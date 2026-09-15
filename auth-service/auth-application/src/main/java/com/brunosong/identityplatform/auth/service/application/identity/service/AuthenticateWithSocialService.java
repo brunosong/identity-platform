@@ -80,7 +80,7 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
                                 "Principal not found for socialAccount=" + sa.getSocialAccountId())))
                 .orElseGet(() -> linkOrCreate(command.realm(), command.provider(), id));
 
-        return authenticationCompletion.complete(principal, command.clientId());
+        return authenticationCompletion.complete(principal);
     }
 
     /**

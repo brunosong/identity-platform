@@ -43,6 +43,6 @@ public class AuthenticateWithPasswordService implements AuthenticateWithPassword
             throw new AuthenticationFailedException("인증에 실패했습니다.");
         }
 
-        return authenticationCompletion.complete(principal, command.clientId());
+        return authenticationCompletion.complete(principal);
     }
 }
