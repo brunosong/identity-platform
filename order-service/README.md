@@ -12,13 +12,11 @@ customer-service 와 같은 레이어 구조, 같은 발급자, 같은 로그인
 |---|---|---|
 | 발급자(`issuer-uri`) | `.../realms/portal` | **같다** |
 | 대상(`audiences`) | `shop` | **같다** (시스템이다) |
-| `resource_access` 칸 | `customer-service` | `order-service` |
-| 역할 | `PROFILE_READ` 하나 | `ORDER_READ` / `ORDER_WRITE` 둘 |
 | 조회 키 | 토큰의 `sub` 뿐 | `sub` + **경로의 주문번호** |
 | DB | `customer`(55433) | `orders`(55434) |
 | 포트 | 8081 | 8082 |
 
-세 가지가 여기서 처음 보인다.
+두 가지가 여기서 처음 보인다.
 
 ## 1. 한 번 로그인한 토큰 하나가 두 서비스에 통한다
 
@@ -36,21 +34,18 @@ token:
 ```yaml
 # customer-service 와 order-service 가 똑같이
 spring.security.oauth2.resourceserver.jwt.audiences: shop
-app.service-id: customer-service   # 여기만 다르다
 ```
 
 ```json
 {
   "iss": "http://localhost:8080/realms/portal",
   "aud": ["shop"],
-  "azp": "customer-portal",
-  "sub": "cust-...",
-  "resource_access": {
-    "customer-service": { "roles": ["PROFILE_READ"] },
-    "order-service":    { "roles": ["ORDER_READ", "ORDER_WRITE"] }
-  }
+  "sub": "cust-..."
 }
 ```
+
+토큰에 역할도 권한도 없다. 두 서비스를 가르는 것은 `aud` 가 아니라 **각자의 코드**다.
+지금은 둘 다 인증만 요구한다.
 
 > **시스템 이름을 realm 과 다르게 지었다.** 로그인 경로는 `/realms/portal` 인데 시스템은 `shop` 이다.
 > 같은 글자를 쓰면 둘이 다른 개념이라는 사실이 이름에서 지워진다. realm 은 "어느 서랍에서 계정을
@@ -62,8 +57,8 @@ app.service-id: customer-service   # 여기만 다르다
 |---|---|---|---|
 | realm | `PORTAL` | `iss` (서명키가 가른다) | 바뀐다 (키페어) |
 | 시스템 | `shop` | `aud` **단일값** | 바뀐다 |
-| 서비스 | `customer-service`, `order-service` | `resource_access` 키 | **안 바뀐다** |
-| 앱 | `customer-portal` | `azp` | 바뀐다 |
+| 서비스 | `customer-service`, `order-service` | **토큰에 없다** | **안 바뀐다** |
+| 앱 | `customer-portal` | 토큰에 없다 | 바뀐다 |
 
 **시스템은 마이크로서비스의 집합이다.** 그 안에 서비스가 몇 개인지는 토큰도 앱도 모르고
 DB(`authz_service`)만 안다.
@@ -154,38 +149,32 @@ orders.findOwned(token.getSubject(), orderId)
 **게이트웨이가 있어도 이 확인은 대신해 줄 수 없다.** 게이트웨이는 "이 URL 에 들어와도 되는가"
 까지 알지만 "이 데이터가 이 사람 것인가" 는 모른다.
 
-## 3. 역할을 읽기와 쓰기로 가른다
+## 아직 인가는 없다
 
-customer-service 는 역할이 하나였다. 여기는 둘이다.
+토큰에서 인가 클레임을 걷어냈다. 전에는 `resource_access` 의 이 서비스 칸을 authority 로 옮겨
+`ORDER_READ` / `ORDER_WRITE` 를 요구했는데, 그 칸이 더 이상 오지 않는다.
 
 ```java
-.requestMatchers(HttpMethod.POST, "/api/orders").hasAuthority(ORDER_WRITE)
-.requestMatchers("/api/orders/**").hasAuthority(ORDER_READ)
-.anyRequest().authenticated()
+.authorizeHttpRequests(requests -> requests
+        .anyRequest().authenticated())
 ```
 
-**순서가 중요하다.** 필터체인은 먼저 맞는 규칙에서 멈춘다. POST 규칙을 아래로 내리면
-`/api/orders/**` 가 POST 까지 먼저 잡아 쓰기가 `ORDER_READ` 로 열린다.
+**지금은 인증만 통과하면 이 API 들이 열린다.** 인가를 어디서 판정할지(게이트웨이, 이 서비스의
+auth 조회, 토큰 재적재)는 아직 정하지 않았다.
 
-그리고 여기서 **권한 어휘가 서비스로 갈려 있다는 것이 처음 효력을 낸다.** 같은 토큰에
-customer-service 의 칸도 실려 있는데, `ClientRoleAuthorities` 가 `app.service-id` 로 자기 칸만
-읽으므로 남의 칸에 같은 이름이 있어도 이 서비스의 문은 열리지 않는다.
+권한 데이터 자체는 auth 에 그대로 있다(`authz_permission` 의 `(PORTAL, order-service, ORDER_READ)`
+행). 없어진 것은 그것을 토큰으로 나르던 길뿐이다.
 
-**`aud` 가 같아진 지금은 이것만이 두 서비스를 가른다.** 전에는 aud 도 서비스별이라 두 겹이었는데,
-그 겹은 서비스를 붙일 때마다 auth 재배포와 최대 2시간의 지연을 대가로 받고 있었다. 실제로 막던
-일은 이 칸이 다 하고 있었다.
-
-> **이 이름들이 무엇을 여는지는 이 서비스가 정한다.** auth 는 이름만 보관한다
-> (`authz_permission` 의 `(PORTAL, order-service, ORDER_READ)` 행). 그래서 엔드포인트를 늘려도
-> auth 를 배포하지 않고, "환불 API 를 만들었다" 와 "환불 역할 규칙" 이 같은 PR 에서 리뷰된다.
+**위의 소유권 확인은 그대로 선다.** 그것은 역할이 아니라 조회 키의 문제였기 때문이다. 인가를
+붙이든 빼든 남의 주문은 404 다.
 
 ## API
 
 | | 조건 | 하는 일 |
 |---|---|---|
-| `GET /api/orders` | `ORDER_READ` | 내 주문 목록 (최근 순) |
-| `GET /api/orders/{orderId}` | `ORDER_READ` + 소유권 | 내 주문 하나 (없거나 남의 것이면 404) |
-| `POST /api/orders` | `ORDER_WRITE` | 주문 |
+| `GET /api/orders` | 인증 | 내 주문 목록 (최근 순) |
+| `GET /api/orders/{orderId}` | 인증 + **소유권** | 내 주문 하나 (없거나 남의 것이면 404) |
+| `POST /api/orders` | 인증 | 주문 |
 
 주문자를 본문으로 받지 않는다. 받으면 남의 이름으로 주문할 수 있다. 금액도 받지 않는다.
 단가 곱하기 수량으로 서버가 계산한다. 받으면 낼 값을 스스로 정할 수 있다.
@@ -235,38 +224,39 @@ ORDER=http://localhost:8082/api/orders
 
 login() {
     curl -s -X POST $AUTH/realms/portal/login -H 'Content-Type: application/json' \
-        -d "{\"loginId\":\"$1\",\"password\":\"pw12345678\"}" \
+        -d "{\"loginId\":\"$1\",\"password\":\"pw12345678\",\"clientId\":\"customer-portal\"}" \
         | python -c "import json,sys;print(json.load(sys.stdin)['tokens']['accessToken'])"
 }
 
 for who in hong kim; do
     curl -s -o /dev/null -X POST $AUTH/realms/portal/register \
         -H 'Content-Type: application/json' \
-        -d "{\"email\":\"$who@example.com\",\"password\":\"pw12345678\",\"name\":\"$who\"}"
+        -d "{\"email\":\"$who@example.com\",\"password\":\"pw12345678\",\"name\":\"$who\",\"clientId\":\"customer-portal\"}"
 done
 
 # 한 번만 로그인한다
 TOKEN=$(login hong@example.com)
 
-# aud 는 시스템 하나, resource_access 는 서비스별로 두 칸
+# 토큰 안을 들여다본다
 python -c "
 import base64, json, sys
 p = sys.argv[1].split('.')[1]; p += '=' * (-len(p) % 4)
-c = json.loads(base64.urlsafe_b64decode(p))
-print('aud             =', c['aud'])
-print('azp             =', c['azp'])
-print('resource_access =', json.dumps(c['resource_access'], ensure_ascii=False))
+print(json.dumps(json.loads(base64.urlsafe_b64decode(p)), indent=2))
 " "$TOKEN"
 ```
 
-```
-aud             = ['shop']
-azp             = customer-portal
-resource_access = {"customer-service": {"roles": ["PROFILE_READ"]},
-                   "order-service": {"roles": ["ORDER_READ", "ORDER_WRITE"]}}
+```json
+{
+  "iss": "http://localhost:8080/realms/portal",
+  "aud": ["shop"],
+  "sub": "2f231b51-7703-42b8-aa13-fa906fd57dc6",
+  "type": "access",
+  "iat": 1789476440,
+  "exp": 1789483640
+}
 ```
 
-`aud` 는 하나인데 칸은 둘이다. 그래서 이 토큰 하나가 두 서비스에 통하고, 서비스가 하나 더
+역할도 권한도 없다. `aud` 가 `shop` 하나라서 이 토큰이 두 서비스에 통하고, 서비스가 하나 더
 붙어도 `aud` 는 그대로다.
 
 그 토큰 하나로 두 서비스를 부른다.
@@ -284,7 +274,7 @@ ORDER_ID=$(curl -s -X POST $ORDER -H "Authorization: Bearer $TOKEN" \
 curl -s $ORDER/$ORDER_ID -H "Authorization: Bearer $TOKEN"
 ```
 
-다른 계정으로 로그인해 그 주문번호를 그대로 넣어 본다. **읽기 권한은 멀쩡히 있는데도 404 다.**
+다른 계정으로 로그인해 그 주문번호를 그대로 넣어 본다. **인증은 멀쩡히 통과했는데도 404 다.**
 
 ```bash
 OTHER=$(login kim@example.com)

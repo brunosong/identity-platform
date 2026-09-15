@@ -104,8 +104,8 @@ JWKS 가 realm 별로 나뉘어 있으므로, 설정한 realm 의 키만 갖는�
 JWKS 분리가 막지 못하는 것이 하나 있다. **다른 배포**다.
 
 ```
-staging 의 포털 토큰   {"iss": "https://stg.auth/realms/portal", "sub": ..., "authLs": ...}
-prod 의 포털 토큰      {"iss": "https://auth/realms/portal",     "sub": ..., "authLs": ...}
+staging 의 포털 토큰   {"iss": "https://stg.auth/realms/portal", "aud": ["shop"], "sub": ...}
+prod 의 포털 토큰      {"iss": "https://auth/realms/portal",     "aud": ["shop"], "sub": ...}
 ```
 
 realm 도 같고, 서명 알고리즘도 같고, 클레임 이름도 전부 같다. **다른 것은 발급자 이름 하나뿐이다.**
@@ -121,13 +121,13 @@ realm 도 같고, 서명 알고리즘도 같고, 클레임 이름도 전부 같�
 realm 마다 다른 체계에서 발급된다(직원은 사번 성격의 값, 고객은 UUID). **realm 없이 subjectId 만으로
 사람을 특정하지 말 것.** 저장할 때도 `(realm, subjectId)` 를 함께 두는 편이 안전하다.
 
-### 3. 권한은 발급 시점의 값이다
+### 3. 토큰에 권한은 없다
 
-`permissions` 는 토큰에 실려 있다. 그래서 빠르지만, **발급 뒤의 권한 변경은 이 토큰에 반영되지 않는다** —
-다음 갱신 때 들어온다. 즉시 회수가 필요하면 access 토큰 TTL 을 짧게 잡아야 한다.
+전에는 `permissions` 와 `rbacRev` 가 토큰에 실렸고 이 검증기가 그것을 읽어줬다. 지금은 없다.
+토큰이 답하는 것은 발급자와 주체까지다.
 
-`rbacRev` 는 realm 전역 정책의 리비전이다. auth 가 역할-권한 매핑을 바꾸면 올라가므로, 엄격한 서비스는
-이 값이 자기가 아는 최신보다 낮으면 갱신을 요구할 수 있다.
+소비 서비스가 인가를 어떻게 판정할지는 아직 정하지 않았다. 자세한 것은
+[`docs/토큰-흐름.md`](../../docs/토큰-흐름.md).
 
 ## 키 교체를 어떻게 견디나
 

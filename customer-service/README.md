@@ -25,7 +25,7 @@
 - auth 가 잠시 죽어도 이미 발급된 토큰은 계속 통과한다
 - auth 가 모든 요청 경로에 놓이지 않는다
 
-이 서비스가 auth 에 대해 아는 것은 설정 세 줄뿐이다.
+이 서비스가 auth 에 대해 아는 것은 설정 두 줄뿐이다.
 
 ```yaml
 spring:
@@ -33,22 +33,17 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/portal
-          audiences: shop              # 이 토큰이 향하는 시스템
-
-app:
-  service-id: customer-service         # resource_access 에서 읽을 내 칸
+          issuer-uri: http://localhost:8080/realms/portal   # realm 경계
+          audiences: shop                                    # 시스템 경계
 ```
 
 **첫 줄이 realm 경계다.** realm 이 발급자 이름 안에 있고, 공개키를 받아올 주소는 발급자의
 discovery 문서(`{issuer}/.well-known/openid-configuration`)가 알려준다.
 
 **둘째 줄이 시스템 경계다.** 발급자만 확인하면 그 realm 의 토큰이면 무엇이든 통한다.
-
-셋째 줄은 경계가 아니라 **인가**다. 같은 시스템 안의 다른 서비스와 이 서비스를 가른다.
-`aud` 가 시스템이라 order-service 도 같은 `shop` 을 요구하고, 둘을 가르는 것은 이 칸 이름이다.
-그래서 서비스를 하나 붙여도 auth 설정은 바뀌지 않는다. 자세한 것은
-[`order-service/README.md`](../order-service/README.md#1-한-번-로그인한-토큰-하나가-두-서비스에-통한다).
+`aud` 는 서비스가 아니라 **시스템**이라 order-service 도 같은 `shop` 을 요구한다. 그래서
+서비스를 하나 붙여도 auth 설정은 바뀌지 않는다. 자세한 것은
+[`docs/토큰-흐름.md`](../docs/토큰-흐름.md).
 
 auth 의 모듈을 하나도 의존하지 않는다. **표준 라이브러리(Spring Security 리소스 서버)뿐이다.**
 주고받는 것은 토큰 문자열과 그 안의 표준 클레임이고, 그것이 이 경계의 계약이다.
@@ -83,6 +78,9 @@ public ProfileResponse save(@AuthenticationPrincipal Jwt token, ...) {
 | **대상·시스템** | 이 시스템 앞으로 발급된 토큰인가 | **설정** (`audiences`) |
 | **소유권** | 이 데이터가 이 사람 것인가 | 컨트롤러 |
 
+> **역할 검사는 없다.** 토큰에서 인가 클레임을 걷어내면서 함께 빠졌다. 지금은 인증만 통과하면
+> 이 API 가 열린다. 소유권은 역할이 아니라 조회 키의 문제라 그대로 선다.
+
 **realm 확인이 코드에 없다.** 사라진 것이 아니라 설정으로 옮겨갔다. JWKS 가 realm 별로 나뉘어 있어
 이 서비스는 어드민 공개키를 아예 갖지 못하고, 그래서 어드민 토큰은 서명 검증에서 죽는다 —
 이 서비스의 코드가 한 줄도 돌기 전에.
@@ -109,7 +107,8 @@ public ProfileResponse save(@AuthenticationPrincipal Jwt token, ...) {
 
 > 권한 코드는 auth 가 보관하지만 그 의미는 **자원을 가진 서비스**가 정한다. auth 는 그 코드가
 > 무엇을 여는지 모르고, 이 서비스는 그 코드가 어떤 역할에 붙어 있는지 모른다. 그래서 코드
-> 이름에 이 서비스의 자원을 넣는다(`PROFILE_READ`).
+> 이름에 이 서비스의 자원을 넣는다(`PROFILE_READ`). 다만 <b>지금 그 코드를 읽는 곳은 없다</b>.
+> 토큰에서 인가를 걷어냈고, 어디서 판정할지 정해지면 돌아온다.
 
 ## 자기 DB 를 쓴다
 
