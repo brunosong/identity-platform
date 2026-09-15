@@ -318,6 +318,7 @@ docker compose down -v    # 깨끗하게
 |---|---|
 | [`examples/README.md`](examples/README.md) | 터미널로 전 구간 밟아보기 (`customer-login.sh`) |
 | [`frontends/README.md`](frontends/README.md) | 화면에서 눌러볼 것 |
+| [`docs/토큰-흐름.md`](docs/토큰-흐름.md) | **로그인 요청이 토큰이 되고 401/403 으로 갈리기까지 전 구간** |
 | [`customer-service/README.md`](customer-service/README.md) | **소비 서비스가 토큰을 검증하는 법** |
 | [`order-service/README.md`](order-service/README.md) | **서비스가 둘이 되면 달라지는 것**: 통합 로그인, 소유권, 역할 분리 |
 | [`auth-service/auth-client/README.md`](auth-service/auth-client/README.md) | 다른 서비스가 쓰는 검증 라이브러리 |
