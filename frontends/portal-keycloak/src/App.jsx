@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as oidc from './oidc';
 import { CLAIM_NOTES, decode, formatDuration, secondsUntil } from './jwt';
+import { customerBaseUrl, myProfile } from './customer';
 
 /**
  * StrictMode 는 개발 중에 마운트 효과를 두 번 실행한다. 토큰 교환이 두 번 나가면 두 번째는
@@ -118,6 +119,7 @@ export default function App() {
                     <TokenPanel title="access_token" token={tokens.access_token} />
                     <TokenPanel title="id_token" token={tokens.id_token} />
                     <TokenPanel title="refresh_token" token={tokens.refresh_token} />
+                    <ProfilePanel accessToken={tokens.access_token} />
                 </>
             )}
 
@@ -136,6 +138,58 @@ export default function App() {
                 )}
             </section>
         </div>
+    );
+}
+
+/**
+ * 받은 토큰을 다른 서버로 들고 가 본다.
+ *
+ * 여기까지 와야 토큰이 실제로 쓸모가 있는지 알 수 있다. Keycloak 이 발급했다는 것과
+ * customer-service 가 받아준다는 것은 다른 이야기다.
+ */
+function ProfilePanel({ accessToken }) {
+    const [result, setResult] = useState(null);
+    const [busy, setBusy] = useState(false);
+
+    const call = async () => {
+        setBusy(true);
+        setResult(await myProfile(accessToken));
+        setBusy(false);
+    };
+
+    return (
+        <section className="panel">
+            <h2>마이페이지 (customer-service)</h2>
+            <p className="muted">
+                <code>GET {customerBaseUrl}/api/customers/me</code> 를 위 access_token 으로 부른다.
+            </p>
+            <button onClick={call} disabled={busy}>{busy ? '부르는 중' : '호출'}</button>
+
+            {result && (
+                <table>
+                    <tbody>
+                    <tr>
+                        <th>상태</th>
+                        <td className={result.status >= 200 && result.status < 300 ? 'ok' : 'error'}>
+                            {result.status === 0 ? '브라우저가 막음' : result.status}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>본문</th>
+                        <td><code>{result.body}</code></td>
+                    </tr>
+                    </tbody>
+                </table>
+            )}
+
+            {result?.status === 401 && (
+                <p className="muted">
+                    401 이면 거부 사유가 <code>WWW-Authenticate</code> 헤더에 실려 온다. 그런데 그 헤더는
+                    다른 출처의 응답이라 브라우저 스크립트가 읽지 못한다. 사유를 보려면 개발자도구
+                    네트워크 탭을 열거나 curl 로 같은 요청을 보내야 한다.
+                </p>
+            )}
+        </section>
     );
 }
 
