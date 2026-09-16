@@ -1,0 +1,68 @@
+/* 색은 다른 두 앱과 같은 값을 쓴다. 나란히 띄워놓고 보기 위한 것이다. */
+:root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --line: #262b36;
+    --text: #e6e8ee;
+    --muted: #8b93a7;
+    --accent: #5b8cff;
+    --accent-ink: #08101f;
+    --ok: #3ddc97;
+    --err: #ff6b6b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.65 -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+}
+
+code { font-family: "Cascadia Mono", Consolas, monospace; font-size: .92em; word-break: break-all; }
+
+.shell { max-width: 900px; margin: 0 auto; padding: 24px 20px 80px; }
+
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 0 0 12px; }
+
+.muted { color: var(--muted); }
+.ok { color: var(--ok); font-weight: normal; }
+.error { color: var(--err); }
+
+header { border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 20px; }
+
+.config { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0 0; }
+.config dt { color: var(--muted); }
+.config dd { margin: 0; }
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+button {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 0;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+button:hover { filter: brightness(1.1); }
+
+.actions { display: flex; gap: 8px; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; vertical-align: top; padding: 7px 0; border-top: 1px solid var(--line); }
+th { width: 150px; color: var(--muted); font-weight: normal; }
+td p { margin: 4px 0 0; font-size: 13px; }
+
+.log { margin: 0; padding-left: 20px; }
+.log li { padding: 2px 0; }

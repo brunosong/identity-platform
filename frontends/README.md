@@ -1,11 +1,13 @@
 # 프론트엔드
 
-auth-service 에 브라우저에서 직접 로그인해 보는 앱 두 개.
+브라우저에서 직접 로그인해 보는 앱 셋. 앞의 둘은 auth-service 를 상대하고,
+세 번째는 같은 자리에 Keycloak 을 놓으면 무엇이 달라지는지 보려고 만든 것이다.
 
 ```
 frontends/
   customer-portal/    고객 포털   :5173   Vite + React (npm)
   employee-admin/     직원 관리자 :5174   Vite + React (npm)
+  portal-keycloak/    포털(Keycloak) :5175   Vite + React (npm)
   shared/             (더 이상 쓰이지 않음 — 정적 employee-admin 의 잔재)
   serve.py            (더 이상 쓰이지 않음 — 정적 employee-admin 용 개발 서버)
 ```
@@ -123,8 +125,37 @@ npm run dev
 VITE_AUTH_BASE_URL=http://localhost:8090
 ```
 
+### 4. 포털 (Keycloak)
+
+이 앱만 상대가 다르다. auth-service 가 아니라 Keycloak 이다. 먼저 Keycloak 을 띄운다.
+
+```bash
+docker run -d --name keycloak -p 8999:8080   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin   -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin   quay.io/keycloak/keycloak:26.0 start-dev
+```
+
+콘솔(http://localhost:8999, admin/admin)에서 `portal` realm 을 만들고 그 안에 client 를 만든다.
+
+| 항목 | 값 |
+|---|---|
+| Client ID | `portal-keycloak` |
+| Client authentication | Off (public client 라 시크릿이 없다) |
+| Standard flow | 켬 |
+| Direct access grants | 끔 (이 앱은 비밀번호를 직접 받지 않는다) |
+| Valid redirect URIs | `http://localhost:5175/*` |
+| Web origins | `http://localhost:5175` |
+
+사용자도 한 명 만든다. Credentials 탭에서 비밀번호를 걸 때 **Temporary 를 끈다.**
+켜두면 첫 로그인에서 비밀번호 변경 화면이 먼저 뜬다.
+
+```bash
+cd frontends/portal-keycloak
+npm install
+npm run dev
+```
+
 - 고객 포털 → http://localhost:5173
 - 직원 관리자 → http://localhost:5174
+- 포털(Keycloak) → http://localhost:5175
 
 **두 창을 나란히 띄워놓고 보는 것을 권한다.** 같은 auth-service 를 상대하는데 서로의 realm 에는
 들어가지 못하는 것이 이 데모의 핵심이다.
@@ -191,6 +222,27 @@ VITE_AUTH_BASE_URL=http://localhost:8090
 
 각 화면 아래 **"주고받은 요청"** 에 모든 호출과 상태코드가 쌓인다. 무슨 요청이 나갔는지가
 이 데모의 절반이다.
+
+### 포털 (Keycloak) (:5175)
+
+화면이 하나다. 앞의 두 앱과 **로그인하는 방법이 다른 것**이 전부다.
+
+1. **"Keycloak 으로 로그인"** 을 누르면 이 앱을 떠나 Keycloak 로그인 화면으로 간다.
+   주소창이 8999 로 바뀌는 것을 보라. **아이디와 비밀번호를 받는 것이 이 앱이 아니다.**
+   그래서 이 앱의 코드에는 비밀번호를 다루는 자리가 아예 없다.
+2. 로그인하면 `?code=...` 를 달고 돌아온다. 그 code 를 토큰으로 바꾸는 요청이 한 번 더 나간다.
+   **화면 맨 아래 "흐름 기록"** 에 떠나기 전과 돌아온 뒤가 이어서 쌓인다.
+3. **토큰이 셋이다.** `access_token`, `id_token`, `refresh_token`. 앞의 두 앱에는 `id_token` 이
+   없다. `scope` 에 `openid` 를 넣어야 나오고, 이것은 "누가 로그인했는가" 를 앱에게 알려주는
+   토큰이라 API 호출에 쓰는 물건이 아니다.
+4. `aud` 가 `account` 인 것을 확인해 보라. 서비스 이름이 아니다. Keycloak 기본값이라 그렇고,
+   실제 서비스를 넣으려면 audience mapper 를 따로 붙여야 한다.
+5. **로그아웃**은 토큰을 버리는 것으로 끝나지 않는다. Keycloak 에 SSO 세션이 남아 있어서,
+   그냥 토큰만 버리고 다시 로그인하면 비밀번호를 묻지 않고 통과한다. 그래서 Keycloak 의
+   로그아웃 주소로 브라우저를 보낸다.
+
+**PKCE 가 무엇을 막는지는 `src/oidc.js` 주석에 적어두었다.** code 는 주소창에 실려 오기 때문에
+흘릴 구멍이 많은데, 주워도 `code_verifier` 가 없으면 토큰으로 바꿀 수 없다는 것이 요점이다.
 
 ## 알아둘 것
 
