@@ -68,6 +68,22 @@ token:
       publicKey: ${PORTAL_PUBLIC_KEY:}
       system: shop
 
+# 소셜 로그인 제공자.
+#
+# 값이 비어 있으면 소셜 로그인이 꺼진 채로 뜬다. 기본값을 비워둔 것은 설정을 잊었을 때
+# "로그인이 안 된다" 가 되는 편이 낫기 때문이다. 아무 값이나 들고 구글에 붙는 것보다는.
+#
+# client-secret 은 저장소에 들어가지 않는다. 같은 프로파일에 RSA 개발키가 그대로 적혀 있지만
+# 그건 로컬용으로 만들어 버리는 값이고, 이것은 구글이 우리 앱에 발급한 진짜 비밀이다.
+#
+# 돌아올 주소(redirect_uri)는 여기 적지 않는다. token.issuer 뒤에 경로를 붙여 만든다.
+# 주소가 두 군데 적혀 있으면 포트를 옮길 때 한쪽만 고치게 되고, 그 어긋남은 구글이
+# redirect_uri_mismatch 를 뱉을 때까지 보이지 않는다.
+social:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+
 logging:
   level:
     com.brunosong.identityplatform: INFO

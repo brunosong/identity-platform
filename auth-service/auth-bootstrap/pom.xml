@@ -32,6 +32,12 @@
             <artifactId>auth-dataaccess</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- 소셜 provider 어댑터 -->
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>auth-social</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!-- 이벤트 발행/구독 어댑터 -->
         <dependency>
             <groupId>com.brunosong</groupId>

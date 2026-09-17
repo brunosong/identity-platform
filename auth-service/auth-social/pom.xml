@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.brunosong</groupId>
+        <artifactId>auth-service</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>auth-social</artifactId>
+
+    <!--
+      소셜 provider 아웃바운드 어댑터.
+
+      밖으로 나가는 길은 성격별로 모듈이 하나씩이다 — DB(auth-dataaccess), 이벤트(auth-messaging),
+      provider(여기). 구글과 주고받는 HTTP 와 id_token 검증이 이 안에 갇혀 있어서,
+      application 은 provider 라이브러리도 주소도 모른다.
+    -->
+
+    <dependencies>
+        <dependency>
+            <groupId>com.brunosong</groupId>
+            <artifactId>auth-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- RestClient. 구글 토큰 엔드포인트와 JWKS 를 부른다. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>
