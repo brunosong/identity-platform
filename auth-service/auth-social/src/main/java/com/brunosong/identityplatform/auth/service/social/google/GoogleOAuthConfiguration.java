@@ -1,11 +1,15 @@
 package com.brunosong.identityplatform.auth.service.social.google;
 
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialAuthorizationPort;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialIdentityVerifierPort;
 import com.brunosong.identityplatform.auth.service.application.identity.token.RealmIssuers;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * 구글 소셜 로그인 와이어링.
@@ -38,5 +42,32 @@ public class GoogleOAuthConfiguration {
                                                              RealmIssuers issuers) {
         return GoogleClientRegistration.of(
                 properties.getClientId(), properties.getClientSecret(), issuers.of(Realm.PORTAL));
+    }
+
+    /**
+     * 브라우저를 구글로 보낼 주소를 만드는 어댑터.
+     *
+     * <p>이 빈이 있느냐 없느냐가 곧 "이 서버에 소셜 로그인이 있느냐" 다. 설정이 없으면 이 설정
+     * 클래스가 통째로 꺼지므로 빈도 생기지 않고, 브로커 경로는 404 가 된다.
+     */
+    @Bean
+    public SocialAuthorizationPort googleAuthorizationAdapter(GoogleClientRegistration registration) {
+        return new GoogleAuthorizationAdapter(registration);
+    }
+
+    /**
+     * 돌아온 code 를 신원으로 바꾸는 어댑터.
+     *
+     * <p>이 빈이 생기는 순간 기존 {@code POST /api/auth/realms/portal/login/social} 도 함께 살아난다.
+     * 그 경로는 어댑터가 없어 500 이던 자리였다({@code AuthenticateWithSocialService} 가 선택 조회로
+     * 들고 있었다).
+     *
+     * <p>{@code RestClient} 를 여기서 만든다. 구글 두 곳(토큰 엔드포인트, 뒤에 JWKS)만 부르는
+     * 클라이언트라 공용 빈으로 둘 이유가 없다.
+     */
+    @Bean
+    public SocialIdentityVerifierPort googleIdentityVerifier(GoogleClientRegistration registration,
+                                                             ObjectMapper objectMapper) {
+        return new GoogleIdentityVerifier(RestClient.create(), registration, objectMapper);
     }
 }
