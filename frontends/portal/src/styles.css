@@ -27,7 +27,8 @@ body {
 code { font-family: "Cascadia Mono", Consolas, monospace; font-size: .92em; }
 
 /* ── 셸 ─────────────────────────────────────────────── */
-.shell { min-height: 100%; padding-bottom: 300px; }
+/* 접힌 요청 로그와 연결 대상 위젯이 가리지 않을 만큼만 비운다. 펼치면 그 위를 덮는다. */
+.shell { min-height: 100%; padding-bottom: 96px; }
 
 .topbar {
     position: sticky; top: 0; z-index: 20;

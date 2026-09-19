@@ -10,7 +10,9 @@ import { onRequest } from '../api/http';
  */
 export default function RequestLog() {
     const [entries, setEntries] = useState([]);
-    const [open, setOpen] = useState(true);
+    // 기본은 접힌 상태다. 펼쳐 두면 화면 아래 3분의 1을 늘 차지해서, 서비스가 아니라
+    // 개발 도구처럼 보인다. 볼 사람은 한 번 누르면 된다.
+    const [open, setOpen] = useState(false);
 
     useEffect(() => onRequest((entry) => {
         setEntries((prev) => [entry, ...prev].slice(0, 50));
