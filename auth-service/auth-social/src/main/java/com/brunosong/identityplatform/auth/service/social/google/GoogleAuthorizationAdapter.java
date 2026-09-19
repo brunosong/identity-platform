@@ -45,7 +45,7 @@ class GoogleAuthorizationAdapter implements SocialAuthorizationPort {
         return UriComponentsBuilder.fromUriString(AUTHORIZATION_ENDPOINT)
                 .queryParam("client_id", registration.clientId())
                 // 돌아올 주소. 구글 콘솔에 등록해 둔 값과 글자 그대로 같아야 한다.
-                .queryParam("redirect_uri", registration.redirectUri())
+                .queryParam("redirect_uri", registration.brokerRedirectUri())
                 // code 를 달라는 것. 토큰을 바로 달라고 하던 방식(implicit)은 토큰이 주소창에
                 // 실려 오는 문제 때문에 쓰지 않는다.
                 .queryParam("response_type", "code")

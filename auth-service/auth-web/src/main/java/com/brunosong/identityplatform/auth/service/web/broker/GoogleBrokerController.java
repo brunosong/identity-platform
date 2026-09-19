@@ -5,6 +5,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialAuthorizationPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialIdentityVerifierPort;
+import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
@@ -131,7 +132,8 @@ public class GoogleBrokerController {
         }
 
         AuthenticationResult result = authenticateWithSocial.authenticate(
-                new SocialAuthCommand(resolved, SocialProvider.GOOGLE, code));
+                new SocialAuthCommand(
+                        resolved, SocialProvider.GOOGLE, code, SocialCallback.BROKER));
         IssuedTokens tokens = IssuedTokens.of(result.tokens());
 
         return """

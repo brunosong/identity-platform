@@ -24,6 +24,16 @@ public class GoogleOAuthProperties {
     private String clientId;
     private String clientSecret;
 
+    /**
+     * 앱이 구글 콜백을 직접 받을 때 쓰는 주소({@code http://localhost:5173/callback}).
+     *
+     * <p>비워두면 그 방식이 꺼진다. 브로커 방식(auth 가 콜백을 받는 쪽)만 남는다.
+     *
+     * <p>앱이 보낸 값을 그대로 쓰지 않고 설정으로 두는 이유가 있다. 교환 요청에 실리는 값이라,
+     * 호출자가 정하게 두면 클라이언트가 시킨 주소가 외부 요청에 그대로 나간다.
+     */
+    private String appRedirectUri;
+
     public String getClientId() {
         return clientId;
     }
@@ -38,5 +48,13 @@ public class GoogleOAuthProperties {
 
     public void setClientSecret(String clientSecret) {
         this.clientSecret = clientSecret;
+    }
+
+    public String getAppRedirectUri() {
+        return appRedirectUri;
+    }
+
+    public void setAppRedirectUri(String appRedirectUri) {
+        this.appRedirectUri = appRedirectUri;
     }
 }

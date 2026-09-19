@@ -41,7 +41,8 @@ public class GoogleOAuthConfiguration {
     public GoogleClientRegistration googleClientRegistration(GoogleOAuthProperties properties,
                                                              RealmIssuers issuers) {
         return GoogleClientRegistration.of(
-                properties.getClientId(), properties.getClientSecret(), issuers.of(Realm.PORTAL));
+                properties.getClientId(), properties.getClientSecret(), issuers.of(Realm.PORTAL),
+                properties.getAppRedirectUri());
     }
 
     /**

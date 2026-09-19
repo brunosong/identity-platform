@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.identity.ports.out;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.VerifiedSocialIdentity;
+import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 
 /**
@@ -12,5 +13,10 @@ import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvide
  */
 public interface SocialIdentityVerifierPort {
 
-    VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode);
+    /**
+     * @param callback provider 가 브라우저를 어디로 돌려보냈는지. 교환 요청에 실을
+     *                 {@code redirect_uri} 가 그 주소여야 provider 가 받아준다.
+     */
+    VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode,
+                                  SocialCallback callback);
 }

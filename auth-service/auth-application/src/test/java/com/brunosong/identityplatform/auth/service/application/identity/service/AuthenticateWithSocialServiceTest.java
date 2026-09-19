@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.SocialAuthCommand;
+import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialIdentityVerifierPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.VerifiedSocialIdentity;
@@ -61,7 +62,7 @@ class AuthenticateWithSocialServiceTest {
     }
 
     private SocialAuthCommand command() {
-        return new SocialAuthCommand(Realm.PORTAL, SocialProvider.GOOGLE, "auth-code");
+        return new SocialAuthCommand(Realm.PORTAL, SocialProvider.GOOGLE, "auth-code", SocialCallback.BROKER);
     }
 
     @Test
@@ -130,7 +131,8 @@ class AuthenticateWithSocialServiceTest {
 
     private record StubVerifier(VerifiedSocialIdentity identity) implements SocialIdentityVerifierPort {
         @Override
-        public VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode) {
+        public VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode,
+                                            SocialCallback callback) {
             return identity;
         }
     }

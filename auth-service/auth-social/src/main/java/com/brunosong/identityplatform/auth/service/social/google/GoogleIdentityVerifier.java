@@ -3,6 +3,7 @@ package com.brunosong.identityplatform.auth.service.social.google;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialIdentityVerifierPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.VerifiedSocialIdentity;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
+import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -63,12 +64,13 @@ class GoogleIdentityVerifier implements SocialIdentityVerifierPort {
     }
 
     @Override
-    public VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode) {
+    public VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode,
+                                        SocialCallback callback) {
         if (provider != SocialProvider.GOOGLE) {
             throw new IllegalArgumentException("이 어댑터는 구글만 상대한다: " + provider);
         }
 
-        IdTokenClaims claims = readClaims(exchange(authorizationCode));
+        IdTokenClaims claims = readClaims(exchange(authorizationCode, callback));
         verifyClaims(claims);
 
         // 키는 sub 이다. 이메일은 바뀌지만 sub 은 그 구글 계정에 붙어 안 바뀐다.
@@ -77,13 +79,14 @@ class GoogleIdentityVerifier implements SocialIdentityVerifierPort {
     }
 
     /** code 를 토큰으로 바꾼다. 서버끼리 주고받는 유일한 구간이다. */
-    private String exchange(String authorizationCode) {
+    private String exchange(String authorizationCode, SocialCallback callback) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "authorization_code");
         form.add("code", authorizationCode);
         form.add("client_id", registration.clientId());
         form.add("client_secret", registration.clientSecret());
-        form.add("redirect_uri", registration.redirectUri());
+        // 인가 요청 때 쓴 주소와 같아야 한다. 구글이 "그때 그 요청이 맞느냐" 를 이 값으로 본다.
+        form.add("redirect_uri", registration.redirectUriFor(callback));
 
         TokenResponse response;
         try {

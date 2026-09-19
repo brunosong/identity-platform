@@ -70,7 +70,8 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
         if (verifier == null) {
             throw new IllegalStateException("소셜 검증 어댑터가 설정되지 않았습니다(SocialIdentityVerifierPort).");
         }
-        VerifiedSocialIdentity id = verifier.verify(command.provider(), command.authorizationCode());
+        VerifiedSocialIdentity id = verifier.verify(
+                command.provider(), command.authorizationCode(), command.callback());
 
         // 이미 연결된 소셜이면 그 Principal, 아니면 verified email 로 주체 resolve 후 링크/생성
         Principal principal = socialAccountRepository

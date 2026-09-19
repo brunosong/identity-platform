@@ -3,6 +3,7 @@ package com.brunosong.identityplatform.auth.service.web.client.identity;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.AuthenticateWithSocialUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.SocialAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
+import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
@@ -48,8 +49,9 @@ public class AuthSocialLoginApiController {
     public LoginResponse login(@PathVariable String realm, @Valid @RequestBody LoginRequest request) {
         Realm resolved = authenticationRealm.requireRealm(realm, Realm.PORTAL);
 
+        // 앱이 콜백을 받은 경우다. 교환에 실을 redirect_uri 가 브로커 주소와 다르다.
         AuthenticationResult result = authenticateWithSocial.authenticate(new SocialAuthCommand(
-                resolved, request.provider(), request.authorizationCode()));
+                resolved, request.provider(), request.authorizationCode(), SocialCallback.APP));
 
         return new LoginResponse(result.subjectId(), result.realm().name(),
                 IssuedTokens.of(result.tokens()));
