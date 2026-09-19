@@ -16,8 +16,9 @@ export default function Layout({ children }) {
         <div className="shell">
             <header className="topbar">
                 <div className="topbar-inner">
-                    <Link to="/me" className="brand">
-                        고객 포털 <span className="badge">realm: portal</span>
+                    <Link to="/" className="brand">
+                        <span className="brand-mark">P</span>
+                        <span className="brand-name">PORTAL</span>
                     </Link>
 
                     <nav className="topnav">
@@ -29,8 +30,8 @@ export default function Layout({ children }) {
                             </>
                         ) : (
                             <>
-                                <Link to="/login">로그인</Link>
-                                <Link to="/signup">가입</Link>
+                                <Link to="/signup">회원가입</Link>
+                                <Link className="btn btn-sm btn-primary" to="/login">로그인</Link>
                             </>
                         )}
                     </nav>

@@ -55,6 +55,18 @@ export function AuthProvider({ children }) {
         return result;
     }, [setTokens]);
 
+    /**
+     * 구글에서 받은 code 로 로그인한다.
+     *
+     * 비밀번호 로그인과 결과가 같다 - 응답 본문에 우리 토큰이 온다. 앞의 과정만 다를 뿐,
+     * 토큰을 손에 쥐는 방식은 하나다.
+     */
+    const loginWithSocial = useCallback(async (code) => {
+        const result = await authApi.loginWithSocial(code);
+        if (result.ok) setTokens(result.data.tokens);
+        return result;
+    }, [setTokens]);
+
     const refresh = useCallback(async () => {
         if (!tokens?.refreshToken) return { ok: false, status: 0, message: '리프레시 토큰이 없습니다.' };
         const result = await authApi.refresh(tokens.refreshToken);
@@ -82,9 +94,10 @@ export function AuthProvider({ children }) {
         persist,
         setPersist,
         login,
+        loginWithSocial,
         logout,
         refresh,
-    }), [tokens, decoded, persist, setPersist, login, logout, refresh]);
+    }), [tokens, decoded, persist, setPersist, login, loginWithSocial, logout, refresh]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

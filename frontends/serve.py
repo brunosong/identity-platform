@@ -7,8 +7,8 @@
 앱 디렉터리를 루트로 서빙하면서 /shared/ 만 frontends/shared/ 로 함께 내보낸다.
 그래서 공유 코드를 앱마다 복사하지 않아도 된다(실제 프로젝트라면 사내 npm 패키지 자리다).
 
-    python frontends/serve.py customer-portal 5173
-    python frontends/serve.py employee-admin 5174
+    python frontends/serve.py portal 5173
+    python frontends/serve.py backoffice 5174
 """
 import functools
 import http.server

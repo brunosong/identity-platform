@@ -18,6 +18,21 @@ const REALM = 'portal';
 
 const authUrl = () => endpoints().auth;
 
+/**
+ * 구글에서 받은 code 를 넘겨 우리 토큰을 받는다.
+ *
+ * 여기서부터는 비밀번호 로그인과 완전히 같다. fetch 로 묻고 응답 본문으로 토큰을 받는다.
+ * 구글을 다녀오는 리다이렉트 구간을 건너오기 위한 다리가 code 하나였을 뿐이다.
+ *
+ * 이 code 로 남의 계정에 들어갈 수는 없다. 교환은 auth-service 가 우리 client_id 와
+ * client_secret 으로 하고, 다른 앱에게 발급된 code 는 구글이 거절한다.
+ */
+export function loginWithSocial(authorizationCode) {
+    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login/social`, {
+        body: { provider: 'GOOGLE', authorizationCode },
+    });
+}
+
 /** 고객 가입. 이메일이 곧 로그인 아이디다(고객은 별도 아이디가 없다). */
 export function register({ email, password, name, phoneNumber }) {
     return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/register`, {

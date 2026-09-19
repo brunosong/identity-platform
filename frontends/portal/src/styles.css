@@ -202,3 +202,106 @@ pre.raw {
 .stepline button.step:hover { color: var(--text); }
 .stepline .step.now { border-color: var(--accent); color: var(--accent); }
 .stepline .step.done { color: var(--ok); border-color: rgba(61, 220, 151, .3); }
+
+/* ── 브랜드 ─────────────────────────────────────────── */
+.brand-mark {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; font-weight: 800; font-size: 14px;
+}
+.brand-name { letter-spacing: .14em; font-size: 13px; }
+
+/* ── 버튼 ───────────────────────────────────────────── */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 11px 22px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    text-decoration: none; border: 1px solid transparent; cursor: pointer;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { border-color: var(--line); color: var(--text); }
+.btn-ghost:hover { border-color: var(--muted); }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+
+/* ── 히어로 ─────────────────────────────────────────── */
+.hero { padding: 64px 0 52px; }
+.hero-eyebrow {
+    margin: 0 0 14px; font-size: 11px; letter-spacing: .22em;
+    color: var(--accent); font-weight: 700;
+}
+.hero-title { font-size: 38px; line-height: 1.25; margin: 0 0 16px; letter-spacing: -.02em; }
+.hero-sub { color: var(--muted); font-size: 15px; margin: 0 0 30px; }
+.hero-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.hero-who { color: var(--muted); font-size: 13px; font-family: "Cascadia Mono", Consolas, monospace; }
+
+/* ── 서비스 카드 ─────────────────────────────────────── */
+.services {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px; padding-bottom: 40px;
+}
+.service {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px; transition: border-color .15s, transform .15s;
+}
+.service:hover { border-color: var(--accent); transform: translateY(-2px); }
+.service h3 { font-size: 15px; margin: 0 0 8px; text-transform: none; letter-spacing: 0; color: var(--text); }
+.service p { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+.service-more { font-size: 12px; color: var(--accent); }
+.service.locked .service-more { color: var(--muted); }
+
+/* ── 로그인 / 가입 화면 ──────────────────────────────── */
+.auth-page { max-width: 420px; margin: 0 auto; padding: 48px 0 40px; }
+.auth-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 32px 28px;
+}
+.auth-card h1 { font-size: 22px; margin: 0 0 6px; }
+.auth-sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+.auth-card form { margin-top: 4px; }
+.auth-card .btn-block { margin-top: 22px; }
+.auth-foot {
+    margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 13px; text-align: center;
+}
+.auth-foot a { color: var(--accent); text-decoration: none; }
+
+.btn-block { width: 100%; }
+
+/* 구글 버튼은 흰 바탕이다. 구글 가이드가 그렇게 요구한다. */
+.btn-google { background: #fff; color: #1f1f1f; gap: 10px; font-weight: 500; }
+.btn-google:hover { background: #f1f3f4; }
+.google-mark { width: 18px; height: 18px; }
+
+.divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 22px 0 4px; color: var(--muted); font-size: 12px;
+}
+.divider::before, .divider::after {
+    content: ""; flex: 1; height: 1px; background: var(--line);
+}
+
+/* ── 개발자 패널 ─────────────────────────────────────── */
+.devpanel {
+    margin-top: 18px; border: 1px solid var(--line); border-radius: 10px;
+    background: transparent;
+}
+.devpanel summary {
+    cursor: pointer; padding: 12px 16px; font-size: 12px; color: var(--muted);
+    list-style: none; user-select: none;
+}
+.devpanel summary::-webkit-details-marker { display: none; }
+.devpanel summary::before { content: "▸ "; }
+.devpanel[open] summary::before { content: "▾ "; }
+.devpanel summary:hover { color: var(--text); }
+.devpanel-body { padding: 0 16px 18px; border-top: 1px solid var(--line); }
+.devpanel-body h3:first-child { margin-top: 16px; }
+
+/* 페이지 머리 */
+.page-head { margin-bottom: 20px; }
+.page-head h1 { margin-bottom: 4px; }
+.page-head .lead { margin: 0; font-size: 14px; color: var(--text); }
+
+/* 개발자 패널 안에서는 카드가 겹쳐 보이지 않게 한 겹 벗긴다. */
+.devpanel-body .card { background: transparent; border-color: var(--line); }
+.devpanel-body .row { margin-top: 12px; }

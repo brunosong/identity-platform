@@ -5,14 +5,14 @@
 
 ```
 frontends/
-  customer-portal/    고객 포털   :5173   Vite + React (npm)
-  employee-admin/     직원 관리자 :5174   Vite + React (npm)
+  portal/    고객 포털   :5173   Vite + React (npm)
+  backoffice/     직원 관리자 :5174   Vite + React (npm)
   portal-keycloak/    포털(Keycloak) :5175   Vite + React (npm)
-  shared/             (더 이상 쓰이지 않음 — 정적 employee-admin 의 잔재)
-  serve.py            (더 이상 쓰이지 않음 — 정적 employee-admin 용 개발 서버)
+  shared/             (더 이상 쓰이지 않음 — 정적 backoffice 의 잔재)
+  serve.py            (더 이상 쓰이지 않음 — 정적 backoffice 용 개발 서버)
 ```
 
-두 앱이 같은 형태다. 전에는 employee-admin 이 정적 HTML 한 장이었고 `serve.py` 가 그것을
+두 앱이 같은 형태다. 전에는 backoffice 이 정적 HTML 한 장이었고 `serve.py` 가 그것을
 띄웠다 — customer 쪽을 먼저 Vite + React 로 옮기고 employee 는 남겨뒀던 것이다. 지금은 둘 다
 같은 구조라서, 한쪽에서 배운 것이 다른 쪽에서 그대로 읽힌다.
 
@@ -97,7 +97,7 @@ java -jar target/auth-bootstrap-0.0.1-SNAPSHOT.jar
 ### 2. 고객 포털 (npm)
 
 ```bash
-cd frontends/customer-portal
+cd frontends/portal
 npm install          # 처음 한 번
 npm run dev
 ```
@@ -113,7 +113,7 @@ VITE_CUSTOMER_BASE_URL=http://localhost:8081
 ### 3. 직원 관리자 (npm)
 
 ```bash
-cd frontends/employee-admin
+cd frontends/backoffice
 npm install          # 처음 한 번
 npm run dev
 ```

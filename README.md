@@ -211,13 +211,13 @@ java -jar target/order-bootstrap-0.0.1-SNAPSHOT.jar
 고객 포털과 직원 관리자, 둘 다 같은 방식이다.
 
 ```bash
-cd frontends/customer-portal
+cd frontends/portal
 npm install        # 처음 한 번
 npm run dev        # → http://localhost:5173
 ```
 
 ```bash
-cd frontends/employee-admin
+cd frontends/backoffice
 npm install        # 처음 한 번
 npm run dev        # → http://localhost:5174
 ```
@@ -253,7 +253,7 @@ java -jar target/order-bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
 **③ 프론트엔드** — 화면 오른쪽 아래 **"연결 대상"** 에서 바꾸거나,
-`frontends/customer-portal/.env.local` 과 `frontends/employee-admin/.env.local` 에:
+`frontends/portal/.env.local` 과 `frontends/backoffice/.env.local` 에:
 
 ```
 VITE_AUTH_BASE_URL=http://localhost:8090

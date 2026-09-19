@@ -1,9 +1,9 @@
 {
-  "name": "employee-admin",
+  "name": "portal",
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "직원 관리자 — auth-service 의 어드민 realm 에 이메일 OTP 로 로그인하는 학습용 프론트엔드",
+  "description": "고객 포털 — auth-service 로 로그인하고 customer-service 를 호출하는 학습용 프론트엔드",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

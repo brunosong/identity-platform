@@ -57,7 +57,7 @@ spring.security.oauth2.resourceserver.jwt.audiences: shop
 | realm | `PORTAL` | `iss` (서명키가 가른다) | 바뀐다 (키페어) |
 | 시스템 | `shop` | `aud` **단일값** | 바뀐다 |
 | 서비스 | `customer-service`, `order-service` | **토큰에 없다** | **안 바뀐다** |
-| 앱 | `customer-portal` | 토큰에 없다 | **auth 는 앱을 모른다** |
+| 앱 | `portal` | 토큰에 없다 | **auth 는 앱을 모른다** |
 
 **시스템은 마이크로서비스의 집합이다.** 그 안에 서비스가 몇 개인지는 토큰도 앱도 모르고
 DB(`authz_service`)만 안다.
@@ -307,4 +307,4 @@ curl -s -o /dev/null -w '%{http_code}\n' $ORDER -H "Authorization: Bearer $ADMIN
   서로를 부르지 않는다.
 - **게이트웨이.** 프론트엔드가 세 서비스를 각각 직접 부른다. 그래서 셋 다 각자 CORS 를 밝혀야
   한다. 서비스를 하나 붙일 때마다 그 비용이 어디서 늘어나는지가 `CorsPolicy` 에 보인다.
-- **프론트엔드 화면.** `frontends/customer-portal` 에 주문 화면은 아직 없다.
+- **프론트엔드 화면.** `frontends/portal` 에 주문 화면은 아직 없다.
