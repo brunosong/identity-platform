@@ -1,4 +1,4 @@
-package com.brunosong.identityplatform.auth.service.web.console;
+package com.brunosong.identityplatform.auth.service.web.admin.console;
 
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.OAuthClientAlreadyExistsException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.FindOAuthClientsUseCase;
@@ -31,6 +31,10 @@ import java.util.List;
  * <p>경로를 {@code /page/} 아래 둔 것은 이 저장소에서 화면이 쓰는 접두어이기 때문이다
  * ({@code authorization.access-control.protected-path-prefixes}). 보호를 켜는 날 규칙이 없는
  * {@code /page/} 경로는 막히는 쪽이 기본값이다.
+ *
+ * <p>패키지는 admin 채널 아래다. 부르는 주체가 운영자이기 때문이다 - 화면이냐 JSON 이냐는
+ * 채널을 가르는 축이 아니다. 다만 경로가 {@code /api/admin/**} 밖이라 게이트웨이의 채널
+ * 규칙에는 걸리지 않는다. 화면 접두어를 어떻게 가져갈지는 로그인·동의 화면까지 나온 뒤에 정한다.
  */
 @Controller
 @RequestMapping("/page/oauth-clients")
