@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BrunoSong 로그인</title>
+    <style>
+        body { font: 15px/1.6 system-ui, sans-serif; color: #1b1b1b; background: #f4f4f5; margin: 0; }
+        .card { width: 340px; margin: 72px auto; background: #fff; border: 1px solid #e0e0e0; padding: 32px 28px; }
+        h1 { font-size: 19px; margin: 0; }
+        .sub { color: #666; font-size: 13px; margin: 4px 0 24px; }
+        label { display: block; margin-top: 14px; font-size: 13px; font-weight: 600; }
+        input[type=text], input[type=password] { width: 100%; padding: 9px 10px; margin-top: 5px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
+        button { width: 100%; margin-top: 22px; padding: 10px; font: inherit; font-weight: 600; border: 0; background: #1b1b1b; color: #fff; cursor: pointer; }
+        .foot { margin-top: 20px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px; }
+        .foot b { color: #555; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>BrunoSong 로그인</h1>
+    <p class="sub">
+        <span th:text="${request.clientId}">앱</span> 에 계속하려면 로그인하세요.
+    </p>
+
+    <form th:action="@{|/realms/${realm}/auth/login|}" method="post">
+        <!--
+          인가 요청을 그대로 들고 간다. 브라우저가 고쳐 보낼 수 있는 값이지만, 받는 쪽이 앱과
+          주소를 다시 대조하므로 고쳐봐야 통과하지 못한다.
+        -->
+        <input type="hidden" name="client_id" th:value="${request.clientId}">
+        <input type="hidden" name="redirect_uri" th:value="${request.redirectUri}">
+        <input type="hidden" name="scope" th:value="${request.scope}">
+        <input type="hidden" name="state" th:value="${request.state}">
+        <input type="hidden" name="code_challenge" th:value="${request.codeChallenge}">
+        <input type="hidden" name="code_challenge_method" value="S256">
+        <input type="hidden" name="nonce" th:value="${request.nonce}">
+
+        <label for="loginId">이메일</label>
+        <input id="loginId" name="loginId" type="text" required autofocus autocomplete="username">
+
+        <label for="password">비밀번호</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
+
+        <button type="submit">로그인</button>
+    </form>
+
+    <p class="foot">
+        이 화면은 <b>BrunoSong 인증 서버</b>가 그립니다. 비밀번호는 앱을 거치지 않습니다.
+    </p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>로그인을 시작할 수 없습니다</title>
+    <style>
+        body { font: 15px/1.6 system-ui, sans-serif; color: #1b1b1b; background: #f4f4f5; margin: 0; }
+        .card { width: 380px; margin: 72px auto; background: #fff; border: 1px solid #e0e0e0; border-top: 3px solid #b00020; padding: 28px; }
+        h1 { font-size: 18px; margin: 0 0 8px; }
+        p { margin: 0 0 12px; }
+        .reason { background: #f7f7f7; padding: 10px 12px; font-size: 13px; color: #444; }
+        .hint { font-size: 12px; color: #888; margin-top: 16px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>로그인을 시작할 수 없습니다</h1>
+    <p class="reason" th:text="${reason}">사유</p>
+    <p class="hint">
+        요청을 보낸 앱으로 돌려보내지 않습니다. 돌아갈 주소를 확인하지 못한 상태라,
+        적혀 온 주소로 보내는 것 자체가 위험합니다.
+    </p>
+</div>
+
+</body>
+</html>
