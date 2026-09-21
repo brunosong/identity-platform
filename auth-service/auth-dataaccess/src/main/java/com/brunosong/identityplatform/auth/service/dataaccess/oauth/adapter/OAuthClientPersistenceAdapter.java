@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -28,6 +30,35 @@ public class OAuthClientPersistenceAdapter implements OAuthClientRepository {
     public Optional<OAuthClient> findByClientId(Realm realm, String clientId) {
         return repository.findByClientIdAndRealm(clientId, realm.name())
                 .map(OAuthClientPersistenceAdapter::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OAuthClient> findAll() {
+        return repository.findAll().stream()
+                .map(OAuthClientPersistenceAdapter::toDomain)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean exists(String clientId) {
+        return repository.existsById(clientId);
+    }
+
+    @Override
+    @Transactional
+    public OAuthClient save(OAuthClient client) {
+        return toDomain(repository.save(toEntity(client)));
+    }
+
+    private static OAuthClientJpaEntity toEntity(OAuthClient client) {
+        OAuthClientJpaEntity e = new OAuthClientJpaEntity();
+        e.setClientId(client.getClientId());
+        e.setRealm(client.getRealm().name());
+        e.setEnabled(client.isEnabled());
+        e.setRedirectUris(new HashSet<>(client.getRedirectUris()));
+        return e;
     }
 
     private static OAuthClient toDomain(OAuthClientJpaEntity e) {

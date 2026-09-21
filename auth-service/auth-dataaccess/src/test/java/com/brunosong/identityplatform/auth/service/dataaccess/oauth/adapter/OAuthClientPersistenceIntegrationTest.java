@@ -16,6 +16,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -87,6 +89,36 @@ class OAuthClientPersistenceIntegrationTest {
         OAuthClient client = adapter.findByClientId(Realm.ADMIN, "backoffice").orElseThrow();
 
         assertThat(client.isEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("등록하면 주소까지 함께 저장된다")
+    void savesClientWithRedirectUris() {
+        adapter.save(OAuthClient.register("shop", Realm.PORTAL,
+                List.of("https://shop.example.com/callback", "https://shop.example.com/silent")));
+        em.flush();
+        em.clear();
+
+        OAuthClient saved = adapter.findByClientId(Realm.PORTAL, "shop").orElseThrow();
+        assertThat(saved.isEnabled()).isTrue();
+        assertThat(saved.allowsRedirect("https://shop.example.com/callback")).isTrue();
+        assertThat(saved.allowsRedirect("https://shop.example.com/silent")).isTrue();
+    }
+
+    @Test
+    @DisplayName("이름이 비어 있는지는 realm 과 무관하다")
+    void existsIgnoresRealm() {
+        // 같은 이름을 다른 realm 이 가져가면 주소창의 client_id 로 두 앱을 구분할 수 없다.
+        assertThat(adapter.exists("portal")).isTrue();
+        assertThat(adapter.exists("no-such-app")).isFalse();
+    }
+
+    @Test
+    @DisplayName("목록은 realm 을 가리지 않고 다 준다")
+    void listsEveryClient() {
+        assertThat(adapter.findAll())
+                .extracting(OAuthClient::getClientId)
+                .containsExactlyInAnyOrder("portal", "backoffice");
     }
 
     private void insertClient(String clientId, String realm, boolean enabled) {

@@ -7,11 +7,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -24,8 +27,8 @@ import java.util.Set;
  * <p>한 앱을 통째로 읽는 조회뿐이라 즉시 로딩이다. 주소는 앱마다 한두 줄이고, 지연 로딩으로 두면
  * 도메인으로 옮기는 자리마다 트랜잭션이 열려 있어야 한다.
  *
- * <p>created_at / updated_at 은 매핑하지 않는다. 지금 이 경로는 읽기만 하고, 도메인도 그 값을
- * 쓰지 않는다. 등록 화면이 생기면 그때 붙인다.
+ * <p>created_at / updated_at 은 도메인이 쓰지 않는다. 언제 등록됐는지는 운영에서 들여다볼 때
+ * 필요한 값이라 엔티티가 직접 채운다.
  */
 @Entity
 @Table(name = "oauth_client")
@@ -49,4 +52,21 @@ public class OAuthClientJpaEntity {
             joinColumns = @JoinColumn(name = "client_id"))
     @Column(name = "redirect_uri", nullable = false, length = 500)
     private Set<String> redirectUris = new HashSet<>();
+
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = Instant.now();
+        updatedAt = createdAt;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
 }

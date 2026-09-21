@@ -3,6 +3,10 @@ package com.brunosong.identityplatform.auth.service.domain.oauth;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.Getter;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -35,6 +39,17 @@ public class OAuthClient {
         this.enabled = enabled;
     }
 
+    /**
+     * 새로 등록한다. 등록된 앱은 켜진 채로 시작한다 - 꺼진 채로 만들 이유가 없다.
+     *
+     * <p>주소는 여기서 한 번 걸러진다. 대조는 문자 그대로 하므로, 들어올 때 이상한 값이면
+     * 그 앱은 영영 로그인이 안 되고 원인은 로그인 시점에야 드러난다.
+     */
+    public static OAuthClient register(String clientId, Realm realm, Collection<String> redirectUris) {
+        return new OAuthClient(requireClientId(clientId), requireRealm(realm),
+                requireRedirectUris(redirectUris), true);
+    }
+
     public static OAuthClient restore(String clientId, Realm realm, Set<String> redirectUris,
                                       boolean enabled) {
         return new OAuthClient(clientId, realm, Set.copyOf(redirectUris), enabled);
@@ -51,5 +66,59 @@ public class OAuthClient {
      */
     public boolean allowsRedirect(String redirectUri) {
         return redirectUri != null && redirectUris.contains(redirectUri);
+    }
+
+    private static String requireClientId(String clientId) {
+        if (clientId == null || clientId.isBlank()) {
+            throw new IllegalArgumentException("clientId must not be blank");
+        }
+        return clientId.trim();
+    }
+
+    private static Realm requireRealm(Realm realm) {
+        if (realm == null) throw new IllegalArgumentException("realm must not be null");
+        return realm;
+    }
+
+    /**
+     * 돌아갈 주소를 검사한다. 주소가 하나도 없으면 등록할 수 없다 - 그런 앱은 로그인을 시작해도
+     * 사람을 돌려보낼 곳이 없다.
+     *
+     * <p>조각(#뒤)이 붙은 주소는 받지 않는다(RFC 6749 3.1.2). 조각은 브라우저가 서버로 보내지
+     * 않는 부분이라 대조할 수가 없고, 우리가 code 를 붙여 돌려보낼 때도 자리가 겹친다.
+     */
+    private static Set<String> requireRedirectUris(Collection<String> redirectUris) {
+        if (redirectUris == null || redirectUris.isEmpty()) {
+            throw new IllegalArgumentException("redirectUri must be registered at least one");
+        }
+        Set<String> checked = new LinkedHashSet<>();
+        for (String candidate : redirectUris) {
+            checked.add(requireRedirectUri(candidate));
+        }
+        return Set.copyOf(checked);
+    }
+
+    private static String requireRedirectUri(String redirectUri) {
+        if (redirectUri == null || redirectUri.isBlank()) {
+            throw new IllegalArgumentException("redirectUri must not be blank");
+        }
+        String trimmed = redirectUri.trim();
+        URI uri;
+        try {
+            uri = new URI(trimmed);
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("redirectUri is not a valid URI: " + trimmed);
+        }
+        if (!uri.isAbsolute() || uri.getHost() == null) {
+            throw new IllegalArgumentException("redirectUri must be an absolute URI: " + trimmed);
+        }
+        String scheme = uri.getScheme().toLowerCase();
+        if (!scheme.equals("http") && !scheme.equals("https")) {
+            throw new IllegalArgumentException("redirectUri must be http or https: " + trimmed);
+        }
+        if (uri.getRawFragment() != null) {
+            throw new IllegalArgumentException("redirectUri must not have a fragment: " + trimmed);
+        }
+        return trimmed;
     }
 }

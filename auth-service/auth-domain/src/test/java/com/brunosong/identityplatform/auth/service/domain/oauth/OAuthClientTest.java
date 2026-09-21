@@ -2,11 +2,14 @@ package com.brunosong.identityplatform.auth.service.domain.oauth;
 
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 돌려보낼 주소를 고르는 규칙을 고정한다.
@@ -50,5 +53,64 @@ class OAuthClientTest {
     @DisplayName("주소가 없으면 거절한다")
     void rejectsNull() {
         assertThat(PORTAL_APP.allowsRedirect(null)).isFalse();
+    }
+
+    @Nested
+    @DisplayName("등록")
+    class Register {
+
+        @Test
+        @DisplayName("등록한 앱은 켜진 채로 시작하고 주소를 그대로 들고 있다")
+        void registersEnabled() {
+            OAuthClient client = OAuthClient.register("shop", Realm.PORTAL,
+                    List.of("https://shop.example.com/callback"));
+
+            assertThat(client.getClientId()).isEqualTo("shop");
+            assertThat(client.isEnabled()).isTrue();
+            assertThat(client.allowsRedirect("https://shop.example.com/callback")).isTrue();
+        }
+
+        @Test
+        @DisplayName("주소가 하나도 없으면 등록할 수 없다")
+        void rejectsEmptyRedirectUris() {
+            // 돌려보낼 곳이 없는 앱은 로그인을 시작해 봐야 갈 데가 없다.
+            assertThatThrownBy(() -> OAuthClient.register("shop", Realm.PORTAL, List.of()))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("상대 주소는 거절한다")
+        void rejectsRelativeUri() {
+            assertThatThrownBy(() -> OAuthClient.register("shop", Realm.PORTAL, List.of("/callback")))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("http/https 가 아니면 거절한다")
+        void rejectsOtherScheme() {
+            // 커스텀 스킴(myapp://)은 모바일 앱의 자리다. 지금 상대하는 것은 브라우저 앱뿐이고,
+            // 받아주려면 그 스킴을 누가 가져갈 수 있는지부터 따져야 한다.
+            assertThatThrownBy(() -> OAuthClient.register("shop", Realm.PORTAL,
+                    List.of("myapp://callback"))).isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("조각이 붙은 주소는 거절한다")
+        void rejectsFragment() {
+            // 조각은 브라우저가 서버로 보내지 않아 대조할 수가 없다(RFC 6749 3.1.2).
+            assertThatThrownBy(() -> OAuthClient.register("shop", Realm.PORTAL,
+                    List.of("https://shop.example.com/callback#done")))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("앞뒤 공백은 떼고 담는다")
+        void trimsInput() {
+            OAuthClient client = OAuthClient.register("  shop  ", Realm.PORTAL,
+                    List.of("  https://shop.example.com/callback  "));
+
+            assertThat(client.getClientId()).isEqualTo("shop");
+            assertThat(client.allowsRedirect("https://shop.example.com/callback")).isTrue();
+        }
     }
 }
