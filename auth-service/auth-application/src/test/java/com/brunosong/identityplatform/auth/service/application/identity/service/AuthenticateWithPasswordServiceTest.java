@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
@@ -72,6 +73,37 @@ class AuthenticateWithPasswordServiceTest {
         service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         assertThat(principal.getLastAuthenticatedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("인증만 하는 경로는 토큰 없이 누구인지만 돌려준다")
+    void establishStopsBeforeTokens() {
+        // 로그인 화면의 폼이 밟는 길. 토큰은 나중에 인가 코드를 바꾸러 온 앱에게 나간다.
+        AuthenticatedSubject subject = service.withPassword(
+                new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
+
+        assertThat(subject.subjectId()).isEqualTo("customer-uuid-1");
+        assertThat(subject.realm()).isEqualTo(Realm.PORTAL);
+        assertThat(subject.principalId()).isEqualTo(principal.getPrincipalId());
+    }
+
+    @Test
+    @DisplayName("인증만 해도 인증 시각과 이벤트는 남는다")
+    void establishStillRecordsAuthentication() {
+        // 사람이 우리 앞에서 로그인한 사건은 토큰이 나가는 것과 별개다.
+        service.withPassword(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
+
+        assertThat(principal.getLastAuthenticatedAt()).isNotNull();
+        assertThat(eventPublisher.published).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("인증만 하는 경로도 비밀번호가 틀리면 같은 메시지로 실패한다")
+    void establishFailsTheSameWay() {
+        assertThatThrownBy(() -> service.withPassword(
+                new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
+                .isInstanceOf(AuthenticationFailedException.class)
+                .hasMessage(GENERIC_FAIL);
     }
 
     @Test
