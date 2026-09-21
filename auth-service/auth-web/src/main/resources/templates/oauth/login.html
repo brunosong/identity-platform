@@ -13,6 +13,7 @@
         input[type=text], input[type=password] { width: 100%; padding: 9px 10px; margin-top: 5px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
         button { width: 100%; margin-top: 22px; padding: 10px; font: inherit; font-weight: 600; border: 0; background: #1b1b1b; color: #fff; cursor: pointer; }
         .foot { margin-top: 20px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px; }
+        .error { margin: 0 0 16px; padding: 9px 12px; background: #fdf1f2; border-left: 3px solid #b00020; font-size: 13px; color: #8a0018; }
         .foot b { color: #555; font-weight: 600; }
     </style>
 </head>
@@ -23,6 +24,8 @@
     <p class="sub">
         <span th:text="${request.clientId}">앱</span> 에 계속하려면 로그인하세요.
     </p>
+
+    <p class="error" th:if="${error}" th:text="${error}"></p>
 
     <form th:action="@{|/realms/${realm}/auth/login|}" method="post">
         <!--
