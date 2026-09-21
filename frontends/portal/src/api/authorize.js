@@ -47,6 +47,19 @@ export async function authorizeUrl() {
     return url.toString();
 }
 
+/**
+ * 돌아온 state 가 이 브라우저가 시작한 것인지 확인한다. 한 번 쓰고 버린다.
+ *
+ * 막는 것은 로그인 CSRF 다. 공격자가 자기 계정으로 로그인을 시작해서 받은 콜백 주소를 피해자에게
+ * 열게 하면, 피해자 브라우저가 공격자 계정으로 로그인된다. 피해자는 자기 계정인 줄 알고 쓰고
+ * 나중에 공격자가 그 기록을 본다. 구글 쪽(google.js)에도 같은 검사가 있다.
+ */
+export function consumeState(received) {
+    const started = sessionStorage.getItem(STATE_KEY);
+    sessionStorage.removeItem(STATE_KEY);
+    return Boolean(received) && received === started;
+}
+
 function randomString() {
     return base64Url(crypto.getRandomValues(new Uint8Array(32)));
 }
