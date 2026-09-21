@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { tryOtherRealm } from '../api/auth';
 import { authorizeUrl } from '../api/google';
+import { authorizeUrl as brunosongAuthorizeUrl } from '../api/authorize';
 import DevPanel from '../components/DevPanel';
 import Notice from '../components/Notice';
 
@@ -84,6 +85,14 @@ export default function LoginPage() {
                 >
                     <GoogleMark />
                     구글로 로그인
+                </button>
+
+                <button
+                    type="button"
+                    className="btn btn-ghost btn-block btn-brunosong"
+                    onClick={async () => { window.location.href = await brunosongAuthorizeUrl(); }}
+                >
+                    BrunoSong 로그인
                 </button>
 
                 <div className="divider"><span>또는</span></div>
