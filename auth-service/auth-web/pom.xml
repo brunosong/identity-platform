@@ -30,6 +30,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!--
+          서버가 직접 그리는 화면(로그인, 운영 콘솔)용. auth 는 게이트웨이 뒤의 API 가 아니라
+          자기 화면을 들고 혼자 서는 서비스라, 화면을 남의 앱에 맡기지 않는다.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

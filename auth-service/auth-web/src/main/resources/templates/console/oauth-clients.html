@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>등록된 앱</title>
+    <style>
+        body { font: 14px/1.6 system-ui, sans-serif; color: #1b1b1b; max-width: 860px; margin: 40px auto; padding: 0 20px; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        p.lead { color: #555; margin-top: 0; }
+        form { border: 1px solid #ddd; padding: 16px 20px; margin: 24px 0; }
+        label { display: block; margin-top: 12px; font-weight: 600; }
+        label span { display: block; font-weight: 400; color: #666; font-size: 13px; }
+        input[type=text], select, textarea { width: 100%; padding: 6px 8px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
+        textarea { height: 80px; font-family: ui-monospace, monospace; }
+        button { margin-top: 16px; padding: 7px 18px; font: inherit; border: 1px solid #333; background: #333; color: #fff; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+        th { background: #fafafa; font-size: 13px; }
+        td.uris { font-family: ui-monospace, monospace; font-size: 13px; }
+        td.uris div { white-space: nowrap; }
+        .off { color: #999; }
+        .notice { padding: 10px 14px; border-left: 3px solid #333; background: #f6f6f6; }
+        .notice.bad { border-color: #b00020; }
+        .empty { color: #777; padding: 20px 0; }
+    </style>
+</head>
+<body>
+
+<h1>등록된 앱</h1>
+<p class="lead">여기 등록된 앱만 로그인을 시작할 수 있다. 로그인이 끝나면 아래 적힌 주소로만 돌려보낸다.</p>
+
+<div class="notice" th:if="${message}" th:text="${message}"></div>
+<div class="notice bad" th:if="${error}" th:text="${error}"></div>
+
+<form method="post">
+    <label>
+        client_id
+        <span>주소창에 그대로 나간다. 등록 후에는 바꿀 수 없다.</span>
+        <input type="text" name="clientId" required autocomplete="off">
+    </label>
+
+    <label>
+        realm
+        <span>이 앱이 상대하는 영역. 고객 앱으로 어드민 로그인을 시작할 수 없다.</span>
+        <select name="realm">
+            <option th:each="realm : ${realms}" th:value="${realm}" th:text="${realm}"></option>
+        </select>
+    </label>
+
+    <label>
+        돌아갈 주소
+        <span>한 줄에 하나. 문자 그대로 대조하므로 슬래시 하나만 달라도 다른 주소다.</span>
+        <textarea name="redirectUris" required spellcheck="false"></textarea>
+    </label>
+
+    <button type="submit">등록</button>
+</form>
+
+<table th:if="${!clients.isEmpty()}">
+    <thead>
+    <tr>
+        <th style="width: 22%">client_id</th>
+        <th style="width: 14%">realm</th>
+        <th style="width: 10%">상태</th>
+        <th>돌아갈 주소</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="client : ${clients}">
+        <td th:text="${client.clientId}"></td>
+        <td th:text="${client.realm}"></td>
+        <td th:text="${client.enabled} ? '사용' : '중지'" th:classappend="${client.enabled} ? '' : 'off'"></td>
+        <td class="uris">
+            <div th:each="uri : ${client.redirectUris}" th:text="${uri}"></div>
+        </td>
+    </tr>
+    </tbody>
+</table>
+
+<p class="empty" th:if="${clients.isEmpty()}">아직 등록된 앱이 없다.</p>
+
+</body>
+</html>
