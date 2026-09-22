@@ -46,6 +46,16 @@ public class CorsConfiguration implements WebMvcConfigurer {
                 .allowedHeaders("Authorization", "Content-Type")
                 .maxAge(3600);
 
+        // 코드를 토큰으로 바꾸는 자리. 앱이 브라우저에서 직접 부른다.
+        //
+        // 로그인 화면으로 가는 /realms/*/auth 는 여기 없어도 된다. 그쪽은 주소창이 통째로 옮겨가는
+        // 화면 이동이라 CORS 가 걸리지 않는다. 스크립트가 부르는 것은 이 하나뿐이다.
+        registry.addMapping("/realms/*/token")
+                .allowedOrigins(allowedOrigins.toArray(String[]::new))
+                .allowedMethods("POST")
+                .allowedHeaders("Content-Type")
+                .maxAge(3600);
+
         // JWKS 는 누구나 읽어도 되는 공개키다. 다른 서비스가 서버에서 받아가는 것이 보통이지만,
         // 브라우저에서 토큰을 직접 검증해 보는 데모 같은 것도 막을 이유가 없다.
         registry.addMapping("/realms/*/.well-known/**")
