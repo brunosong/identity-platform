@@ -9,6 +9,7 @@
  */
 
 import { endpoints } from './config';
+import { request } from './http';
 
 /** 이 앱이 속한 realm. 고객 포털이므로 고정이다. */
 const REALM = 'portal';
@@ -58,6 +59,49 @@ export function consumeState(received) {
     const started = sessionStorage.getItem(STATE_KEY);
     sessionStorage.removeItem(STATE_KEY);
     return Boolean(received) && received === started;
+}
+
+/**
+ * 받은 code 를 토큰으로 바꾼다.
+ *
+ * 시크릿 대신 PKCE 원본을 낸다. 서버는 그것을 해시해서 로그인 시작할 때 받아둔 값과 맞춰본다.
+ * 원본은 이 브라우저의 sessionStorage 에만 있었으므로, code 를 주운 쪽은 여기서 걸린다.
+ *
+ * 원본은 한 번 쓰고 버린다. code 도 서버에서 한 번 쓰면 사라지므로 재시도할 값이 아니다.
+ */
+export async function exchangeCode(code) {
+    const verifier = sessionStorage.getItem(VERIFIER_KEY);
+    sessionStorage.removeItem(VERIFIER_KEY);
+
+    if (!verifier) {
+        return { ok: false, status: 0, message: '이 브라우저가 시작한 로그인이 아닙니다.' };
+    }
+
+    const result = await request(endpoints().auth, 'POST', `/realms/${REALM}/token`, {
+        form: {
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: REDIRECT_URI,
+            client_id: CLIENT_ID,
+            code_verifier: verifier,
+        },
+    });
+
+    if (!result.ok) {
+        // 서버는 사유를 나누지 않는다. invalid_grant 하나로 온다.
+        return { ...result, message: result.message ?? result.data?.error ?? '토큰 교환에 실패했습니다.' };
+    }
+
+    // 응답 이름이 snake_case 다. OAuth 명세의 모양이라 앱 쪽 이름으로 옮겨 담는다.
+    return {
+        ok: true,
+        status: result.status,
+        tokens: {
+            tokenType: result.data.token_type,
+            accessToken: result.data.access_token,
+            refreshToken: result.data.refresh_token,
+        },
+    };
 }
 
 function randomString() {

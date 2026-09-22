@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import { consumeState } from '../api/authorize';
 import DevPanel from '../components/DevPanel';
 import Notice from '../components/Notice';
@@ -7,75 +8,77 @@ import Notice from '../components/Notice';
 /**
  * auth-service 가 로그인을 마치고 브라우저를 돌려보내는 자리.
  *
- * 주소창에 실려 오는 것은 code 와 state 뿐이다. 토큰이 아니다. 그 code 를 토큰으로 바꾸는 것은
- * 아직 만들지 않았다 - 지금은 받은 값을 눈으로 확인하는 데까지다.
+ * 주소창에 실려 오는 것은 code 와 state 뿐이다. 토큰이 아니다. 여기서 code 를 토큰으로 바꾸고,
+ * 그때 비로소 로그인이 끝난다.
  *
  * 구글 콜백(/callback)과 경로를 나눈 이유는 한 자리가 두 종류의 code 를 받으면 어느 쪽인지
  * 가려내야 하기 때문이다. 나중에 구글을 auth 뒤로 넣으면 그쪽 경로는 사라진다.
  */
 export default function LoginCallbackPage() {
     const [params] = useSearchParams();
-    const [result, setResult] = useState(null);
+    const navigate = useNavigate();
+    const { loginWithCode } = useAuth();
+    const [failure, setFailure] = useState(null);
 
-    // StrictMode 는 이 효과를 두 번 돌린다. state 는 한 번 쓰고 버리는 값이라
-    // 두 번째에는 이미 없어서 "시작하지 않은 로그인" 으로 보인다.
-    const checked = useRef(false);
+    // 개발 모드는 이 효과를 두 번 돌린다. state 도 PKCE 원본도 code 도 전부 한 번 쓰고 버리는
+    // 값이라, 두 번째 실행은 멀쩡한 로그인을 실패로 만든다.
+    const started = useRef(false);
 
     useEffect(() => {
-        if (checked.current) return;
-        checked.current = true;
+        if (started.current) return;
+        started.current = true;
 
         const error = params.get('error');
         if (error) {
-            setResult({ ok: false, text: `인증 서버가 거절했습니다: ${error}` });
+            setFailure(`인증 서버가 거절했습니다: ${error}`);
             return;
         }
 
         const code = params.get('code');
         if (!code) {
-            setResult({ ok: false, text: 'code 가 없습니다. 로그인을 다시 시작해야 합니다.' });
+            setFailure('code 가 없습니다. 로그인을 다시 시작해야 합니다.');
             return;
         }
 
         if (!consumeState(params.get('state'))) {
-            setResult({ ok: false, text: 'state 가 맞지 않습니다. 이 브라우저가 시작한 로그인이 아닙니다.' });
+            setFailure('state 가 맞지 않습니다. 이 브라우저가 시작한 로그인이 아닙니다.');
             return;
         }
 
-        setResult({ ok: true, code });
-    }, [params]);
+        loginWithCode(code).then((result) => {
+            if (result.ok) navigate('/me', { replace: true });
+            else setFailure(result.message ?? `토큰 교환 실패 (${result.status})`);
+        });
+    }, [params, loginWithCode, navigate]);
 
     return (
         <div className="auth-page">
             <div className="auth-card">
-                <h1>로그인 콜백</h1>
-                <p className="auth-sub">auth-service 가 돌려보낸 자리</p>
+                <h1>로그인 마무리</h1>
+                <p className="auth-sub">받은 code 를 토큰으로 바꾸는 중</p>
 
-                <Notice kind={result?.ok ? 'ok' : 'err'}>
-                    {result?.ok ? 'code 를 받았습니다. state 도 맞습니다.' : result?.text}
-                </Notice>
+                <Notice kind={failure ? 'err' : null}>{failure}</Notice>
 
-                {result?.ok && (
-                    <>
-                        <label>받은 code</label>
-                        <input type="text" readOnly value={result.code} />
-                        <p className="field-hint">
-                            아직 토큰으로 바꾸지 않았습니다. 교환 엔드포인트(<code>/token</code>)가
-                            다음 차례입니다.
-                        </p>
-                    </>
+                {failure && (
+                    <p className="auth-foot">
+                        <Link to="/login">로그인 화면으로</Link>
+                    </p>
                 )}
-
-                <p className="auth-foot">
-                    <Link to="/login">로그인 화면으로</Link>
-                </p>
             </div>
 
-            <DevPanel title="여기까지 온 길">
-                <h3>주소창에 무엇이 실려 왔나</h3>
+            <DevPanel title="여기서 무슨 일이 일어나나">
+                <h3>주소창에 실려 온 것</h3>
                 <p className="field-hint">
-                    <code>code</code> 와 <code>state</code> 뿐입니다. 토큰이 주소창에 실리면
-                    브라우저 기록과 리퍼러에 남기 때문에, 받는 것은 한 번 쓰고 버리는 code 한 장입니다.
+                    <code>code</code> 와 <code>state</code> 뿐입니다. 토큰이 주소창에 실리면 브라우저
+                    기록과 리퍼러에 남기 때문에, 오는 것은 한 번 쓰고 버리는 code 한 장입니다.
+                </p>
+
+                <h3>교환 요청</h3>
+                <p className="field-hint">
+                    이 화면이 <code>POST /realms/portal/token</code> 을 부릅니다. 시크릿 대신
+                    로그인을 시작할 때 만들어 둔 <code>code_verifier</code> 원본을 냅니다. 서버는
+                    그것을 해시해서 시작할 때 받아둔 값과 맞춰봅니다. code 를 주운 쪽은 원본을
+                    모르니 여기서 걸립니다.
                 </p>
 
                 <h3>이 앱이 모르는 것</h3>

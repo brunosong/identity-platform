@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as authApi from '../api/auth';
+import { exchangeCode } from '../api/authorize';
 import { decode } from '../api/jwt';
 
 /**
@@ -67,6 +68,18 @@ export function AuthProvider({ children }) {
         return result;
     }, [setTokens]);
 
+    /**
+     * 우리 인증 서버에서 받은 code 로 로그인한다.
+     *
+     * 다른 두 방식과 끝이 같다 - 토큰을 받아 여기 담는다. 다른 것은 앞의 과정뿐이다.
+     * 이 방식에서는 비밀번호가 이 앱을 거치지 않았다.
+     */
+    const loginWithCode = useCallback(async (code) => {
+        const result = await exchangeCode(code);
+        if (result.ok) setTokens(result.tokens);
+        return result;
+    }, [setTokens]);
+
     const refresh = useCallback(async () => {
         if (!tokens?.refreshToken) return { ok: false, status: 0, message: '리프레시 토큰이 없습니다.' };
         const result = await authApi.refresh(tokens.refreshToken);
@@ -95,9 +108,10 @@ export function AuthProvider({ children }) {
         setPersist,
         login,
         loginWithSocial,
+        loginWithCode,
         logout,
         refresh,
-    }), [tokens, decoded, persist, setPersist, login, loginWithSocial, logout, refresh]);
+    }), [tokens, decoded, persist, setPersist, login, loginWithSocial, loginWithCode, logout, refresh]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

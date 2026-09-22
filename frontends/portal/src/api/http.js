@@ -26,13 +26,16 @@ function emit(entry) {
  * @param method   HTTP 메서드
  * @param path     경로
  * @param body     JSON 으로 실을 본문 (없으면 생략)
+ * @param form     폼 인코딩으로 실을 본문. OAuth 토큰 엔드포인트가 이 모양을 요구한다
  * @param token    있으면 Authorization: Bearer 로 싣는다
  * @param query    쿼리 파라미터
  * @returns {{ok, status, data, message, blocked}}
  */
-export async function request(baseUrl, method, path, { body, token, query } = {}) {
+export async function request(baseUrl, method, path, { body, form, token, query } = {}) {
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
+    // 폼 인코딩은 브라우저가 "단순 요청" 으로 쳐서 preflight 가 나가지 않는다.
+    if (form !== undefined) headers['Content-Type'] = 'application/x-www-form-urlencoded';
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const url = baseUrl + path + (query ? `?${new URLSearchParams(query)}` : '');
@@ -42,7 +45,9 @@ export async function request(baseUrl, method, path, { body, token, query } = {}
         response = await fetch(url, {
             method,
             headers,
-            body: body === undefined ? undefined : JSON.stringify(body),
+            body: form !== undefined
+                ? new URLSearchParams(form)
+                : (body === undefined ? undefined : JSON.stringify(body)),
         });
     } catch (cause) {
         // fetch 자체가 실패하면 서버가 없거나 CORS 에서 막힌 것이다.
