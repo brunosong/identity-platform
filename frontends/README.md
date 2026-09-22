@@ -1,7 +1,7 @@
 # 프론트엔드
 
-브라우저에서 직접 로그인해 보는 앱 셋. 앞의 둘은 auth-service 를 상대하고,
-세 번째는 같은 자리에 Keycloak 을 놓으면 무엇이 달라지는지 보려고 만든 것이다.
+브라우저에서 직접 로그인해 보는 앱 넷. 셋은 auth-service 를 상대하고, 하나는 같은 자리에
+Keycloak 을 놓으면 무엇이 달라지는지 보려고 만든 것이다.
 
 ```
 frontends/
@@ -14,12 +14,26 @@ frontends/
 ```
 
 `shop` 만 성격이 다르다. 포털과 **같은 realm(PORTAL)** 의 두 번째 앱이고, 통합 로그인이 실제로
-도는지 눈으로 보려고 세운 것이다. 포털에서 로그인한 뒤 이 앱의 로그인 버튼을 누르면 로그인
-화면이 뜨지 않는다. 프레임워크 없이 파일 넷이라 인가 코드 흐름이 코드에 그대로 보인다.
+도는지 눈으로 보려고 세운 것이다. 자세한 것은 [shop/README.md](shop/README.md).
+
+## 띄우기
+
+auth-service 가 먼저 떠 있어야 한다.
 
 ```
-cd frontends/shop && python -m http.server 5176
+./mvnw -pl auth-service/auth-bootstrap spring-boot:run -Dspring-boot.run.profiles=local
 ```
+
+앱은 각자 띄운다. 쇼핑몰만 빌드가 없어서 정적 서버로 띄운다.
+
+```
+cd frontends/portal     && npm run dev            # :5173
+cd frontends/backoffice && npm run dev            # :5174
+cd frontends/shop       && python -m http.server 5176
+```
+
+포트를 바꾸면 그 출처를 `application-local.yml` 의 `app.cors.allowed-origins` 에 넣어야 하고,
+쇼핑몰은 돌아갈 주소가 `oauth_client` 에 등록된 값과 글자 그대로 같아야 한다.
 
 두 앱이 같은 형태다. 전에는 backoffice 이 정적 HTML 한 장이었고 `serve.py` 가 그것을
 띄웠다 — customer 쪽을 먼저 Vite + React 로 옮기고 employee 는 남겨뒀던 것이다. 지금은 둘 다

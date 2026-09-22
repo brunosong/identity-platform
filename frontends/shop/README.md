@@ -1,0 +1,63 @@
+# 쇼핑몰 (:5176)
+
+포털과 **같은 realm(PORTAL)** 의 두 번째 앱. 통합 로그인이 실제로 도는지 눈으로 보려고 세웠다.
+앱이 하나면 "로그인이 된다" 밖에 못 보고, 둘이어야 "두 번째 앱에서는 안 묻는다" 를 볼 수 있다.
+
+프레임워크도 빌드도 없다. 파일 넷이라 인가 코드 흐름이 코드에 그대로 보인다.
+
+```
+index.html      홈. 로그인 버튼과 받은 토큰의 클레임
+callback.html   auth 가 돌려보내는 자리. 단계를 한 줄씩 찍는다
+oauth.js        흐름 전부. 보낼 주소 만들기, state 확인, code 교환
+style.css
+```
+
+## 띄우기
+
+정적 파일이라 아무 정적 서버나 된다. 파이썬이 제일 손쉽다.
+
+```
+cd frontends/shop
+python -m http.server 5176
+```
+
+auth-service 도 떠 있어야 한다.
+
+```
+./mvnw -pl auth-service/auth-bootstrap spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+**포트를 5176 으로 고정한다.** 돌아갈 주소가 `oauth_client` 에 등록돼 있고 글자 그대로
+대조하기 때문이다. 바꾸려면 세 군데를 같이 고쳐야 한다.
+
+| 무엇 | 어디 |
+|---|---|
+| 등록된 돌아갈 주소 | `auth-bootstrap/.../db/seed/V9004__local_seed_oauth_client_shop.sql` (또는 `:8080/page/oauth-clients` 화면) |
+| 앱이 보내는 주소 | `oauth.js` 의 `REDIRECT_URI` |
+| CORS 허용 출처 | `auth-bootstrap/src/main/resources/application-local.yml` |
+
+## 통합 로그인 보기
+
+```
+1. http://localhost:5176/   ->  [로그인]  ->  8080 로그인 화면이 뜬다
+                                             codeflow@example.com / codeflow123!
+2. 돌아오면 토큰 클레임이 보인다
+
+3. http://localhost:5173/login  ->  [BrunoSong 로그인]
+   로그인 화면이 뜨지 않는다. 주소창이 8080 을 스쳤다 바로 돌아온다
+```
+
+반대 순서로 해도 같다. 포털에서 먼저 로그인하고 쇼핑몰 버튼을 눌러도 화면이 안 뜬다.
+
+**화면이 안 뜨는 이유**는 로그인 상태를 앱이 아니라 auth 가 들고 있기 때문이다. 세션 쿠키는
+`localhost:8080` 의 것이고 경로도 `/realms/portal` 로 좁혀져 있어서, 두 앱 모두 그 값을 읽지
+못한다. 대신 브라우저를 8080 으로 보낼 수는 있고, 브라우저가 갈 때 쿠키를 알아서 들고 간다.
+
+## 확인해 볼 것들
+
+- **"토큰 버리기"** 를 누르고 다시 로그인하면 화면 없이 들어온다. 앱의 토큰과 auth 의 세션이
+  다른 물건이라 그렇다. 세션을 끊는 로그아웃은 아직 없다
+- **주소창의 `code`** 를 복사해 두고 콜백 주소를 다시 열어보면 실패한다. 한 번 쓰면 사라진다
+- **다른 탭에서 `sessionStorage` 를 비우고** 콜백 주소를 열면 PKCE 원본이 없어 교환이 막힌다
+
+자세한 흐름은 [docs/인가-코드-흐름.md](../../docs/인가-코드-흐름.md).
