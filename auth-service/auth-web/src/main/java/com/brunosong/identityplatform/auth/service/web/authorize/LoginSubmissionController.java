@@ -1,28 +1,30 @@
 package com.brunosong.identityplatform.auth.service.web.authorize;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishAuthenticationUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.StartLoginSessionUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidAuthorizationRequestException;
-import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.IssueAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
-import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.IssueAuthorizationCodeCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
-import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationCode;
+import com.brunosong.identityplatform.auth.service.domain.identity.LoginSession;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
+import com.brunosong.identityplatform.auth.service.web.support.LoginSessionCookie;
 import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.servlet.view.RedirectView;
-import org.springframework.web.util.UriComponentsBuilder;
+
+import java.time.Instant;
 
 /**
  * 로그인 화면이 제출한 폼 - {@code POST /realms/{realm}/auth/login}.
@@ -39,6 +41,10 @@ import org.springframework.web.util.UriComponentsBuilder;
  * 이 하는 일이고 값을 고칠 여지 자체가 없어진다. 다만 세션이 아직 없다. 세션이 생기면 그때
  * 옮긴다 - 검증을 두 번 하는 지금 구조는 그때까지도 그대로 남는다.
  *
+ * <h2>여기서 로그인 세션이 시작된다</h2>
+ * 자격증명이 확인되면 세션을 만들어 쿠키로 심는다. 그 쿠키가 다음 앱의 인가 요청에 실려 오면
+ * 로그인 화면을 건너뛴다. 통합 로그인이 성립하는 것이 이 한 줄이다.
+ *
  * <h2>비밀번호가 틀리면 돌려보내지 않는다</h2>
  * 로그인 화면을 다시 그린다. 앱은 사람이 몇 번 틀렸는지 알 필요가 없다. 다시 그릴 때 인가 요청
  * 값을 그대로 실어 보내야 사람이 한 번 더 제출할 수 있다.
@@ -50,7 +56,8 @@ public class LoginSubmissionController {
     private final AuthenticationRealm authenticationRealm;
     private final StartAuthorizationUseCase startAuthorization;
     private final EstablishAuthenticationUseCase establishAuthentication;
-    private final IssueAuthorizationCodeUseCase issueAuthorizationCode;
+    private final StartLoginSessionUseCase startLoginSession;
+    private final AuthorizationCodeRedirect authorizationCodeRedirect;
 
     @PostMapping("/realms/{realm}/auth/login")
     public ModelAndView login(@PathVariable String realm,
@@ -63,7 +70,7 @@ public class LoginSubmissionController {
                               @RequestParam(required = false) String nonce,
                               @RequestParam(required = false) String loginId,
                               @RequestParam(required = false) String password,
-                              HttpServletResponse response) {
+                              HttpServletRequest httpRequest, HttpServletResponse response) {
         AuthorizationRequest request;
         try {
             request = startAuthorization.start(new AuthorizationRequestCommand(
@@ -83,31 +90,12 @@ public class LoginSubmissionController {
             return loginScreenWithError(realm, request, e.getMessage(), response);
         }
 
-        AuthorizationCode code = issueAuthorizationCode.issue(new IssueAuthorizationCodeCommand(
-                request, subject.realm(), subject.principalId()));
+        // 이 브라우저가 로그인했다는 사실을 남긴다. 다음 앱은 이 쿠키로 화면을 건너뛴다.
+        LoginSession session = startLoginSession.start(subject.realm(), subject.principalId());
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                LoginSessionCookie.of(session, httpRequest.isSecure(), Instant.now()).toString());
 
-        return new ModelAndView(redirectWithCode(request, code));
-    }
-
-    /**
-     * 코드와 state 를 주소창에 실어 앱으로 돌려보낸다. <b>토큰은 여기 없다.</b>
-     *
-     * <p>303 을 쓴다. 302 도 브라우저는 GET 으로 따라가지만 그것은 관행이고, POST 뒤에 쓰라고
-     * 명세에 적힌 것은 303 이다.
-     *
-     * <p>state 는 앱이 시작할 때 준 값을 그대로 돌려준다. 앱은 그것으로 자기가 시작한 로그인이
-     * 맞는지 확인한다 - 남이 시작한 로그인의 콜백을 열게 만드는 공격을 여기서 거른다.
-     */
-    private static RedirectView redirectWithCode(AuthorizationRequest request, AuthorizationCode code) {
-        UriComponentsBuilder location = UriComponentsBuilder.fromUriString(request.getRedirectUri())
-                .queryParam("code", code.getCode());
-        if (request.getState() != null) {
-            location.queryParam("state", request.getState());
-        }
-
-        RedirectView redirect = new RedirectView(location.encode().toUriString());
-        redirect.setStatusCode(HttpStatus.SEE_OTHER);
-        return redirect;
+        return authorizationCodeRedirect.issueAndRedirect(request, subject);
     }
 
     /** 로그인 화면을 다시 그린다. 인가 요청 값을 그대로 실어야 사람이 한 번 더 제출할 수 있다. */
