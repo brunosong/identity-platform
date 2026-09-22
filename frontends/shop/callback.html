@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>돌아왔다</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <h1>돌아왔다</h1>
+    <p class="sub">auth 가 브라우저를 여기로 돌려보냈다.</p>
+</header>
+
+<main>
+    <ol id="steps"></ol>
+    <p id="done" hidden><a href="/">쇼핑몰로</a></p>
+</main>
+
+<script type="module">
+    import { consumeState, exchange } from './oauth.js';
+
+    const steps = document.getElementById('steps');
+    const say = (text, kind) => {
+        const li = document.createElement('li');
+        li.textContent = text;
+        if (kind) li.className = kind;
+        steps.appendChild(li);
+    };
+
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+
+    say(`주소창에 실려 온 값: code=${(code ?? '없음').slice(0, 12)}..., state=${params.get('state')?.slice(0, 8)}...`);
+
+    if (!code) {
+        say('code 가 없다. 로그인을 다시 시작해야 한다.', 'bad');
+    } else if (!consumeState(params.get('state'))) {
+        say('state 가 맞지 않는다. 이 브라우저가 시작한 로그인이 아니다.', 'bad');
+    } else {
+        say('state 확인됨. 이제 code 를 토큰으로 바꾼다.');
+        try {
+            const tokens = await exchange(code);
+            say(`토큰을 받았다. token_type=${tokens.token_type}`, 'ok');
+            say('토큰은 이 탭의 sessionStorage 에 담았다.');
+            document.getElementById('done').hidden = false;
+        } catch (e) {
+            say(e.message, 'bad');
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -8,8 +8,17 @@ frontends/
   portal/    고객 포털   :5173   Vite + React (npm)
   backoffice/     직원 관리자 :5174   Vite + React (npm)
   portal-keycloak/    포털(Keycloak) :5175   Vite + React (npm)
+  shop/               쇼핑몰     :5176   순수 HTML/JS (빌드 없음)
   shared/             (더 이상 쓰이지 않음 — 정적 backoffice 의 잔재)
   serve.py            (더 이상 쓰이지 않음 — 정적 backoffice 용 개발 서버)
+```
+
+`shop` 만 성격이 다르다. 포털과 **같은 realm(PORTAL)** 의 두 번째 앱이고, 통합 로그인이 실제로
+도는지 눈으로 보려고 세운 것이다. 포털에서 로그인한 뒤 이 앱의 로그인 버튼을 누르면 로그인
+화면이 뜨지 않는다. 프레임워크 없이 파일 넷이라 인가 코드 흐름이 코드에 그대로 보인다.
+
+```
+cd frontends/shop && python -m http.server 5176
 ```
 
 두 앱이 같은 형태다. 전에는 backoffice 이 정적 HTML 한 장이었고 `serve.py` 가 그것을

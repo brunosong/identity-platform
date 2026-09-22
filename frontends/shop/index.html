@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>BrunoSong 쇼핑</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <h1>BrunoSong 쇼핑</h1>
+    <p class="sub">포털과 <b>같은 realm(PORTAL)</b> 의 다른 앱. 통합 로그인을 확인하려고 세웠다.</p>
+</header>
+
+<main>
+    <section id="logged-out">
+        <p>아직 로그인하지 않았습니다.</p>
+        <button id="login">로그인</button>
+        <p class="hint">
+            포털(<a href="http://localhost:5173/login">localhost:5173</a>)에서 먼저 로그인했다면
+            이 버튼을 눌러도 <b>로그인 화면이 뜨지 않습니다.</b> 주소창이 잠깐 8080 을 들렀다 돌아옵니다.
+        </p>
+    </section>
+
+    <section id="logged-in" hidden>
+        <p class="ok">로그인되어 있습니다.</p>
+        <dl>
+            <dt>sub (누구)</dt>
+            <dd id="sub"></dd>
+            <dt>iss (누가 발급)</dt>
+            <dd id="iss"></dd>
+            <dt>aud (어느 시스템)</dt>
+            <dd id="aud"></dd>
+            <dt>exp (언제까지)</dt>
+            <dd id="exp"></dd>
+        </dl>
+        <button id="logout">토큰 버리기</button>
+        <p class="hint">
+            토큰만 버립니다. auth 의 로그인 세션은 그대로라, 다시 로그인을 누르면 화면 없이 들어옵니다.
+            그게 지금 로그아웃이 없다는 뜻입니다.
+        </p>
+    </section>
+</main>
+
+<script type="module">
+    import { authorizeUrl, readTokens, clearTokens, claimsOf } from './oauth.js';
+
+    const tokens = readTokens();
+    if (tokens) {
+        const claims = claimsOf(tokens.access_token);
+        document.getElementById('sub').textContent = claims.sub;
+        document.getElementById('iss').textContent = claims.iss;
+        document.getElementById('aud').textContent = claims.aud;
+        document.getElementById('exp').textContent = new Date(claims.exp * 1000).toLocaleString();
+        document.getElementById('logged-in').hidden = false;
+        document.getElementById('logged-out').hidden = true;
+    }
+
+    document.getElementById('login').onclick = async () => {
+        location.href = await authorizeUrl();
+    };
+    document.getElementById('logout').onclick = () => {
+        clearTokens();
+        location.reload();
+    };
+</script>
+
+</body>
+</html>
