@@ -33,6 +33,12 @@ public class LoginSessionPersistenceAdapter implements LoginSessionRepository {
         return repository.findById(sessionId).map(LoginSessionPersistenceAdapter::toDomain);
     }
 
+    @Override
+    @Transactional
+    public void delete(String sessionId) {
+        repository.deleteById(sessionId);
+    }
+
     private static LoginSessionJpaEntity toEntity(LoginSession session) {
         LoginSessionJpaEntity e = new LoginSessionJpaEntity();
         e.setSessionId(session.getSessionId());

@@ -104,5 +104,10 @@ class LoginSessionServiceTest {
         public Optional<LoginSession> findById(String sessionId) {
             return Optional.ofNullable(stored.get(sessionId));
         }
+
+        @Override
+        public void delete(String sessionId) {
+            stored.remove(sessionId);
+        }
     }
 }

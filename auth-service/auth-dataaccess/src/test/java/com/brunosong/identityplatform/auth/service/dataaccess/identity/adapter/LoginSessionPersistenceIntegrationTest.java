@@ -100,4 +100,25 @@ class LoginSessionPersistenceIntegrationTest {
 
         assertThat(loaded.isExpired(NOW)).isTrue();
     }
+
+    @Test
+    @DisplayName("지운 세션은 사라진다")
+    void deleteRemovesSession() {
+        LoginSession session = LoginSession.start(Realm.PORTAL, new PrincipalId("p-1"), NOW);
+        adapter.save(session);
+        em.flush();
+
+        adapter.delete(session.getSessionId());
+        em.flush();
+        em.clear();
+
+        assertThat(adapter.findById(session.getSessionId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("없는 세션을 지워도 조용히 지나간다")
+    void deleteUnknownIsQuiet() {
+        // 만료된 쿠키를 들고 온 사람도 로그아웃할 수 있어야 한다.
+        adapter.delete("없는-세션");
+    }
 }

@@ -18,4 +18,13 @@ public interface LoginSessionRepository {
     void save(LoginSession session);
 
     Optional<LoginSession> findById(String sessionId);
+
+    /**
+     * 세션을 끊는다. 없는 세션이어도 조용히 지나간다.
+     *
+     * <p>로그아웃은 "이 세션이 있었나" 를 따질 일이 아니다. 끝난 상태를 만드는 것이 목적이라,
+     * 이미 없으면 목적이 이미 이뤄진 것이다. 없다고 오류를 내면 만료된 쿠키를 들고 온 사람이
+     * 로그아웃을 못 하게 된다.
+     */
+    void delete(String sessionId);
 }
