@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>로그아웃</title>
+    <style>
+        body { font: 15px/1.6 system-ui, sans-serif; color: #1b1b1b; background: #f4f4f5; margin: 0; }
+        .card { width: 380px; margin: 72px auto; background: #fff; border: 1px solid #e0e0e0; padding: 28px; }
+        h1 { font-size: 18px; margin: 0 0 8px; }
+        p { margin: 0 0 12px; }
+        .notice { background: #f7f7f7; padding: 10px 12px; font-size: 13px; color: #444; }
+        .hint { font-size: 12px; color: #888; margin-top: 16px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>로그아웃되었습니다</h1>
+    <p>이 브라우저의 로그인 상태를 끊었습니다. 다음에 앱에 들어가면 다시 로그인해야 합니다.</p>
+
+    <p class="notice" th:if="${notice}" th:text="${notice}"></p>
+
+    <p class="hint">
+        이미 발급된 토큰은 남은 수명 동안 살아 있습니다. 앱이 들고 있는 토큰까지 버려야
+        그 앱에서도 로그아웃됩니다.
+    </p>
+</div>
+
+</body>
+</html>

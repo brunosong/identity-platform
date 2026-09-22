@@ -1,15 +1,21 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { logoutUrl } from '../api/authorize';
 import EndpointSettings from './EndpointSettings';
 import RequestLog from './RequestLog';
 
 export default function Layout({ children }) {
     const { isLoggedIn, claims, logout } = useAuth();
-    const navigate = useNavigate();
 
+    /**
+     * 토큰을 버리고 auth 의 로그인 세션도 끊는다.
+     *
+     * 앱에서 토큰만 버리면 다른 앱에서는 여전히 로그인 상태다. 브라우저를 auth 로 보내야
+     * 세션 쿠키가 지워지고, 그래야 어느 앱에서든 로그인 화면이 다시 뜬다.
+     */
     async function onLogout() {
         await logout();
-        navigate('/login');
+        window.location.href = logoutUrl();
     }
 
     return (

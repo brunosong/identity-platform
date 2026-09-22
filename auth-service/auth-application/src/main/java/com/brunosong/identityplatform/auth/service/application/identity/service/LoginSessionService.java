@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EndLoginSessionUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.FindLoginSessionUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.StartLoginSessionUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
@@ -24,7 +25,8 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class LoginSessionService implements StartLoginSessionUseCase, FindLoginSessionUseCase {
+public class LoginSessionService implements StartLoginSessionUseCase, FindLoginSessionUseCase,
+        EndLoginSessionUseCase {
 
     private final LoginSessionRepository sessionRepository;
     private final PrincipalRepository principalRepository;
@@ -36,6 +38,21 @@ public class LoginSessionService implements StartLoginSessionUseCase, FindLoginS
 
         sessionRepository.save(session);
         return session;
+    }
+
+    /**
+     * 세션을 끊는다. 없는 세션이어도 조용히 지나간다.
+     *
+     * <p>끝난 상태를 만드는 것이 목적이라, 이미 없으면 목적이 이미 이뤄진 것이다. 만료된 쿠키를
+     * 들고 온 사람도 로그아웃할 수 있어야 한다.
+     */
+    @Override
+    @Transactional
+    public void end(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return;
+        }
+        sessionRepository.delete(sessionId);
     }
 
     /**

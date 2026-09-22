@@ -5,11 +5,13 @@ import com.brunosong.identityplatform.auth.service.application.oauth.exception.O
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.FindOAuthClientsUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.RegisterOAuthClientUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
+import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ValidateRedirectUriUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.RegisterOAuthClientCommand;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.out.OAuthClientRepository;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.oauth.OAuthClient;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +28,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OAuthClientService implements RegisterOAuthClientUseCase, FindOAuthClientsUseCase,
-        StartAuthorizationUseCase {
+        StartAuthorizationUseCase, ValidateRedirectUriUseCase {
 
     private final OAuthClientRepository clientRepository;
 
@@ -44,6 +46,22 @@ public class OAuthClientService implements RegisterOAuthClientUseCase, FindOAuth
     @Override
     public List<OAuthClient> findAll() {
         return clientRepository.findAll();
+    }
+
+    /**
+     * 등록된 앱의 등록된 주소인가. 로그아웃이 돌려보낼 곳을 고를 때 쓴다.
+     *
+     * <p>꺼진 앱은 통과시키지 않는다. 로그인을 시작할 수 없는 앱이라면 돌려보낼 이유도 없다.
+     */
+    @Override
+    public boolean isRegistered(Realm realm, String clientId, String redirectUri) {
+        if (clientId == null || redirectUri == null) {
+            return false;
+        }
+        return clientRepository.findByClientId(realm, clientId)
+                .filter(OAuthClient::isEnabled)
+                .filter(client -> client.allowsRedirect(redirectUri))
+                .isPresent();
     }
 
     /**

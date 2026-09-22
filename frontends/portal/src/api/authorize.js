@@ -20,6 +20,9 @@ const CLIENT_ID = 'portal';
 /** 등록된 주소와 글자 그대로 같아야 한다. 슬래시 하나만 달라도 거절당한다. */
 export const REDIRECT_URI = `${location.origin}/login/callback`;
 
+/** 로그아웃하고 돌아올 자리. 이것도 등록된 주소여야 한다. */
+const HOME = `${location.origin}/`;
+
 const STATE_KEY = 'brunosong.state';
 const VERIFIER_KEY = 'brunosong.verifier';
 
@@ -59,6 +62,19 @@ export function consumeState(received) {
     const started = sessionStorage.getItem(STATE_KEY);
     sessionStorage.removeItem(STATE_KEY);
     return Boolean(received) && received === started;
+}
+
+/**
+ * 로그아웃 주소. auth 의 로그인 세션을 끊고 이 앱 홈으로 돌아온다.
+ *
+ * 앱이 들고 있는 토큰을 버리는 것과는 다른 일이다. 그쪽은 이 앱에서만 나가는 것이고,
+ * 이것은 다른 앱에서도 로그인 화면이 다시 뜨게 만든다.
+ */
+export function logoutUrl() {
+    const url = new URL(`${endpoints().auth}/realms/${REALM}/logout`);
+    url.searchParams.set('client_id', CLIENT_ID);
+    url.searchParams.set('post_logout_redirect_uri', HOME);
+    return url.toString();
 }
 
 /**

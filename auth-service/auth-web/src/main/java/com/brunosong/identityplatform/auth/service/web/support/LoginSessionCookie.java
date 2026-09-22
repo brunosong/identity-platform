@@ -1,8 +1,10 @@
 package com.brunosong.identityplatform.auth.service.web.support;
 
 import com.brunosong.identityplatform.auth.service.domain.identity.LoginSession;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.springframework.http.ResponseCookie;
 
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -34,13 +36,28 @@ public final class LoginSessionCookie {
     }
 
     public static ResponseCookie of(LoginSession session, boolean secure, Instant now) {
-        return ResponseCookie.from(NAME, session.getSessionId())
-                .httpOnly(true)
-                .secure(secure)
-                .path(pathFor(session))
-                .sameSite("Lax")
+        return base(session.getSessionId(), session.getRealm(), secure)
                 .maxAge(session.remaining(now))
                 .build();
+    }
+
+    /**
+     * 지우는 쿠키. 로그아웃이 응답에 싣는다.
+     *
+     * <p>값을 비우고 수명을 0 으로 준다. <b>속성이 심을 때와 같아야 한다</b> - 브라우저는 이름과
+     * 경로가 같아야 같은 쿠키로 알아보고, 다르면 지우는 대신 새 쿠키를 하나 더 만든다.
+     * 그러면 지운 줄 알았는데 원래 것이 그대로 실려 다닌다.
+     */
+    public static ResponseCookie expired(Realm realm, boolean secure) {
+        return base("", realm, secure).maxAge(Duration.ZERO).build();
+    }
+
+    private static ResponseCookie.ResponseCookieBuilder base(String value, Realm realm, boolean secure) {
+        return ResponseCookie.from(NAME, value)
+                .httpOnly(true)
+                .secure(secure)
+                .path(pathFor(realm))
+                .sameSite("Lax");
     }
 
     /**
@@ -48,7 +65,7 @@ public final class LoginSessionCookie {
      * {@code /realms/PORTAL} 로 심어두면 {@code /realms/portal} 요청에 실리지 않는다.
      * 주소는 소문자로 쓰는 것이 이 서비스의 관례다.
      */
-    private static String pathFor(LoginSession session) {
-        return "/realms/" + session.getRealm().name().toLowerCase();
+    private static String pathFor(Realm realm) {
+        return "/realms/" + realm.name().toLowerCase();
     }
 }

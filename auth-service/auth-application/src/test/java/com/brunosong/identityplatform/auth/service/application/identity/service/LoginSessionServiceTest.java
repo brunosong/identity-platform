@@ -91,6 +91,26 @@ class LoginSessionServiceTest {
         assertThat(service.findActive(Realm.PORTAL, orphan.getSessionId())).isEmpty();
     }
 
+    @Test
+    @DisplayName("끊으면 그 세션으로는 더 통과하지 못한다")
+    void endStopsTheSession() {
+        String sessionId = startedSession();
+        assertThat(service.findActive(Realm.PORTAL, sessionId)).isPresent();
+
+        service.end(sessionId);
+
+        assertThat(service.findActive(Realm.PORTAL, sessionId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("없는 세션을 끊어도 조용히 지나간다")
+    void endUnknownIsQuiet() {
+        // 만료된 쿠키를 들고 온 사람도 로그아웃할 수 있어야 한다.
+        service.end("없는-세션");
+        service.end(null);
+        service.end("  ");
+    }
+
     static class FakeSessionRepository implements LoginSessionRepository {
 
         final Map<String, LoginSession> stored = new HashMap<>();

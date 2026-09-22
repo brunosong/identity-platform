@@ -34,16 +34,18 @@
             <dt>exp (언제까지)</dt>
             <dd id="exp"></dd>
         </dl>
-        <button id="logout">토큰 버리기</button>
+        <button id="drop-tokens">토큰만 버리기</button>
+        <button id="logout">로그아웃</button>
         <p class="hint">
-            토큰만 버립니다. auth 의 로그인 세션은 그대로라, 다시 로그인을 누르면 화면 없이 들어옵니다.
-            그게 지금 로그아웃이 없다는 뜻입니다.
+            <b>토큰만 버리기</b>는 이 앱에서만 나갑니다. auth 의 로그인 세션은 그대로라 다시
+            로그인을 누르면 화면 없이 들어옵니다.<br>
+            <b>로그아웃</b>은 auth 의 세션까지 끊습니다. 포털에서도 로그인 화면이 다시 뜹니다.
         </p>
     </section>
 </main>
 
 <script type="module">
-    import { authorizeUrl, readTokens, clearTokens, claimsOf } from './oauth.js';
+    import { authorizeUrl, logoutUrl, readTokens, clearTokens, claimsOf } from './oauth.js';
 
     const tokens = readTokens();
     if (tokens) {
@@ -59,9 +61,14 @@
     document.getElementById('login').onclick = async () => {
         location.href = await authorizeUrl();
     };
-    document.getElementById('logout').onclick = () => {
+    document.getElementById('drop-tokens').onclick = () => {
         clearTokens();
         location.reload();
+    };
+    document.getElementById('logout').onclick = () => {
+        // 앱의 토큰을 먼저 버리고, 브라우저를 auth 로 보내 세션을 끊는다.
+        clearTokens();
+        location.href = logoutUrl();
     };
 </script>
 

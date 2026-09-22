@@ -8,6 +8,8 @@ const AUTH = 'http://localhost:8080';
 const REALM = 'portal';          // 포털과 같은 realm. 그래서 세션이 공유된다
 const CLIENT_ID = 'shop-web';        // oauth_client 에 등록된 이름(V9004 시드)
 export const REDIRECT_URI = 'http://localhost:5176/callback.html';
+/** 로그아웃하고 돌아올 자리. 이것도 등록된 주소여야 한다. */
+const HOME = 'http://localhost:5176/';
 
 const STATE_KEY = 'shop.state';
 const VERIFIER_KEY = 'shop.verifier';
@@ -28,6 +30,14 @@ export async function authorizeUrl() {
     url.searchParams.set('state', state);
     url.searchParams.set('code_challenge', await sha256(verifier));
     url.searchParams.set('code_challenge_method', 'S256');
+    return url.toString();
+}
+
+/** 로그아웃 주소. 세션을 끊고 이 앱 홈으로 돌려보내 달라고 한다. */
+export function logoutUrl() {
+    const url = new URL(`${AUTH}/realms/${REALM}/logout`);
+    url.searchParams.set('client_id', CLIENT_ID);
+    url.searchParams.set('post_logout_redirect_uri', HOME);
     return url.toString();
 }
 
