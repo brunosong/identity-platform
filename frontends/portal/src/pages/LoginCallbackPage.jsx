@@ -46,7 +46,7 @@ export default function LoginCallbackPage() {
         }
 
         loginWithCode(code).then((result) => {
-            if (result.ok) navigate('/me', { replace: true });
+            if (result.ok) navigate('/', { replace: true });
             else setFailure(result.message ?? `토큰 교환 실패 (${result.status})`);
         });
     }, [params, loginWithCode, navigate]);
