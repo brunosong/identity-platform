@@ -31,7 +31,9 @@ public class RequestEmailOtpService implements RequestEmailOtpUseCase {
     @Transactional
     public void request(Realm realm, String email) {
         if (emailAccountRepository.findByEmail(realm, email).isEmpty()) {
-            log.info("미등록 이메일 로그인 OTP 요청 — 발송 생략(열거 방지): email={}", email);
+            // realm 을 함께 적는다. 같은 주소가 다른 realm 에 있는 경우가 흔한데, realm 이 없으면
+            // 로그만 보고는 "없는 주소" 와 "다른 realm 의 주소" 를 구분할 수 없다.
+            log.info("미등록 이메일 로그인 OTP 요청 — 발송 생략(열거 방지): realm={}, email={}", realm, email);
             return;
         }
         otpIssuer.issue(email);
