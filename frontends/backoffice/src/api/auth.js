@@ -4,6 +4,10 @@ import { request } from './http';
 /**
  * auth-service 호출 — 어드민 realm.
  *
+ * <h3>로그인은 여기 없다</h3>
+ * 인가 코드 흐름으로 옮기면서 자격증명을 다루는 함수가 이 파일에서 사라졌다(api/authorize.js).
+ * 남은 것은 이미 받은 토큰으로 부르는 것들이다 — 재발급, 로그아웃, 내 권한, 가입, 관리 API.
+ *
  * realm 은 경로가 정한다. 이 앱은 직원 앱이므로 항상 `admin` 이다 — 화면에서 고르게 두면
  * 직원 화면에서 고객으로 로그인하는 길이 생긴다.
  *
@@ -21,26 +25,7 @@ const REALM = 'admin';
 
 const authUrl = () => endpoints().auth;
 
-/**
- * 인증번호 발송.
- *
- * <b>가입 여부와 무관하게 늘 202 다.</b> 없는 이메일에 404 를 주면 그 응답만으로 누가 직원인지
- * 훑어낼 수 있다(계정 열거). 그래서 응답만으로는 구분되지 않는 것이 의도다.
- *
- * local 프로파일은 메일을 보내지 않고 고정코드 123456 을 쓴다.
- */
-export function sendCode(email) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login/email-otp/send-code`, {
-        body: { email },
-    });
-}
 
-/** 인증번호 검증 → 토큰 발급. 응답에 권한 목록도 함께 온다(화면 렌더용). */
-export function login({ email, verificationCode }) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login/email-otp`, {
-        body: { email, verificationCode },
-    });
-}
 
 /** 재발급. 권한과 리비전이 그 시점 값으로 다시 실린다 — 역할이 바뀐 뒤에는 이걸 받아야 보인다. */
 export function refresh(refreshToken) {
@@ -113,19 +98,7 @@ export function tryPasswordRegister({ email, name }) {
     });
 }
 
-/** realm 격리 실험 — 같은 이메일로 포털 realm 에 인증번호를 요청해 본다. */
-export function sendCodeToOtherRealm(realm, email) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${realm}/login/email-otp/send-code`, {
-        body: { email },
-    });
-}
 
-/** realm 격리 실험 — 그 코드로 포털 realm 로그인을 시도한다. 성공해도 토큰을 쓰지 않는다. */
-export function loginToOtherRealm(realm, { email, verificationCode }) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${realm}/login/email-otp`, {
-        body: { email, verificationCode },
-    });
-}
 
 /** realm 격리 실험 — 어드민 realm 에서 소셜 로그인을 시도한다. 404 여야 한다. */
 export function trySocialHere() {

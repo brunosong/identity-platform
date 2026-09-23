@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as authApi from '../api/auth';
+import { exchangeCode } from '../api/authorize';
 import { decode } from '../api/jwt';
 
 /**
@@ -58,13 +59,15 @@ export function AuthProvider({ children }) {
         if (persist && tokens) localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens));
     }, [persist, tokens]);
 
-    /** 1단계. 응답은 가입 여부와 무관하게 늘 같다 — 계정 열거를 막기 위해서다. */
-    const sendCode = useCallback((email) => authApi.sendCode(email), []);
-
-    /** 2단계. 여기서 비로소 토큰이 나온다. */
-    const login = useCallback(async ({ email, verificationCode }) => {
-        const result = await authApi.login({ email, verificationCode });
-        if (result.ok) setTokens(result.data.tokens);
+    /**
+     * 인증 서버에서 받은 code 로 로그인한다.
+     *
+     * 이 앱이 자격증명을 다루는 자리는 이제 없다. 사람을 어떻게 확인했는지(인증번호였는지
+     * 다른 무엇이었는지)도 모르고, 손에 쥐는 것은 교환해서 받은 토큰뿐이다.
+     */
+    const loginWithCode = useCallback(async (code) => {
+        const result = await exchangeCode(code);
+        if (result.ok) setTokens(result.tokens);
         return result;
     }, [setTokens]);
 
@@ -112,11 +115,10 @@ export function AuthProvider({ children }) {
         canManage: permissions.includes(MANAGE_PERMISSION),
         persist,
         setPersist,
-        sendCode,
-        login,
+        loginWithCode,
         logout,
         refresh,
-    }), [tokens, decoded, claims, permissions, persist, setPersist, sendCode, login, logout, refresh]);
+    }), [tokens, decoded, claims, permissions, persist, setPersist, loginWithCode, logout, refresh]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

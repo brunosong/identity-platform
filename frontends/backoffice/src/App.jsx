@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import RequireAuth from './auth/RequireAuth';
 import RequireManage from './auth/RequireManage';
 import LoginPage from './pages/LoginPage';
+import LoginCallbackPage from './pages/LoginCallbackPage';
 import SignUpPage from './pages/SignUpPage';
 import NewEmployeePage from './pages/NewEmployeePage';
 import HomePage from './pages/HomePage';
@@ -27,6 +28,8 @@ export default function App() {
         <Layout>
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                {/* auth-service 가 돌려보내는 주소. oauth_client 에 등록된 값과 같아야 한다. */}
+                <Route path="/login/callback" element={<LoginCallbackPage />} />
                 <Route path="/" element={<RequireAuth><HomePage /></RequireAuth>} />
                 <Route path="/signup" element={<SignUpPage />} />
                 <Route path="/users/new" element={<RequireManage><NewEmployeePage /></RequireManage>} />
