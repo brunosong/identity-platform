@@ -10,11 +10,17 @@
         h1 { font-size: 19px; margin: 0; }
         .sub { color: #666; font-size: 13px; margin: 4px 0 24px; }
         label { display: block; margin-top: 14px; font-size: 13px; font-weight: 600; }
-        input[type=text], input[type=password] { width: 100%; padding: 9px 10px; margin-top: 5px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
+        input[type=text], input[type=email], input[type=password] { width: 100%; padding: 9px 10px; margin-top: 5px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
+        input[readonly] { background: #f7f7f7; color: #666; }
         button { width: 100%; margin-top: 22px; padding: 10px; font: inherit; font-weight: 600; border: 0; background: #1b1b1b; color: #fff; cursor: pointer; }
+        button.secondary { background: #fff; color: #1b1b1b; border: 1px solid #bbb; font-weight: 500; margin-top: 10px; }
         .foot { margin-top: 20px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px; }
-        .error { margin: 0 0 16px; padding: 9px 12px; background: #fdf1f2; border-left: 3px solid #b00020; font-size: 13px; color: #8a0018; }
         .foot b { color: #555; font-weight: 600; }
+        .error { margin: 0 0 16px; padding: 9px 12px; background: #fdf1f2; border-left: 3px solid #b00020; font-size: 13px; color: #8a0018; }
+        .notice { margin: 0 0 16px; padding: 9px 12px; background: #f2f7f2; border-left: 3px solid #1a7f37; font-size: 13px; color: #1a5b2a; }
+        .divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 4px; color: #999; font-size: 12px; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #e5e5e5; }
+        .code { letter-spacing: 4px; font-family: ui-monospace, monospace; }
     </style>
 </head>
 <body>
@@ -26,33 +32,81 @@
     </p>
 
     <p class="error" th:if="${error}" th:text="${error}"></p>
+    <p class="notice" th:if="${otpSent}">
+        <span th:text="${email}">메일 주소</span> 로 인증번호를 보냈습니다.
+    </p>
 
-    <form th:action="@{|/realms/${realm}/auth/login|}" method="post">
-        <!--
-          인가 요청을 그대로 들고 간다. 브라우저가 고쳐 보낼 수 있는 값이지만, 받는 쪽이 앱과
-          주소를 다시 대조하므로 고쳐봐야 통과하지 못한다.
-        -->
-        <input type="hidden" name="client_id" th:value="${request.clientId}">
-        <input type="hidden" name="redirect_uri" th:value="${request.redirectUri}">
-        <input type="hidden" name="scope" th:value="${request.scope}">
-        <input type="hidden" name="state" th:value="${request.state}">
-        <input type="hidden" name="code_challenge" th:value="${request.codeChallenge}">
-        <input type="hidden" name="code_challenge_method" value="S256">
-        <input type="hidden" name="nonce" th:value="${request.nonce}">
+    <!--
+      인증번호로 들어오는 길. 두 걸음이라 폼도 둘이다.
 
-        <label for="loginId">이메일</label>
-        <input id="loginId" name="loginId" type="text" required autofocus autocomplete="username">
+      첫 화면에서는 주소만 받고, 보낸 뒤에는 번호 칸이 열린다. 어느 상태인지는 서버가 정해
+      모델(otpSent)로 알려준다. 화면이 스스로 기억하면 새로고침 한 번에 흐트러진다.
+    -->
+    <form th:unless="${otpSent}" th:action="@{|/realms/${realm}/auth/send-code|}" method="post">
+        <div th:replace="~{:: hiddenRequest}"></div>
 
-        <label for="password">비밀번호</label>
-        <input id="password" name="password" type="password" required autocomplete="current-password">
+        <label for="email">이메일</label>
+        <input id="email" name="email" type="email" required autofocus autocomplete="email"
+               th:value="${email}">
+
+        <button type="submit">인증번호 받기</button>
+    </form>
+
+    <form th:if="${otpSent}" th:action="@{|/realms/${realm}/auth/login/otp|}" method="post">
+        <div th:replace="~{:: hiddenRequest}"></div>
+
+        <label for="sentTo">이메일</label>
+        <input id="sentTo" name="email" type="email" readonly th:value="${email}">
+
+        <label for="code">인증번호</label>
+        <input id="code" name="code" type="text" class="code" required autofocus
+               inputmode="numeric" maxlength="6" autocomplete="one-time-code">
 
         <button type="submit">로그인</button>
+    </form>
+
+    <!-- 보낸 뒤에 주소를 잘못 적은 것을 깨닫는 일이 흔하다. 처음 화면으로 돌아가는 길을 둔다. -->
+    <form th:if="${otpSent}" th:action="@{|/realms/${realm}/auth|}" method="get">
+        <div th:replace="~{:: hiddenRequest}"></div>
+        <input type="hidden" name="response_type" value="code">
+
+        <button type="submit" class="secondary">다른 주소로 받기</button>
+    </form>
+
+    <div class="divider"><span>또는</span></div>
+
+    <form th:action="@{|/realms/${realm}/auth/login|}" method="post">
+        <div th:replace="~{:: hiddenRequest}"></div>
+
+        <label for="loginId">아이디</label>
+        <input id="loginId" name="loginId" type="text" autocomplete="username">
+
+        <label for="password">비밀번호</label>
+        <input id="password" name="password" type="password" autocomplete="current-password">
+
+        <button type="submit">비밀번호로 로그인</button>
     </form>
 
     <p class="foot">
         이 화면은 <b>BrunoSong 인증 서버</b>가 그립니다. 비밀번호는 앱을 거치지 않습니다.
     </p>
 </div>
+
+<!--
+  인가 요청을 그대로 들고 간다. 폼이 여럿이라 한 군데 적어두고 나눠 쓴다.
+
+  브라우저가 고쳐 보낼 수 있는 값이지만, 받는 쪽이 앱과 주소를 다시 대조하므로 고쳐봐야
+  통과하지 못한다. 서버가 세션에 들고 있는 편이 낫고, 세션이 생겼으니 옮길 수 있다.
+-->
+<th:block th:fragment="hiddenRequest">
+    <input type="hidden" name="client_id" th:value="${request.clientId}">
+    <input type="hidden" name="redirect_uri" th:value="${request.redirectUri}">
+    <input type="hidden" name="scope" th:value="${request.scope}">
+    <input type="hidden" name="state" th:value="${request.state}">
+    <input type="hidden" name="code_challenge" th:value="${request.codeChallenge}">
+    <input type="hidden" name="code_challenge_method" value="S256">
+    <input type="hidden" name="nonce" th:value="${request.nonce}">
+</th:block>
 
 </body>
 </html>
