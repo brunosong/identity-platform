@@ -6,11 +6,10 @@ import TokenInspector from '../components/TokenInspector';
 import Notice from '../components/Notice';
 
 /**
- * 홈 — 로그인한 뒤에 확인할 수 있는 것을 한 화면에 모은다.
+ * 대시보드 - 로그인한 뒤 처음 보는 화면.
  *
- * 고객 포털의 마이페이지와 대비된다. 저쪽은 <b>두 서버</b>를 부르는 것이 요점이고
- * (프로필은 customer-service, 권한은 auth-service), 여기는 부르는 서버가 auth 하나뿐이다 —
- * 직원 앱이 상대하는 업무 서비스가 아직 없다.
+ * 위쪽은 운영자가 한눈에 볼 것(누구로 로그인했나, 무엇을 할 수 있나, 언제까지 유효한가),
+ * 아래쪽은 그 값들이 어디서 왔는지 직접 열어보는 자리다.
  */
 export default function HomePage() {
     const { tokens, claims, permissions, canManage, refresh } = useAuth();
@@ -18,6 +17,8 @@ export default function HomePage() {
     const [keys, setKeys] = useState(null);
     const [notice, setNotice] = useState(null);
     const [busy, setBusy] = useState(false);
+
+    const expiresAt = claims?.exp ? new Date(claims.exp * 1000) : null;
 
     async function onRefresh() {
         setBusy(true);
@@ -48,7 +49,7 @@ export default function HomePage() {
             kind: 'ok',
             text: `realm ${result.data.realm ?? '(없음)'} · `
                 + `${result.data.permissions.join(', ') || '권한 없음'} — `
-                + '이 값은 서버가 토큰을 열어 읽어준 것이고, resource_access["auth-service"] 와 같은 값입니다.',
+                + '이 값은 서버가 토큰을 열어 읽어준 것입니다.',
         });
     }
 
@@ -85,53 +86,38 @@ export default function HomePage() {
 
     return (
         <div className="page">
-            <h1>로그인 상태</h1>
-            <p className="lead">
-                이 토큰 하나가 신원과 권한을 함께 나릅니다. 아래에서 그 안을 직접 열어볼 수 있습니다.
-            </p>
+            <h1>대시보드</h1>
+            <p className="lead">직원 계정과 인가 정책을 관리합니다.</p>
 
             <Notice kind={notice?.kind}>{notice?.text}</Notice>
 
-            <div className="card">
-                <div className="card-head">
-                    <h2>나</h2>
-                    <span className={`pill ${canManage ? 'ok' : ''}`}>
-                        {canManage ? MANAGE_PERMISSION : '관리 권한 없음'}
-                    </span>
+            <div className="tiles">
+                <div className="tile">
+                    <div className="tile-label">로그인 계정</div>
+                    <div className="tile-value small">{claims?.sub ?? '-'}</div>
                 </div>
-                <div className="kv">
-                    <span>subjectId (sub)</span><code>{claims?.sub}</code>
-                    <span>발급자 (iss)</span><code>{claims?.iss}</code>
-                    <span>역할 (auth-service)</span>
-                    <span>
-                        {permissions.length === 0
-                            ? <em className="hint">없음</em>
-                            : permissions.map((p) => <span className="chip" key={p}>{p}</span>)}
-                    </span>
+                <div className="tile">
+                    <div className="tile-label">영역</div>
+                    <div className="tile-value">ADMIN</div>
                 </div>
-                <p className="field-hint">
-                    역할이 <b>두 칸</b>으로 갈려 있습니다 — <code>realm_access</code>(영역 공통)와
-                    <code>resource_access</code>(서비스별). 이 화면을 여는 것은 뒤쪽,
-                    그중에서도 <code>auth-service</code> 칸입니다. 다른 서비스의 역할은 여기를
-                    열지 않습니다.
-                    <br /><br />
-                    <b>realm 클레임이 없는 것</b>에도 주목하세요. realm 은 <code>iss</code> 안에 있고,
-                    무엇보다 <b>어느 키로 검증됐는지가 곧 realm</b> 입니다.
-                </p>
-
-                <div className="row">
-                    <button onClick={onLoadPermissions} disabled={busy}>내 권한 조회</button>
-                    <button onClick={onRefresh} disabled={busy}>토큰 재발급</button>
-                    <button onClick={onLoadJwks} disabled={busy}>JWKS 보기</button>
+                <div className="tile">
+                    <div className="tile-label">관리 권한</div>
+                    <div className="tile-value">{canManage ? '있음' : '없음'}</div>
+                </div>
+                <div className="tile">
+                    <div className="tile-label">토큰 만료</div>
+                    <div className="tile-value small">
+                        {expiresAt ? expiresAt.toLocaleTimeString() : '-'}
+                    </div>
                 </div>
             </div>
 
             {canManage ? (
                 <div className="card">
-                    <h2>관리</h2>
+                    <h2>바로가기</h2>
                     <div className="row" style={{ marginTop: 0 }}>
                         <Link className="button-like" to="/users/new">직원 등록</Link>
-                        <Link className="button-like" to="/rbac">인가 정책 보기</Link>
+                        <Link className="button-like" to="/rbac">인가 정책</Link>
                     </div>
                 </div>
             ) : (
@@ -144,6 +130,30 @@ export default function HomePage() {
                     </p>
                 </div>
             )}
+
+            <div className="card">
+                <div className="card-head">
+                    <h2>내 권한</h2>
+                    <span className={`pill ${canManage ? 'ok' : ''}`}>
+                        {canManage ? MANAGE_PERMISSION : '관리 권한 없음'}
+                    </span>
+                </div>
+                <div>
+                    {permissions.length === 0
+                        ? <em className="hint">없음</em>
+                        : permissions.map((p) => <span className="chip" key={p}>{p}</span>)}
+                </div>
+                <p className="field-hint">
+                    토큰에는 권한이 실리지 않습니다. 이 목록은 서버에 물어 받은 값입니다 —
+                    그래서 역할이 바뀌면 다음 조회부터 바로 반영됩니다.
+                </p>
+
+                <div className="row">
+                    <button onClick={onLoadPermissions} disabled={busy}>다시 조회</button>
+                    <button onClick={onRefresh} disabled={busy}>토큰 재발급</button>
+                    <button onClick={onLoadJwks} disabled={busy}>JWKS 보기</button>
+                </div>
+            </div>
 
             {keys && (
                 <div className="card">

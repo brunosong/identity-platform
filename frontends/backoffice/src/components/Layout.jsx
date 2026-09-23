@@ -4,6 +4,12 @@ import { logoutUrl } from '../api/authorize';
 import EndpointSettings from './EndpointSettings';
 import RequestLog from './RequestLog';
 
+/**
+ * 관리자 콘솔의 뼈대.
+ *
+ * 로그인했을 때만 사이드바가 선다. 로그인 전에는 볼 수 있는 화면이 로그인과 가입뿐이라
+ * 메뉴를 세울 이유가 없고, 세우면 눌러봐야 전부 로그인으로 튕긴다.
+ */
 export default function Layout({ children }) {
     const { isLoggedIn, canManage, claims, logout } = useAuth();
 
@@ -18,35 +24,51 @@ export default function Layout({ children }) {
         window.location.href = logoutUrl();
     }
 
+    if (!isLoggedIn) {
+        return (
+            <div className="shell plain">
+                <main className="content">{children}</main>
+                <EndpointSettings />
+                <RequestLog />
+            </div>
+        );
+    }
+
     return (
         <div className="shell">
-            <header className="topbar">
-                <div className="topbar-inner">
-                    <Link to="/" className="brand">
-                        직원 관리자 <span className="badge">realm: admin</span>
-                    </Link>
+            <aside className="sidebar">
+                <Link to="/" className="brand">
+                    직원 관리자
+                    <span className="badge">realm: admin</span>
+                </Link>
 
-                    <nav className="topnav">
-                        {isLoggedIn ? (
-                            <>
-                                <span className="who">{claims?.sub}</span>
-                                <NavLink to="/">홈</NavLink>
-                                {/* 권한이 없으면 메뉴를 감춘다. 편의일 뿐이고 방어는 서버가 한다. */}
-                                {canManage && <NavLink to="/users/new">직원 등록</NavLink>}
-                                {canManage && <NavLink to="/rbac">인가 정책</NavLink>}
-                                <button className="link-button" onClick={onLogout}>로그아웃</button>
-                            </>
-                        ) : (
-                            <>
-                                <NavLink to="/login">로그인</NavLink>
-                                <NavLink to="/signup">가입</NavLink>
-                            </>
-                        )}
-                    </nav>
+                <nav className="sidenav">
+                    <NavLink to="/" end>대시보드</NavLink>
+
+                    {/* 권한이 없으면 메뉴를 감춘다. 편의일 뿐이고 방어는 서버가 한다. */}
+                    {canManage && <span className="group">운영</span>}
+                    {canManage && <NavLink to="/users/new">직원 등록</NavLink>}
+                    {canManage && <NavLink to="/rbac">인가 정책</NavLink>}
+                </nav>
+
+                <div className="sidebar-foot">
+                    BrunoSong Identity<br />
+                    인증은 auth-service 가 맡습니다
                 </div>
-            </header>
+            </aside>
 
-            <main className="content">{children}</main>
+            <div>
+                <header className="topbar">
+                    <div className="topbar-inner">
+                        <span className="who">{claims?.sub}</span>
+                        <nav className="topnav">
+                            <button className="link-button" onClick={onLogout}>로그아웃</button>
+                        </nav>
+                    </div>
+                </header>
+
+                <main className="content">{children}</main>
+            </div>
 
             <EndpointSettings />
             <RequestLog />
