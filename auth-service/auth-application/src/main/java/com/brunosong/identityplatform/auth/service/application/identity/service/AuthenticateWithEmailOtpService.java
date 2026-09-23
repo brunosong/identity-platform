@@ -1,7 +1,9 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.AuthenticateWithEmailOtpUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishEmailOtpAuthenticationUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.EmailOtpAuthCommand;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailOtpStore;
@@ -11,6 +13,7 @@ import com.brunosong.identityplatform.auth.service.domain.identity.Authenticatio
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
-public class AuthenticateWithEmailOtpService implements AuthenticateWithEmailOtpUseCase {
+public class AuthenticateWithEmailOtpService implements AuthenticateWithEmailOtpUseCase, EstablishEmailOtpAuthenticationUseCase {
 
     private final EmailAccountRepository emailAccountRepository;
     private final PrincipalRepository principalRepository;
@@ -41,6 +44,21 @@ public class AuthenticateWithEmailOtpService implements AuthenticateWithEmailOtp
     @Override
     @Transactional
     public AuthenticationResult authenticate(EmailOtpAuthCommand command) {
+        Principal principal = authenticated(command);
+        return authenticationCompletion.complete(principal);
+    }
+
+    @Transactional
+    @Override
+    public AuthenticatedSubject withEmailOtp(EmailOtpAuthCommand command) {
+        Principal principal =
+                authenticationCompletion.establish(authenticated(command));
+
+        return new AuthenticatedSubject(principal.getPrincipalId(),
+                principal.getSubjectId().value(), principal.getRealm());
+    }
+
+    private Principal authenticated(EmailOtpAuthCommand command) {
         EmailAccount emailAccount = emailAccountRepository.findByEmail(command.realm(), command.email())
                 .orElseThrow(() -> new AuthenticationFailedException("인증에 실패했습니다."));
         Principal principal = principalRepository.findById(emailAccount.getPrincipalId())
@@ -54,7 +72,7 @@ public class AuthenticateWithEmailOtpService implements AuthenticateWithEmailOtp
             emailAccount.markVerified();
             emailAccountRepository.save(emailAccount);
         }
-
-        return authenticationCompletion.complete(principal);
+        return principal;
     }
+
 }

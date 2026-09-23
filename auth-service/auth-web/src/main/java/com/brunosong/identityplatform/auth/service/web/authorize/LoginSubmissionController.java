@@ -1,6 +1,6 @@
 package com.brunosong.identityplatform.auth.service.web.authorize;
 
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishAuthenticationUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishPasswordAuthenticationUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.StartLoginSessionUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
@@ -55,9 +55,10 @@ public class LoginSubmissionController {
 
     private final AuthenticationRealm authenticationRealm;
     private final StartAuthorizationUseCase startAuthorization;
-    private final EstablishAuthenticationUseCase establishAuthentication;
+    private final EstablishPasswordAuthenticationUseCase establishAuthentication;
     private final StartLoginSessionUseCase startLoginSession;
     private final AuthorizationCodeRedirect authorizationCodeRedirect;
+    private final LoginSessionStarter loginSessionStarter;
 
     @PostMapping("/realms/{realm}/auth/login")
     public ModelAndView login(@PathVariable String realm,
@@ -90,10 +91,7 @@ public class LoginSubmissionController {
             return loginScreenWithError(realm, request, e.getMessage(), response);
         }
 
-        // 이 브라우저가 로그인했다는 사실을 남긴다. 다음 앱은 이 쿠키로 화면을 건너뛴다.
-        LoginSession session = startLoginSession.start(subject.realm(), subject.principalId());
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                LoginSessionCookie.of(session, httpRequest.isSecure(), Instant.now()).toString());
+        loginSessionStarter.start(subject, httpRequest, response);
 
         return authorizationCodeRedirect.issueAndRedirect(request, subject);
     }

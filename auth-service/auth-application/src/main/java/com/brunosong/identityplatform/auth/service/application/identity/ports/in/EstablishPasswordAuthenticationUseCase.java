@@ -19,7 +19,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
  * <p>지금은 비밀번호뿐이다. 이메일 인증번호나 소셜로 들어오는 길도 결국 같은 자리로 모이지만,
  * 그 경로를 code 흐름에 붙일 때 메서드를 늘린다.
  */
-public interface EstablishAuthenticationUseCase {
+public interface EstablishPasswordAuthenticationUseCase {
 
     AuthenticatedSubject withPassword(PasswordAuthCommand command);
 }

@@ -1,7 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.AuthenticateWithPasswordUseCase;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishAuthenticationUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishPasswordAuthenticationUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
@@ -36,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class AuthenticateWithPasswordService implements AuthenticateWithPasswordUseCase,
-        EstablishAuthenticationUseCase {
+        EstablishPasswordAuthenticationUseCase {
 
     private final PrincipalRepository principalRepository;
     private final PasswordCredentialVerifier passwordCredentialVerifier;
