@@ -15,8 +15,15 @@ const STATE_KEY = 'shop.state';
 const VERIFIER_KEY = 'shop.verifier';
 const TOKEN_KEY = 'shop.tokens';
 
-/** 1. 브라우저를 auth 로 보낼 주소. 해시만 보내고 원본은 여기 남긴다. */
-export async function authorizeUrl() {
+/**
+ * 1. 브라우저를 auth 로 보낼 주소. 해시만 보내고 원본은 여기 남긴다.
+ *
+ * silent 를 켜면 prompt=none 이 붙는다. "화면 띄우지 말고, 안 되면 안 된다고 말해줘" 라는 뜻이다.
+ * 세션이 없을 때 로그인 화면 대신 error=login_required 를 달고 돌아온다.
+ *
+ * 세션이 있을 때는 두 주소의 결과가 <b>똑같다.</b> prompt 가 정하는 것은 없을 때 무엇을 할지뿐이다.
+ */
+export async function authorizeUrl({ silent = false } = {}) {
     const state = random();
     const verifier = random();
     sessionStorage.setItem(STATE_KEY, state);
@@ -30,6 +37,7 @@ export async function authorizeUrl() {
     url.searchParams.set('state', state);
     url.searchParams.set('code_challenge', await sha256(verifier));
     url.searchParams.set('code_challenge_method', 'S256');
+    if (silent) url.searchParams.set('prompt', 'none');
     return url.toString();
 }
 
