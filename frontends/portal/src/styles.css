@@ -309,3 +309,83 @@ pre.raw {
 /* 개발자 패널 안에서는 카드가 겹쳐 보이지 않게 한 겹 벗긴다. */
 .devpanel-body .card { background: transparent; border-color: var(--line); }
 .devpanel-body .row { margin-top: 12px; }
+
+/* ── 섹션 머리 ──────────────────────────────────────── */
+.section { padding-bottom: 44px; }
+.section-head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line);
+}
+.section-head h2 {
+    font-size: 15px; margin: 0; color: var(--text);
+    text-transform: none; letter-spacing: 0; font-weight: 600;
+}
+.section-count { color: var(--muted); font-size: 12px; }
+
+/* 상품이 주인공인 화면이라 히어로를 줄인다. */
+.hero-compact { padding: 44px 0 40px; }
+.hero-compact .hero-title { font-size: 32px; }
+
+/* ── 상품 타일 ──────────────────────────────────────── */
+/* 사진이 없어서 색으로 구분한다. 배경색은 상품마다 인라인으로 들어온다. */
+.thumb { display: grid; place-items: center; }
+.thumb span { font-size: 34px; font-weight: 700; opacity: .8; }
+.thumb-card { aspect-ratio: 4 / 3; border-radius: 10px 10px 0 0; }
+.thumb-detail { aspect-ratio: 1 / 1; border-radius: 14px; }
+.thumb-detail span { font-size: 72px; }
+
+/* ── 상품 목록 ──────────────────────────────────────── */
+.products {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+    gap: 16px;
+}
+.product {
+    display: flex; flex-direction: column; text-decoration: none; color: inherit;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; transition: border-color .15s, transform .15s;
+}
+.product:hover { border-color: var(--accent); transform: translateY(-2px); }
+.product-body { padding: 16px; display: flex; flex-direction: column; flex: 1; }
+.product-category {
+    font-size: 11px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase;
+}
+.product h3 {
+    font-size: 14px; margin: 7px 0 6px; color: var(--text);
+    text-transform: none; letter-spacing: 0; line-height: 1.45;
+}
+.product-summary {
+    color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 0 0 14px;
+    /* 요약 길이가 제각각이라 두 줄에서 자른다. 안 자르면 카드 높이가 들쭉날쭉해진다. */
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.product-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; }
+.product-price { font-size: 15px; font-weight: 700; }
+
+/* 품절은 흐리게만 한다. 감추면 "원래 없던 상품" 과 구분이 안 된다. */
+.product.sold-out .thumb, .product.sold-out .product-price { opacity: .45; }
+
+/* ── 상품 상세 ──────────────────────────────────────── */
+.back-link {
+    display: inline-block; margin-bottom: 20px;
+    color: var(--muted); text-decoration: none; font-size: 13px;
+}
+.back-link::before { content: "← "; }
+.back-link:hover { color: var(--text); }
+
+.detail {
+    display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    gap: 32px; margin-bottom: 28px; align-items: start;
+}
+.detail-info h1 { font-size: 24px; margin: 8px 0 10px; line-height: 1.35; }
+.detail-summary { color: var(--muted); font-size: 14px; margin: 0 0 22px; line-height: 1.7; }
+.detail-price { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+.detail-price strong { font-size: 26px; letter-spacing: -.01em; }
+.detail-info .btn-block { margin-bottom: 10px; }
+.detail-text { margin: 0 0 14px; line-height: 1.85; }
+.detail-text:last-child { margin-bottom: 0; }
+
+@media (max-width: 720px) {
+    .detail { grid-template-columns: 1fr; gap: 22px; }
+    .thumb-detail { aspect-ratio: 16 / 10; }
+    .thumb-detail span { font-size: 52px; }
+}
