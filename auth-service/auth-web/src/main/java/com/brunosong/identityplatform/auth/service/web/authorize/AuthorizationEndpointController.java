@@ -35,12 +35,28 @@ import org.springframework.web.servlet.ModelAndView;
  * <p>동의 화면은 없다. 우리 앱들만 등록되어 있어서 "이 앱에 정보를 주겠습니까" 를 물을 상대가
  * 아직 없다. 남의 앱이 등록되는 날 그 화면이 이 사이에 들어온다.
  *
+ * <h2>{@code prompt=none} - 조용히 시도해 보는 길</h2>
+ * 앱은 세션 쿠키를 읽지 못한다. 다른 출처의 쿠키이기 때문이다. 그래서 "이 브라우저가 이미
+ * 로그인해 있는가" 를 알아낼 방법이 <b>여기로 와 보는 것</b> 하나뿐이다.
+ *
+ * <p>그런데 기본 동작으로는 조용히 와 볼 수가 없다. 세션이 없으면 로그인 화면이 떠버려서,
+ * 구경만 하러 온 사람이 로그인 화면에 갇힌다. {@code prompt=none} 은 그 자리에서 화면 대신
+ * {@code error=login_required} 를 달아 앱으로 돌려보낸다. <b>실패도 리다이렉트라서 앱이 코드로
+ * 분기할 수 있다</b> - 그것이 이 파라미터가 하는 일의 전부다.
+ *
+ * <p>세션이 있을 때는 아무것도 달라지지 않는다. prompt 가 정하는 것은 <b>없을 때 무엇을 할지</b>
+ * 하나다.
+ *
  * <p>없는 파라미터도 여기서는 오류 화면이다. 400 본문 대신 사람이 읽을 화면을 준다 - 이 경로에
- * 도착하는 것은 API 호출이 아니라 브라우저다.
+ * 도착하는 것은 API 호출이 아니라 브라우저다. {@code prompt} 가 이상한 값일 때도 같다.
+ * 그 단계에서는 돌아갈 주소를 아직 믿을 수 없어 앱으로 보낼 수 없다.
  */
 @Controller
 @RequiredArgsConstructor
 public class AuthorizationEndpointController {
+
+    /** 화면을 띄우지 말라는 요청(OIDC Core 3.1.2.1). 이 서비스가 아는 prompt 값은 이것뿐이다. */
+    private static final String SILENT = "none";
 
     private final AuthenticationRealm authenticationRealm;
     private final StartAuthorizationUseCase startAuthorization;
@@ -57,11 +73,13 @@ public class AuthorizationEndpointController {
                             @RequestParam(name = "code_challenge", required = false) String codeChallenge,
                             @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
                             @RequestParam(required = false) String nonce,
+                            @RequestParam(required = false) String prompt,
                             @CookieValue(name = LoginSessionCookie.NAME, required = false) String sessionId,
                             HttpServletResponse response) {
         AuthorizationRequest request;
         Realm resolved;
         try {
+            requireSupportedPrompt(prompt);
             resolved = authenticationRealm.of(realm);
             request = startAuthorization.start(new AuthorizationRequestCommand(
                     resolved, responseType, clientId, redirectUri, scope, state,
@@ -77,9 +95,26 @@ public class AuthorizationEndpointController {
 
         // 이미 로그인해 있으면 묻지 않는다. 세션 확인을 요청 검증 뒤에 두는 것이 중요하다 -
         // 등록되지 않은 앱의 요청에 코드를 내주는 일이 없어야 한다.
+        //
+        // 세션이 없을 때 무엇을 할지만 prompt 가 정한다. 있을 때는 어느 쪽이든 코드를 내준다.
         return findLoginSession.findActive(resolved, sessionId)
                 .map(subject -> authorizationCodeRedirect.issueAndRedirect(request, subject))
-                .orElseGet(() -> loginScreen(realm, request));
+                .orElseGet(() -> SILENT.equals(prompt)
+                        ? authorizationCodeRedirect.loginRequired(request)
+                        : loginScreen(realm, request));
+    }
+
+    /**
+     * 아는 값은 {@code none} 하나다. 나머지는 받지 않는다.
+     *
+     * <p>모르는 값을 조용히 무시하면 {@code prompt=login} 을 보낸 쪽이 다시 물었다고 믿는데 실제로는
+     * 세션이 그대로 통과한다. 재인증을 요구한 자리에서 그러면 곤란하다. 발급자 문서가 적어둔 값
+     * ({@code prompt_values_supported})과도 어긋난다.
+     */
+    private static void requireSupportedPrompt(String prompt) {
+        if (prompt != null && !prompt.isBlank() && !SILENT.equals(prompt)) {
+            throw new IllegalArgumentException("지원하지 않는 prompt 입니다: " + prompt);
+        }
     }
 
     private static ModelAndView loginScreen(String realm, AuthorizationRequest request) {

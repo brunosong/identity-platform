@@ -12,6 +12,8 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.RedirectView;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.function.UnaryOperator;
+
 /**
  * 사람이 확인된 뒤의 마무리 - 코드를 발급해 앱 주소로 돌려보낸다.
  *
@@ -32,21 +34,43 @@ class AuthorizationCodeRedirect {
         AuthorizationCode code = issueAuthorizationCode.issue(new IssueAuthorizationCodeCommand(
                 request, subject.realm(), subject.principalId()));
 
-        return new ModelAndView(redirectWith(request, code));
+        return new ModelAndView(redirectWith(request,
+                builder -> builder.queryParam("code", code.getCode())));
     }
 
     /**
-     * 코드와 state 를 주소창에 실어 앱으로 돌려보낸다. <b>토큰은 여기 없다.</b>
+     * 화면을 띄우지 말라는 요청({@code prompt=none})인데 세션이 없다 - 앱으로 그렇게 돌려보낸다.
+     *
+     * <p><b>화면 대신 값으로 답하는 것이 요점이다.</b> 조용히 시도해 보는 쪽은 "되면 좋고 아니면
+     * 말고" 를 원하는데, 로그인 화면을 그려버리면 "아니면" 을 표현할 방법이 없다. 상품을 구경하러
+     * 온 사람이 로그인 화면에 갇히거나, 보이지 않는 프레임 안에서 답이 영영 오지 않는다.
+     *
+     * <p>오류 이름은 OIDC 가 정한 {@code login_required} 다. 우리가 지은 단어를 쓰면 표준
+     * 라이브러리가 못 알아듣는다.
+     *
+     * <p>이 자리에서 앱 주소로 돌려보내도 되는 이유는 <b>호출한 쪽이 이미 요청을 검증했기</b>
+     * 때문이다. 등록되지 않은 주소였다면 여기까지 오지 못한다.
+     */
+    ModelAndView loginRequired(AuthorizationRequest request) {
+        return new ModelAndView(redirectWith(request,
+                builder -> builder.queryParam("error", "login_required")));
+    }
+
+    /**
+     * 결과를 주소창에 실어 앱으로 돌려보낸다. <b>토큰은 여기 없다.</b>
      *
      * <p>303 을 쓴다. 302 도 브라우저는 GET 으로 따라가지만 그것은 관행이고, POST 뒤에 쓰라고
      * 명세에 적힌 것은 303 이다.
      *
      * <p>state 는 앱이 시작할 때 준 값을 그대로 돌려준다. 앱은 그것으로 자기가 시작한 로그인이
      * 맞는지 확인한다 - 남이 시작한 로그인의 콜백을 열게 만드는 공격을 여기서 거른다.
+     * <b>성공이든 실패든 함께 실어야 한다</b> - 실패에서 빠뜨리면 앱이 그 응답을 자기 것으로
+     * 확인할 수 없다.
      */
-    private static RedirectView redirectWith(AuthorizationRequest request, AuthorizationCode code) {
-        UriComponentsBuilder location = UriComponentsBuilder.fromUriString(request.getRedirectUri())
-                .queryParam("code", code.getCode());
+    private static RedirectView redirectWith(AuthorizationRequest request,
+                                             UnaryOperator<UriComponentsBuilder> outcome) {
+        UriComponentsBuilder location = outcome.apply(
+                UriComponentsBuilder.fromUriString(request.getRedirectUri()));
         if (request.getState() != null) {
             location.queryParam("state", request.getState());
         }
