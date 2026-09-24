@@ -58,7 +58,8 @@ class SilentAuthorizationIntegrationTest {
     private static final String REDIRECT_URI = "http://localhost:5173/login/callback";
     private static final String PASSWORD = "pw12345678";
 
-    /** 이 테스트는 코드를 토큰으로 바꾸지 않으므로 PKCE 원본이 필요 없다. 모양만 맞으면 된다. */
+    /** RFC 7636 부록 B 의 예시 한 쌍. 해시해서 대조하므로 짝이 맞아야 한다. */
+    private static final String VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     private static final String CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 
     @LocalServerPort
@@ -138,6 +139,90 @@ class SilentAuthorizationIntegrationTest {
                 .retrieve().body(new ParameterizedTypeReference<>() { });
 
         assertThat(document).containsEntry("prompt_values_supported", List.of("none"));
+    }
+
+    @Test
+    @DisplayName("코드를 바꾸면 refresh 토큰은 쿠키로 나가고 본문에는 없다")
+    void refreshTokenLeavesAsACookieNotInTheBody() {
+        String session = loginAndKeepSession();
+        String code = codeFrom(authorize("none", session, "state-5"));
+
+        ResponseEntity<String> response = http.post().uri("/realms/portal/token")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body("grant_type=authorization_code&code=" + code
+                        + "&client_id=" + CLIENT_ID
+                        + "&redirect_uri=" + REDIRECT_URI
+                        + "&code_verifier=" + VERIFIER)
+                .retrieve().toEntity(String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+
+        // access 는 본문으로 나간다. 다른 도메인의 서비스로 가야 해서 쿠키로는 못 옮긴다.
+        assertThat(response.getBody()).contains("access_token")
+                // refresh 는 본문에 없다. 함께 주면 스크립트가 읽어 보관할 수 있다.
+                .doesNotContain("refresh_token");
+
+        String cookie = response.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream()
+                .filter(c -> c.startsWith("REFRESH_TOKEN="))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("refresh 쿠키가 없다"));
+
+        assertThat(cookie).contains("HttpOnly")
+                .contains("SameSite=Lax")
+                // 경로를 좁히지 않으면 모든 auth 호출에 따라붙는다.
+                .contains("Path=/api/auth/realms/portal/token");
+    }
+
+    @Test
+    @DisplayName("재발급은 쿠키로 받고 쿠키로 돌려준다")
+    void refreshReadsTheCookieAndSetsANewOne() {
+        String session = loginAndKeepSession();
+        String code = codeFrom(authorize("none", session, "state-6"));
+
+        String issued = refreshCookieOf(http.post().uri("/realms/portal/token")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body("grant_type=authorization_code&code=" + code
+                        + "&client_id=" + CLIENT_ID
+                        + "&redirect_uri=" + REDIRECT_URI
+                        + "&code_verifier=" + VERIFIER)
+                .retrieve().toBodilessEntity());
+
+        // 본문 없이 쿠키만 보낸다. 앱은 이 값을 알지 못한다.
+        ResponseEntity<String> renewed = http.post().uri("/api/auth/realms/portal/token/refresh")
+                .header(HttpHeaders.COOKIE, "REFRESH_TOKEN=" + issued)
+                .retrieve().toEntity(String.class);
+
+        assertThat(renewed.getStatusCode().value()).isEqualTo(200);
+        assertThat(renewed.getBody()).contains("accessToken").doesNotContain("refreshToken");
+
+        // 새 refresh 토큰이 나왔으니 쿠키를 다시 심는다. 안 심으면 브라우저가 지나간 값을 계속 든다.
+        //
+        // 값이 달라지는지는 확인하지 않는다. refresh 토큰에는 sub, iss, type, iat, exp 만 있고
+        // jti 같은 고유값이 없어서, 같은 초에 재발급하면 글자까지 같은 토큰이 나온다.
+        // 회전(한 번 쓰면 폐기)이 없다는 뜻이고, 그것은 따로 할 일이다.
+        assertThat(refreshCookieOf(renewed)).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("쿠키도 본문도 없으면 재발급하지 않는다")
+    void refreshWithoutAnyTokenIsRefused() {
+        assertThat(http.post().uri("/api/auth/realms/portal/token/refresh")
+                .retrieve().toBodilessEntity().getStatusCode().value())
+                .isEqualTo(401);
+    }
+
+    private static String codeFrom(ResponseEntity<Void> response) {
+        URI location = response.getHeaders().getLocation();
+        assertThat(location).isNotNull();
+        return location.getQuery().replaceAll(".*code=([^&]+).*", "$1");
+    }
+
+    private static String refreshCookieOf(ResponseEntity<?> response) {
+        return response.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream()
+                .filter(c -> c.startsWith("REFRESH_TOKEN="))
+                .map(c -> c.substring("REFRESH_TOKEN=".length(), c.indexOf(';')))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("refresh 쿠키가 없다: " + response.getHeaders()));
     }
 
     /**

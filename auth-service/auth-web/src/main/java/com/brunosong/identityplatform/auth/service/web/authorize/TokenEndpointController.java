@@ -1,16 +1,22 @@
 package com.brunosong.identityplatform.auth.service.web.authorize;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
+import com.brunosong.identityplatform.auth.service.application.identity.token.TokenProperties;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ExchangeAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
+import com.brunosong.identityplatform.auth.service.web.support.RefreshTokenCookie;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,6 +24,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.Duration;
 
 /**
  * 토큰 교환 - {@code POST /realms/{realm}/token}.
@@ -51,6 +59,7 @@ public class TokenEndpointController {
 
     private final AuthenticationRealm authenticationRealm;
     private final ExchangeAuthorizationCodeUseCase exchangeAuthorizationCode;
+    private final TokenProperties tokenProperties;
 
     @PostMapping(path = "/realms/{realm}/token",
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -59,14 +68,22 @@ public class TokenEndpointController {
                                @RequestParam(required = false) String code,
                                @RequestParam(name = "redirect_uri", required = false) String redirectUri,
                                @RequestParam(name = "client_id", required = false) String clientId,
-                               @RequestParam(name = "code_verifier", required = false) String codeVerifier) {
+                               @RequestParam(name = "code_verifier", required = false) String codeVerifier,
+                               HttpServletRequest httpRequest, HttpServletResponse response) {
         if (!AUTHORIZATION_CODE.equals(grantType)) {
             throw new UnsupportedGrantTypeException(grantType);
         }
 
+        Realm resolved = authenticationRealm.of(realm);
         AuthenticationResult result = exchangeAuthorizationCode.exchange(
-                new ExchangeAuthorizationCodeCommand(authenticationRealm.of(realm), code, clientId,
+                new ExchangeAuthorizationCodeCommand(resolved, code, clientId,
                         redirectUri, codeVerifier));
+
+        // refresh 토큰은 본문이 아니라 쿠키로 나간다. 아래 응답에도 싣지 않는다.
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                RefreshTokenCookie.of(result.tokens().refreshToken(), resolved,
+                        httpRequest.isSecure(),
+                        Duration.ofMillis(tokenProperties.getRefreshExpiration())).toString());
 
         return TokenResponse.of(result);
     }
@@ -98,14 +115,19 @@ public class TokenEndpointController {
         }
     }
 
+    /**
+     * <b>{@code refresh_token} 이 없다.</b> 그것은 {@code Set-Cookie} 로 나간다.
+     *
+     * <p>본문에도 함께 실으면 쿠키로 옮긴 의미가 없다. 스크립트가 그 값을 읽어 어딘가에 보관하는
+     * 순간 {@code HttpOnly} 는 장식이 된다. 명세에서도 {@code refresh_token} 은 선택 항목이다
+     * (RFC 6749 5.1).
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record TokenResponse(@JsonProperty("access_token") String accessToken,
-                                @JsonProperty("token_type") String tokenType,
-                                @JsonProperty("refresh_token") String refreshToken) {
+                                @JsonProperty("token_type") String tokenType) {
 
         static TokenResponse of(AuthenticationResult result) {
-            return new TokenResponse(result.tokens().accessToken(), "Bearer",
-                    result.tokens().refreshToken());
+            return new TokenResponse(result.tokens().accessToken(), "Bearer");
         }
     }
 

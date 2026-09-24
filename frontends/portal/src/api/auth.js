@@ -73,10 +73,19 @@ export function login({ loginId, password }) {
     });
 }
 
-/** 재발급. 권한과 리비전이 그 시점 값으로 다시 실린다. */
+/**
+ * 재발급. 권한과 리비전이 그 시점 값으로 다시 실린다.
+ *
+ * refresh 토큰을 인자로 안 받는 것이 보통이다. 인가 코드 흐름으로 로그인하면 그 토큰은
+ * httpOnly 쿠키에 있고 이 앱은 값을 모른다. 브라우저가 알아서 싣는다.
+ *
+ * 비밀번호나 소셜로 들어온 경우만 손에 값이 있다. 그쪽은 아직 본문으로 내려주기 때문이다.
+ * 서버는 쿠키를 먼저 보고 없으면 본문을 본다.
+ */
 export function refresh(refreshToken) {
     return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/token/refresh`, {
-        body: { refreshToken },
+        withCookies: true,
+        body: refreshToken ? { refreshToken } : {},
     });
 }
 
