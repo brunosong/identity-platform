@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { consumeReturnTo, consumeState, forgetLoggedIn } from '../api/authorize';
+import { consumeReturnTo, consumeState } from '../api/authorize';
 import DevPanel from '../components/DevPanel';
 import Notice from '../components/Notice';
 
@@ -31,14 +31,6 @@ export default function LoginCallbackPage() {
         const returnTo = consumeReturnTo();
         const stateMatched = consumeState(params.get('state'));
         const error = params.get('error');
-
-        // 조용히 시도해 봤는데 세션이 없었다. 오류가 아니라 답이다 - 아무 일 없던 것처럼 보낸다.
-        // state 를 여기서도 대조한다. 남이 열게 만든 콜백이면 우리 깃발을 건드리지 않아야 한다.
-        if (error === 'login_required' && stateMatched) {
-            forgetLoggedIn();
-            navigate(returnTo ?? '/', { replace: true });
-            return;
-        }
 
         if (error) {
             setFailure(`인증 서버가 거절했습니다: ${error}`);
@@ -82,12 +74,6 @@ export default function LoginCallbackPage() {
                 <p className="field-hint">
                     <code>code</code> 와 <code>state</code> 뿐입니다. 토큰이 주소창에 실리면 브라우저
                     기록과 리퍼러에 남기 때문에, 오는 것은 한 번 쓰고 버리는 code 한 장입니다.
-                </p>
-                <p className="field-hint">
-                    조용히 시도한 경우(<code>prompt=none</code>)에는 <code>code</code> 대신
-                    <code>error=login_required</code> 가 올 수 있습니다. 세션이 없었다는 뜻이고
-                    오류가 아니라 답입니다. 그때는 이 화면이 아무것도 보여주지 않고 원래 보던
-                    자리로 돌려보냅니다.
                 </p>
 
                 <h3>교환 요청</h3>
