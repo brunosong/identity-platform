@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as authApi from '../api/auth';
-import { exchangeCode } from '../api/authorize';
+import { exchangeCode, forgetLoggedIn, rememberLoggedIn } from '../api/authorize';
 import { decode } from '../api/jwt';
 
 /**
@@ -76,7 +76,12 @@ export function AuthProvider({ children }) {
      */
     const loginWithCode = useCallback(async (code) => {
         const result = await exchangeCode(code);
-        if (result.ok) setTokens(result.tokens);
+        if (result.ok) {
+            setTokens(result.tokens);
+            // 다음에 새로고침으로 토큰이 날아가도 조용히 되찾아 올 수 있다는 표시다.
+            // 토큰이 아니라 깃발 하나라 localStorage 에 둬도 잃을 것이 없다.
+            rememberLoggedIn();
+        }
         return result;
     }, [setTokens]);
 
@@ -94,6 +99,8 @@ export function AuthProvider({ children }) {
         // 서버 응답과 무관하게 버린다. 단일 세션을 켜지 않았다면 서버는 이 토큰을 막을 방법이 없고,
         // 폐기는 우리 몫이다.
         setTokens(null);
+        // 깃발도 내린다. 안 내리면 로그아웃한 사람이 새 탭을 열 때마다 헛왕복을 한 번씩 한다.
+        forgetLoggedIn();
         return result;
     }, [tokens, setTokens]);
 

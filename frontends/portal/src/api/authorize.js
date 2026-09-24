@@ -1,11 +1,15 @@
 /**
- * 우리 인가 요청 - auth-service 의 로그인 화면으로 떠난다.
+ * 우리 인가 요청 - auth-service 로 떠난다. 로그인 화면을 거칠 수도, 안 거칠 수도 있다.
  *
  * 구글 버튼(google.js)과 구조가 같고 상대만 다르다. 다른 점이 하나 있다면 이쪽은 앱이 상대를
  * 고르지 않는다는 것이다. 구글이든 다른 무엇이든, 어떤 방법으로 사람을 확인할지는 auth 가 정한다.
  * 이 파일이 아는 것은 "우리 인증 서버로 보낸다" 뿐이다.
  *
  * 비밀번호를 받는 자리가 이 앱에서 사라진다는 것이 요점이다. 앱이 받는 것은 code 한 장이다.
+ *
+ * 떠나는 길이 둘이다. 사람이 로그인 버튼을 눌렀을 때와, 앱이 조용히 시도할 때(silent)다.
+ * 뒤엣것은 세션이 없으면 로그인 화면 대신 error=login_required 를 달고 돌아온다. 그래야 앱이
+ * "안 되면 말고" 를 표현할 수 있다.
  */
 
 import { endpoints } from './config';
@@ -26,6 +30,21 @@ const HOME = `${location.origin}/`;
 const STATE_KEY = 'brunosong.state';
 const VERIFIER_KEY = 'brunosong.verifier';
 
+/** 무언 재인증에서 돌아왔을 때 어디로 보낼지. 브라우저가 앱을 떠나므로 메모리로는 안 된다. */
+const RETURN_TO_KEY = 'brunosong.returnTo';
+
+/** 이 탭에서 이미 조용히 시도해 봤는가. 한 번 실패하면 같은 탭에서는 다시 하지 않는다. */
+const TRIED_KEY = 'brunosong.silentTried';
+
+/**
+ * 전에 로그인한 적이 있는 브라우저인가.
+ *
+ * 토큰이 아니라 깃발 하나다. 새어도 잃을 것이 없다. 이것이 있어야 조용한 시도를 하는 이유는,
+ * 한 번도 로그인한 적 없는 방문자에게 auth 왕복을 먹이지 않기 위해서다 - 상품만 구경하는
+ * 사람에게는 통째로 낭비다.
+ */
+const SEEN_KEY = 'portal.hasLoggedIn';
+
 /**
  * 로그인 화면 주소.
  *
@@ -33,11 +52,13 @@ const VERIFIER_KEY = 'brunosong.verifier';
  * 메모리로는 안 된다. 나갈 때는 해시만 보내고, 원본은 code 를 토큰으로 바꾸러 갈 때 낸다.
  * 그래서 요청을 들여다본 쪽이 code 를 주워도 토큰으로 바꾸지 못한다.
  */
-export async function authorizeUrl() {
+export async function authorizeUrl({ silent = false, returnTo = null } = {}) {
     const state = randomString();
     const verifier = randomString();
     sessionStorage.setItem(STATE_KEY, state);
     sessionStorage.setItem(VERIFIER_KEY, verifier);
+    if (returnTo) sessionStorage.setItem(RETURN_TO_KEY, returnTo);
+    else sessionStorage.removeItem(RETURN_TO_KEY);
 
     const url = new URL(`${endpoints().auth}/realms/${REALM}/auth`);
     url.searchParams.set('response_type', 'code');
@@ -48,7 +69,46 @@ export async function authorizeUrl() {
     url.searchParams.set('state', state);
     url.searchParams.set('code_challenge', await sha256Base64Url(verifier));
     url.searchParams.set('code_challenge_method', 'S256');
+    // 화면을 띄우지 말라는 뜻. 세션이 없으면 error=login_required 로 돌아온다.
+    if (silent) url.searchParams.set('prompt', 'none');
     return url.toString();
+}
+
+/**
+ * 조용히 시도해 볼 만한가.
+ *
+ * 두 가지를 본다. 전에 로그인한 적이 있는 브라우저인가, 그리고 이 탭에서 이미 해봤는가.
+ * 뒤엣것이 없으면 세션이 정말 없을 때 무한히 왕복한다 - 시도, login_required, 시도, ...
+ */
+export function shouldTrySilently() {
+    return localStorage.getItem(SEEN_KEY) === 'true' && !sessionStorage.getItem(TRIED_KEY);
+}
+
+/** 시도했다고 적어둔다. 떠나기 직전에 부른다. */
+export function markSilentTried() {
+    sessionStorage.setItem(TRIED_KEY, '1');
+}
+
+/** 로그인에 성공했다. 다음에 또 조용히 시도해도 된다는 뜻이다. */
+export function rememberLoggedIn() {
+    localStorage.setItem(SEEN_KEY, 'true');
+    sessionStorage.removeItem(TRIED_KEY);
+}
+
+/**
+ * 조용한 시도가 실패했거나 로그아웃했다. 깃발을 내린다.
+ *
+ * 내리지 않으면 세션이 끝난 뒤에도 새 탭을 열 때마다 헛왕복을 한 번씩 한다.
+ */
+export function forgetLoggedIn() {
+    localStorage.removeItem(SEEN_KEY);
+}
+
+/** 무언 재인증에서 돌아왔다. 어디로 보낼지 꺼내고 지운다. */
+export function consumeReturnTo() {
+    const path = sessionStorage.getItem(RETURN_TO_KEY);
+    sessionStorage.removeItem(RETURN_TO_KEY);
+    return path;
 }
 
 /**
