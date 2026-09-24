@@ -69,7 +69,12 @@ export default function ProductDetailPage() {
                         </button>
                     ) : (
                         <>
-                            <Link className="btn btn-primary btn-block" to="/login">
+                            {/* state 는 로그인 뒤 돌아올 자리다. auth 에는 가지 않는다. */}
+                            <Link
+                                className="btn btn-primary btn-block"
+                                to="/login"
+                                state={{ from: `/products/${product.id}` }}
+                            >
                                 로그인하고 주문하기
                             </Link>
                             <p className="field-hint">

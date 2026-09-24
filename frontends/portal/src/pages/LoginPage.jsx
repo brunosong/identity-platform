@@ -90,7 +90,12 @@ export default function LoginPage() {
                 <button
                     type="button"
                     className="btn btn-ghost btn-block btn-brunosong"
-                    onClick={async () => { window.location.href = await brunosongAuthorizeUrl(); }}
+                    onClick={async () => {
+                        // 어디서 왔는지 넘긴다. 브라우저가 앱을 떠나므로 이 화면의 상태로는 안 된다.
+                        window.location.href = await brunosongAuthorizeUrl({
+                            returnTo: location.state?.from,
+                        });
+                    }}
                 >
                     BrunoSong 로그인
                 </button>
