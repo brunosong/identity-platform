@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import * as authApi from '../api/auth';
+import { setAccessTokenRefresher } from '../api/http';
 import { exchangeCode, refreshTokens } from '../api/authorize';
 import { decode } from '../api/jwt';
 
@@ -13,14 +14,14 @@ import { decode } from '../api/jwt';
  * 있는 자리에 놓인다. XSS 하나면 털린다는 뜻이다. 그때 남은 완화책은 "오래 남는 자리에 두지 않기"
  * 뿐이다. {@code localStorage} 는 탭을 닫아도, 브라우저를 껐다 켜도 남는다.
  *
- * <h3>사라진 것을 대신 되살리지 않는다</h3>
- * 새로고침하면 로그아웃이고, access 가 만료되면 요청이 401 로 끝난다. 둘 다 뒤에서 조용히
- * 메워주지 않는다. <b>무엇이 언제 죽는지 눈에 보이게 두려는 것이다.</b> 재발급은 마이페이지의
- * 버튼으로만 돈다.
+ * <h3>새로고침은 되살리지 않고, 만료는 되살린다</h3>
+ * 새로고침하면 로그아웃이다. 토큰이 메모리에만 있으니 되살릴 것이 없다.
  *
- * <p>편의를 되살리려면 둘이 한 벌로 온다. 401 자동 재시도와 <b>재발급 묶기</b>다. 회전이 붙어
- * 있어서 묶지 않으면 동시에 401 을 받은 요청 둘이 각자 재발급하고, 진 쪽이 이미 쓴 토큰을 내밀어
- * 계보가 통째로 끊긴다.
+ * <p>access 만료는 다르다. 401 을 만난 요청이 여기 등록된 재발급을 부르고, 새 토큰으로 한 번
+ * 다시 보낸다({@code api/http.js}). 사람이 보기에는 아무 일도 안 일어난다.
+ *
+ * <p><b>재발급은 묶어서 한 번만 나간다.</b> 회전이 붙어 있어서 묶지 않으면 동시에 401 을 받은
+ * 요청 둘이 각자 재발급하고, 진 쪽이 이미 쓴 토큰을 내밀어 계보가 통째로 끊긴다.
  *
  * (제대로 하려면 BFF 를 두고 토큰은 서버가 들고, 브라우저는 httpOnly 쿠키만 받는다.
  *  그러면 편의와 안전을 둘 다 갖는다. 이 앱에는 BFF 가 없다.)
@@ -61,15 +62,45 @@ export function AuthProvider({ children }) {
         return result;
     }, []);
 
+    // 재발급 함수가 클로저에 낡은 토큰을 잡지 않게 한다. 자동 재발급은 언제 불릴지 모른다.
+    const tokensRef = useRef(tokens);
+    useEffect(() => { tokensRef.current = tokens; }, [tokens]);
+
+    /** 재발급이 도는 동안의 Promise. 동시에 여러 요청이 401 을 받아도 재발급은 한 번이다. */
+    const refreshing = useRef(null);
+
     /**
      * 재발급. 받은 쌍을 <b>통째로</b> 갈아끼운다. access 만 챙기고 refresh 를 두면, 이미 죽은
      * 토큰을 다음에 다시 내게 되고 서버는 그것을 탈취로 본다(회전).
+     *
+     * 도는 중에 또 불리면 같은 Promise 를 돌려준다. 그래서 회전은 한 번만 일어난다.
      */
-    const refresh = useCallback(async () => {
-        const result = await refreshTokens(tokens?.refreshToken);
-        if (result.ok) setTokens(result.tokens);
-        return result;
-    }, [tokens]);
+    const refresh = useCallback(() => {
+        if (!refreshing.current) {
+            refreshing.current = refreshTokens(tokensRef.current?.refreshToken)
+                .then((result) => {
+                    refreshing.current = null;
+                    if (result.ok) setTokens(result.tokens);
+                    return result;
+                });
+        }
+        return refreshing.current;
+    }, []);
+
+    /**
+     * 401 을 만난 요청이 부를 자리를 http.js 에 등록한다.
+     *
+     * 돌려주는 것은 새 access 토큰이다. 되살리지 못하면 토큰을 버린다. 안 버리면 죽은 토큰을
+     * 들고 오류 화면 앞에 앉아 있게 된다. 버리면 RequireAuth 가 받아서 로그인으로 보낸다.
+     */
+    useEffect(() => {
+        setAccessTokenRefresher(async () => {
+            const result = await refresh();
+            if (result.ok) return result.tokens.accessToken;
+            setTokens(null);
+            return null;
+        });
+    }, [refresh]);
 
     const logout = useCallback(async () => {
         const result = tokens?.accessToken
