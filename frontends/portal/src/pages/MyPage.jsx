@@ -185,37 +185,7 @@ export default function MyPage() {
 
                 <TokenInspector label="access 토큰" token={tokens?.accessToken} kind="access" />
 
-                {tokens?.refreshToken ? (
-                    <TokenInspector label="refresh 토큰" token={tokens.refreshToken} kind="refresh" />
-                ) : (
-                    <>
-                        <h3>refresh 토큰</h3>
-                        <p className="field-hint">
-                            <b>이 화면에서 보여줄 수 없습니다.</b> 인가 코드 흐름으로 로그인하면
-                            refresh 토큰은 <code>httpOnly</code> 쿠키로 오고, 이 앱의 스크립트는
-                            그 값을 읽지 못합니다. 위의 <b>토큰 재발급</b>은 여전히 동작하는데,
-                            브라우저가 그 쿠키를 알아서 실어 보내기 때문입니다.
-                        </p>
-                        <p className="field-hint">
-                            개발자 도구 <b>Application → Cookies</b> 에서 <code>REFRESH_TOKEN</code> 을
-                            확인해 보세요. 이 쿠키는 8080 이 구웠는데 목록에는
-                            <code>http://localhost:5173</code> 밑에 보입니다.
-                            <b>쿠키는 포트를 구분하지 않기 때문입니다.</b> 8080 과 5173 은 같은 호스트라
-                            쿠키 서랍을 함께 씁니다. 운영에서 도메인이 갈리면 그때는 안 섞입니다.
-                        </p>
-                        <p className="field-hint">
-                            그래도 이 앱의 요청에는 실리지 않습니다. <code>Path</code> 가
-                            <code>/api/auth/realms/portal/token</code> 으로 좁혀져 있어서 재발급
-                            요청에만 붙습니다. 좁히지 않으면 화면을 여는 모든 요청에 1KB 가
-                            따라붙습니다.
-                        </p>
-                        <p className="field-hint">
-                            비밀번호로 로그인하면 이 자리에 토큰이 그대로 보입니다. 그쪽 경로는
-                            아직 본문으로 내려주기 때문입니다. 같은 앱인데 로그인 방법에 따라
-                            refresh 토큰이 어디 있는지가 갈립니다.
-                        </p>
-                    </>
-                )}
+                <TokenInspector label="refresh 토큰" token={tokens?.refreshToken} kind="refresh" />
 
                 {permissions && (
                     <>

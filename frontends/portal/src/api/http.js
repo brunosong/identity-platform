@@ -4,11 +4,14 @@
  * 여기에 모아두는 이유는 세 가지다 — 토큰을 싣는 규칙을 한 곳에서 정하고, 오간 요청을 화면에
  * 기록하고, 실패를 한 가지 모양으로 만들기 위해서다.
  *
- * <b>access 토큰은 보내는 쪽이 Authorization 헤더에 명시적으로 넣는다.</b> 그래서 "이 요청이
- * 인증된 요청인가" 가 코드에 드러난다. 쿠키였다면 안 보였을 것이다.
+ * <b>토큰은 보내는 쪽이 명시적으로 싣는다.</b> access 는 Authorization 헤더에, refresh 는
+ * 재발급 요청의 폼 본문에 넣는다. 그래서 "이 요청이 인증된 요청인가" 가 코드에 드러난다.
+ * 브라우저가 알아서 붙여주는 값은 하나도 없다.
  *
- * refresh 토큰만 다르다. 그쪽은 httpOnly 쿠키라 이 앱이 값을 알지 못하고, 브라우저가 알아서
- * 싣는다. 그 요청에만 withCookies 를 켠다.
+ * <h3>401 을 만나면 한 번 되살려 본다</h3>
+ * access 토큰은 짧게 쓰는 값이라 화면을 열어둔 채로 만료될 수 있다. 그때마다 사람에게 오류를
+ * 보여주는 대신, 재발급을 한 번 부르고 원래 요청을 다시 보낸다. <b>재시도는 한 번뿐이다.</b>
+ * 되살리지 못하면 받은 401 을 그대로 호출자에게 돌려준다.
  */
 
 /** 화면 하단 요청 로그를 위한 구독자들. */
@@ -31,11 +34,38 @@ function emit(entry) {
  * @param form     폼 인코딩으로 실을 본문. OAuth 토큰 엔드포인트가 이 모양을 요구한다
  * @param token    있으면 Authorization: Bearer 로 싣는다
  * @param query    쿼리 파라미터
- * @param withCookies  쿠키를 주고받는 요청인가. refresh 토큰이 httpOnly 쿠키로 오간다
  * @returns {{ok, status, data, message, blocked}}
  */
-export async function request(baseUrl, method, path,
-                              { body, form, token, query, withCookies } = {}) {
+export async function request(baseUrl, method, path, options = {}) {
+    const result = await send(baseUrl, method, path, options);
+
+    // 토큰을 실어 보낸 요청의 401 만 만료로 본다. 로그인 전 호출의 401 은 다른 얘기고,
+    // 재발급 요청 자체는 token 을 안 쓰므로(쿠키로 돈다) 여기서 재귀하지 않는다.
+    if (result.status !== 401 || !options.token || !refreshAccessToken) return result;
+
+    const fresh = await refreshAccessToken();
+    if (!fresh) return result;    // 되살리지 못했다. 원래 401 을 그대로 돌려준다
+
+    // 재시도는 한 번뿐이다. send 는 다시 감싸지 않는다.
+    return send(baseUrl, method, path, { ...options, token: fresh });
+}
+
+/**
+ * 만료된 access 토큰을 되살리는 방법을 등록한다. {@link AuthProvider} 가 앱이 뜰 때 넣는다.
+ *
+ * 이 파일이 AuthContext 를 직접 부르지 않는 이유는 순환 때문이다 - AuthContext 가 쓰는
+ * api/auth.js 가 이미 이 파일을 쓴다. 그래서 방향을 뒤집어 등록으로 받는다.
+ *
+ * 돌려주는 것은 <b>새 access 토큰</b>이다. 재발급은 새 쌍을 주므로 refresh 토큰도 함께 갈리는데,
+ * 그 보관은 AuthProvider 가 한다. 이 파일이 알아야 하는 것은 다시 보낼 때 실을 값 하나뿐이다.
+ */
+let refreshAccessToken = null;
+
+export function setAccessTokenRefresher(refresher) {
+    refreshAccessToken = refresher;
+}
+
+async function send(baseUrl, method, path, { body, form, token, query } = {}) {
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     // 폼 인코딩은 브라우저가 "단순 요청" 으로 쳐서 preflight 가 나가지 않는다.
@@ -49,10 +79,6 @@ export async function request(baseUrl, method, path,
         response = await fetch(url, {
             method,
             headers,
-            // 다른 출처로 보내는 요청은 기본적으로 Set-Cookie 를 무시한다. 이것이 없으면 서버가
-            // 쿠키를 내려도 브라우저가 말없이 버린다 - 오류도 경고도 없어 찾기 어려운 자리다.
-            // 전부 켜지 않는 것은 JWKS 때문이다. 거기는 출처가 와일드카드라 credentials 를 못 쓴다.
-            credentials: withCookies ? 'include' : 'same-origin',
             body: form !== undefined
                 ? new URLSearchParams(form)
                 : (body === undefined ? undefined : JSON.stringify(body)),

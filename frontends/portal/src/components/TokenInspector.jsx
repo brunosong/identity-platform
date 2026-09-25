@@ -97,8 +97,9 @@ export default function TokenInspector({ label, token, kind }) {
 
             {kind === 'refresh' && (
                 <p className="field-hint warn">
-                    이 토큰이 가야 할 곳은 <code>/token/refresh</code> <b>한 곳뿐</b>입니다.
-                    수명이 access 토큰보다 훨씬 길어서, 새면 그만큼 오래 새 토큰을 찍어낼 수 있습니다.
+                    이 토큰이 가야 할 곳은 토큰 엔드포인트 <b>한 곳뿐</b>입니다
+                    (<code>grant_type=refresh_token</code>). 수명이 access 토큰보다 훨씬 길지만
+                    한 번 쓰면 죽습니다. 이미 쓴 토큰을 다시 내면 그 로그인 계보가 통째로 끊깁니다.
                 </p>
             )}
         </div>
