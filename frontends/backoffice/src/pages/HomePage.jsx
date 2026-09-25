@@ -169,7 +169,20 @@ export default function HomePage() {
             )}
 
             <TokenInspector label="access 토큰" token={tokens?.accessToken} />
-            <TokenInspector label="refresh 토큰" token={tokens?.refreshToken} kind="refresh" />
+            <div className="card">
+                <h2>refresh 토큰</h2>
+                <p className="field-hint">
+                    <b>이 화면에서 보여줄 수 없습니다.</b> 인가 코드 흐름으로 로그인하면 refresh
+                    토큰은 <code>httpOnly</code> 쿠키로 오고, 이 앱의 스크립트는 그 값을 읽지
+                    못합니다. 재발급은 여전히 동작합니다. 브라우저가 그 쿠키를 알아서 실어
+                    보내기 때문입니다.
+                </p>
+                <p className="field-hint">
+                    개발자 도구 <b>Application → Cookies</b> 에서 <code>REFRESH_TOKEN</code> 을
+                    볼 수 있습니다. <code>Path</code> 가 재발급 경로로 좁혀져 있어 다른 요청에는
+                    실리지 않습니다.
+                </p>
+            </div>
 
             <div className="card muted-card">
                 <h2>realm 격리 확인 — 소셜 로그인</h2>

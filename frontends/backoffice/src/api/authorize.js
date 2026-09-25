@@ -89,6 +89,8 @@ export async function exchangeCode(code) {
     }
 
     const result = await request(endpoints().auth, 'POST', `/realms/${REALM}/token`, {
+        // 응답이 refresh 토큰을 httpOnly 쿠키로 심는다. 이것이 없으면 브라우저가 그 쿠키를 버린다.
+        withCookies: true,
         form: {
             grant_type: 'authorization_code',
             code,
@@ -104,13 +106,15 @@ export async function exchangeCode(code) {
     }
 
     // 응답 이름이 snake_case 다. OAuth 명세의 모양이라 앱 쪽 이름으로 옮겨 담는다.
+    //
+    // refresh_token 이 없다. 그것은 httpOnly 쿠키로 왔고 이 앱은 값을 알지 못한다.
+    // 재발급할 때 브라우저가 알아서 싣는다.
     return {
         ok: true,
         status: result.status,
         tokens: {
             tokenType: result.data.token_type,
             accessToken: result.data.access_token,
-            refreshToken: result.data.refresh_token,
         },
     };
 }

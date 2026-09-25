@@ -27,10 +27,16 @@ const authUrl = () => endpoints().auth;
 
 
 
-/** 재발급. 권한과 리비전이 그 시점 값으로 다시 실린다 — 역할이 바뀐 뒤에는 이걸 받아야 보인다. */
-export function refresh(refreshToken) {
+/**
+ * 재발급. 권한과 리비전이 그 시점 값으로 다시 실린다. 역할이 바뀐 뒤에는 이걸 받아야 보인다.
+ *
+ * refresh 토큰을 인자로 받지 않는다. 이 앱은 인가 코드 흐름으로만 로그인하고, 그 토큰은
+ * httpOnly 쿠키로 와서 이 앱은 값을 알지 못한다. 브라우저가 알아서 싣는다.
+ */
+export function refresh() {
     return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/token/refresh`, {
-        body: { refreshToken },
+        withCookies: true,
+        body: {},
     });
 }
 

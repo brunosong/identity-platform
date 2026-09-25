@@ -71,12 +71,15 @@ export function AuthProvider({ children }) {
         return result;
     }, [setTokens]);
 
+    /**
+     * 손에 refresh 토큰이 없어도 부른다. 그 토큰은 httpOnly 쿠키에 있고 이 앱은 값을 모른다.
+     * 있는지 없는지도 브라우저만 안다.
+     */
     const refresh = useCallback(async () => {
-        if (!tokens?.refreshToken) return { ok: false, status: 0, message: '리프레시 토큰이 없습니다.' };
-        const result = await authApi.refresh(tokens.refreshToken);
+        const result = await authApi.refresh();
         if (result.ok) setTokens(result.data.tokens);
         return result;
-    }, [tokens, setTokens]);
+    }, [setTokens]);
 
     const logout = useCallback(async () => {
         const result = tokens?.accessToken
