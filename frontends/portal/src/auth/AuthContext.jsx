@@ -30,13 +30,26 @@ import { decode } from '../api/jwt';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-    const [tokens, setTokens] = useState(null);
+    const [tokens, setTokensState] = useState(null);
+
+    /**
+     * 화면이 보는 상태와 재발급이 읽는 값을 <b>같이</b> 갱신한다.
+     *
+     * ref 갱신을 효과로 미루면 안 된다. 재발급이 막 끝난 직후에 또 401 이 오면, 그 요청은 React 가
+     * 상태를 반영하기 전에 ref 를 읽는다. 그러면 방금 회전으로 죽은 refresh 토큰을 다시 내밀게 되고,
+     * 서버는 그것을 탈취로 보고 계보를 통째로 끊는다. 화면은 재발급 실패로 멈춰 선다.
+     */
+    const tokensRef = useRef(null);
+    const setTokens = useCallback((next) => {
+        tokensRef.current = next;
+        setTokensState(next);
+    }, []);
 
     const login = useCallback(async ({ loginId, password }) => {
         const result = await authApi.login({ loginId, password });
         if (result.ok) setTokens(result.data.tokens);
         return result;
-    }, []);
+    }, [setTokens]);
 
     /**
      * 구글에서 받은 code 로 로그인한다.
@@ -48,7 +61,7 @@ export function AuthProvider({ children }) {
         const result = await authApi.loginWithSocial(code);
         if (result.ok) setTokens(result.data.tokens);
         return result;
-    }, []);
+    }, [setTokens]);
 
     /**
      * 우리 인증 서버에서 받은 code 로 로그인한다.
@@ -60,11 +73,7 @@ export function AuthProvider({ children }) {
         const result = await exchangeCode(code);
         if (result.ok) setTokens(result.tokens);
         return result;
-    }, []);
-
-    // 재발급 함수가 클로저에 낡은 토큰을 잡지 않게 한다. 자동 재발급은 언제 불릴지 모른다.
-    const tokensRef = useRef(tokens);
-    useEffect(() => { tokensRef.current = tokens; }, [tokens]);
+    }, [setTokens]);
 
     /** 재발급이 도는 동안의 Promise. 동시에 여러 요청이 401 을 받아도 재발급은 한 번이다. */
     const refreshing = useRef(null);
@@ -85,7 +94,7 @@ export function AuthProvider({ children }) {
                 });
         }
         return refreshing.current;
-    }, []);
+    }, [setTokens]);
 
     /**
      * 401 을 만난 요청이 부를 자리를 http.js 에 등록한다.
@@ -100,7 +109,7 @@ export function AuthProvider({ children }) {
             setTokens(null);
             return null;
         });
-    }, [refresh]);
+    }, [refresh, setTokens]);
 
     const logout = useCallback(async () => {
         const result = tokens?.accessToken
@@ -110,7 +119,7 @@ export function AuthProvider({ children }) {
         // 폐기는 우리 몫이다.
         setTokens(null);
         return result;
-    }, [tokens]);
+    }, [tokens, setTokens]);
 
     const decoded = useMemo(() => decode(tokens?.accessToken), [tokens]);
 
