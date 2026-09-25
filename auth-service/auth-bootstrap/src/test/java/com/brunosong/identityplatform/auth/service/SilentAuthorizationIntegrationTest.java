@@ -24,6 +24,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -138,68 +140,42 @@ class SilentAuthorizationIntegrationTest {
                 .uri("/realms/portal/.well-known/openid-configuration")
                 .retrieve().body(new ParameterizedTypeReference<>() { });
 
-        assertThat(document).containsEntry("prompt_values_supported", List.of("none"));
+        assertThat(document).containsEntry("prompt_values_supported", List.of("none"))
+                // 재발급이 토큰 엔드포인트로 들어왔으니 문서에도 적혀 있어야 한다.
+                .containsEntry("grant_types_supported", List.of("authorization_code", "refresh_token"));
     }
-
     @Test
-    @DisplayName("코드를 바꾸면 refresh 토큰은 쿠키로 나가고 본문에는 없다")
-    void refreshTokenLeavesAsACookieNotInTheBody() {
+    @DisplayName("코드를 바꾸면 토큰 둘이 모두 본문으로 나온다")
+    void bothTokensComeInTheBody() {
         String session = loginAndKeepSession();
         String code = codeFrom(authorize("none", session, "state-5"));
 
-        ResponseEntity<String> response = http.post().uri("/realms/portal/token")
-                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
-                .body("grant_type=authorization_code&code=" + code
-                        + "&client_id=" + CLIENT_ID
-                        + "&redirect_uri=" + REDIRECT_URI
-                        + "&code_verifier=" + VERIFIER)
-                .retrieve().toEntity(String.class);
+        ResponseEntity<String> response = exchange(code);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).contains("access_token").contains("refresh_token");
 
-        // access 는 본문으로 나간다. 다른 도메인의 서비스로 가야 해서 쿠키로는 못 옮긴다.
-        assertThat(response.getBody()).contains("access_token")
-                // refresh 는 본문에 없다. 함께 주면 스크립트가 읽어 보관할 수 있다.
-                .doesNotContain("refresh_token");
-
-        String cookie = response.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream()
-                .filter(c -> c.startsWith("REFRESH_TOKEN="))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("refresh 쿠키가 없다"));
-
-        assertThat(cookie).contains("HttpOnly")
-                .contains("SameSite=Lax")
-                // 경로를 좁히지 않으면 모든 auth 호출에 따라붙는다.
-                .contains("Path=/api/auth/realms/portal/token");
+        // 쿠키는 나가지 않는다. 한때 refresh 토큰만 HttpOnly 쿠키로 내보냈는데,
+        // 로그인 방식마다 토큰이 있는 자리가 갈리는 값을 치르고 있었다.
+        assertThat(response.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE))
+                .noneMatch(cookie -> cookie.startsWith("REFRESH_TOKEN="));
     }
 
     @Test
-    @DisplayName("재발급은 쿠키로 받고 쿠키로 돌려준다")
-    void refreshReadsTheCookieAndSetsANewOne() {
+    @DisplayName("재발급도 같은 엔드포인트다. grant_type 이 가른다")
+    void refreshUsesTheSameEndpoint() {
         String session = loginAndKeepSession();
         String code = codeFrom(authorize("none", session, "state-6"));
 
-        String issued = refreshCookieOf(http.post().uri("/realms/portal/token")
-                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
-                .body("grant_type=authorization_code&code=" + code
-                        + "&client_id=" + CLIENT_ID
-                        + "&redirect_uri=" + REDIRECT_URI
-                        + "&code_verifier=" + VERIFIER)
-                .retrieve().toBodilessEntity());
-
-        // 본문 없이 쿠키만 보낸다. 앱은 이 값을 알지 못한다.
-        ResponseEntity<String> renewed = http.post().uri("/api/auth/realms/portal/token/refresh")
-                .header(HttpHeaders.COOKIE, "REFRESH_TOKEN=" + issued)
-                .retrieve().toEntity(String.class);
+        String issued = refreshTokenOf(exchange(code));
+        ResponseEntity<String> renewed = refreshWith(issued);
 
         assertThat(renewed.getStatusCode().value()).isEqualTo(200);
-        assertThat(renewed.getBody()).contains("accessToken").doesNotContain("refreshToken");
+        assertThat(renewed.getBody()).contains("access_token").contains("refresh_token");
 
-        // 새 refresh 토큰이 나왔으니 쿠키를 다시 심는다. 안 심으면 브라우저가 지나간 값을 계속 든다.
-        //
         // 값은 반드시 달라진다. 토큰마다 jti 가 다르기 때문이다. 전에는 sub, iss, type, iat, exp 만
         // 있어서 같은 초에 재발급하면 글자까지 같은 토큰이 나왔다.
-        assertThat(refreshCookieOf(renewed)).isNotBlank().isNotEqualTo(issued);
+        assertThat(refreshTokenOf(renewed)).isNotBlank().isNotEqualTo(issued);
     }
 
     @Test
@@ -208,52 +184,70 @@ class SilentAuthorizationIntegrationTest {
         String session = loginAndKeepSession();
         String code = codeFrom(authorize("none", session, "state-7"));
 
-        String issued = refreshCookieOf(exchange(code));
-        String renewed = refreshCookieOf(refreshWith(issued));
+        String issued = refreshTokenOf(exchange(code));
+        String renewed = refreshTokenOf(refreshWith(issued));
 
         // 방금 쓴 토큰을 다시 낸다. 훔친 쪽이 쓴 것인지 진짜 사용자가 뒤늦게 쓴 것인지 가릴 수 없다.
-        assertThat(refreshWith(issued).getStatusCode().value()).isEqualTo(401);
+        ResponseEntity<String> reused = refreshWith(issued);
+        assertThat(reused.getStatusCode().value()).isEqualTo(400);
+        // 기계가 읽는 자리라 오류 이름도 명세의 것을 쓴다.
+        assertThat(reused.getBody()).contains("invalid_grant");
 
         // 그래서 직전에 정상으로 받은 토큰까지 함께 죽는다. 계보를 통째로 끊는다는 것이 이 뜻이다.
-        assertThat(refreshWith(renewed).getStatusCode().value()).isEqualTo(401);
-    }
-
-    private ResponseEntity<Void> exchange(String code) {
-        return http.post().uri("/realms/portal/token")
-                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
-                .body("grant_type=authorization_code&code=" + code
-                        + "&client_id=" + CLIENT_ID
-                        + "&redirect_uri=" + REDIRECT_URI
-                        + "&code_verifier=" + VERIFIER)
-                .retrieve().toBodilessEntity();
-    }
-
-    private ResponseEntity<String> refreshWith(String refreshCookie) {
-        return http.post().uri("/api/auth/realms/portal/token/refresh")
-                .header(HttpHeaders.COOKIE, "REFRESH_TOKEN=" + refreshCookie)
-                .retrieve().toEntity(String.class);
+        assertThat(refreshWith(renewed).getStatusCode().value()).isEqualTo(400);
     }
 
     @Test
-    @DisplayName("쿠키도 본문도 없으면 재발급하지 않는다")
-    void refreshWithoutAnyTokenIsRefused() {
-        assertThat(http.post().uri("/api/auth/realms/portal/token/refresh")
-                .retrieve().toBodilessEntity().getStatusCode().value())
-                .isEqualTo(401);
+    @DisplayName("refresh 토큰 없이 부르면 거절한다")
+    void refreshWithoutATokenIsRefused() {
+        ResponseEntity<String> response = form("grant_type=refresh_token");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).contains("invalid_grant");
+    }
+
+    @Test
+    @DisplayName("모르는 grant_type 은 아는 둘에 걸리지 않고 따로 거절된다")
+    void unknownGrantTypeIsRefused() {
+        ResponseEntity<String> response = form("grant_type=password&username=a&password=b");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).contains("unsupported_grant_type");
+    }
+
+    private ResponseEntity<String> exchange(String code) {
+        return form("grant_type=authorization_code&code=" + code
+                + "&client_id=" + CLIENT_ID
+                + "&redirect_uri=" + REDIRECT_URI
+                + "&code_verifier=" + VERIFIER);
+    }
+
+    private ResponseEntity<String> refreshWith(String refreshToken) {
+        return form("grant_type=refresh_token&refresh_token=" + refreshToken
+                + "&client_id=" + CLIENT_ID);
+    }
+
+    private ResponseEntity<String> form(String body) {
+        return http.post().uri("/realms/portal/token")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(body)
+                .retrieve().toEntity(String.class);
+    }
+
+    /** 응답 본문에서 refresh 토큰만 꺼낸다. JSON 하나 읽자고 매퍼를 들이지 않는다. */
+    private static String refreshTokenOf(ResponseEntity<String> response) {
+        Matcher matcher = Pattern.compile("\"refresh_token\"\s*:\s*\"([^\"]+)\"")
+                .matcher(String.valueOf(response.getBody()));
+        if (!matcher.find()) {
+            throw new IllegalStateException("본문에 refresh 토큰이 없다: " + response.getBody());
+        }
+        return matcher.group(1);
     }
 
     private static String codeFrom(ResponseEntity<Void> response) {
         URI location = response.getHeaders().getLocation();
         assertThat(location).isNotNull();
         return location.getQuery().replaceAll(".*code=([^&]+).*", "$1");
-    }
-
-    private static String refreshCookieOf(ResponseEntity<?> response) {
-        return response.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream()
-                .filter(c -> c.startsWith("REFRESH_TOKEN="))
-                .map(c -> c.substring("REFRESH_TOKEN=".length(), c.indexOf(';')))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("refresh 쿠키가 없다: " + response.getHeaders()));
     }
 
     /**

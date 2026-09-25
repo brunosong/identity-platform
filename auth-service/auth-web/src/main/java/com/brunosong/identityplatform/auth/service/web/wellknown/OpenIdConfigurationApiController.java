@@ -34,9 +34,10 @@ import java.util.Map;
  * 이 문서를 읽는 것은 사람이 아니라 기계다. 지원하지 않는 값을 적으면 그것을 믿고 보낸 요청이
  * 400 으로 돌아오고, 있는 엔드포인트를 빼면 라이브러리가 로그인을 시작하지 못한다. 그래서
  * <b>여기 있는 값은 컨트롤러가 실제로 받는 것과 한 글자씩 맞춰 둔다.</b>
- * 받는 것은 {@code code} 하나이고, 토큰으로 바꾸는 방법도 {@code authorization_code} 하나다.
- * refresh 는 이 엔드포인트가 아니라 {@code /api/auth/realms/{realm}/token/refresh} 에 있어서
- * 여기 적지 않는다. 표준 자리가 아니니 표준 문서가 가리킬 수 없다.
+ * 받는 것은 {@code code} 하나이고, 토큰으로 바꾸는 방법은 {@code authorization_code} 와
+ * {@code refresh_token} 둘이다. 재발급이 토큰 엔드포인트로 들어오면서 이 문서에 적을 수 있게
+ * 됐다. 우리 주소에 따로 있을 때는 표준 자리가 아니라 적을 수가 없었고, 그래서 표준 클라이언트는
+ * 재발급하는 길을 알 방법이 없었다.
  *
  * <p>{@code code_challenge_methods_supported} 를 적어두는 이유는 PKCE 가 선택이 아니기 때문이다.
  * 빼두면 클라이언트가 지원하지 않는 줄 알고 {@code code_challenge} 없이 보내는데, 그 요청은
@@ -78,7 +79,7 @@ public class OpenIdConfigurationApiController {
         document.put("end_session_endpoint", issuer + "/logout");
         document.put("jwks_uri", issuer + "/.well-known/jwks.json");
         document.put("response_types_supported", List.of("code"));
-        document.put("grant_types_supported", List.of("authorization_code"));
+        document.put("grant_types_supported", List.of("authorization_code", "refresh_token"));
         // PKCE 는 필수이고 plain 은 받지 않는다.
         document.put("code_challenge_methods_supported", List.of("S256"));
         // 아는 prompt 는 none 하나다. login, consent 를 보내면 400 이다.

@@ -214,16 +214,16 @@ class JwksVerificationIntegrationTest {
                 .uri("/realms/portal/.well-known/openid-configuration").retrieve().body(Map.class));
 
         assertThat(document).containsEntry("response_types_supported", List.of("code"))
-                .containsEntry("grant_types_supported", List.of("authorization_code"))
+                .containsEntry("grant_types_supported", List.of("authorization_code", "refresh_token"))
                 .containsEntry("code_challenge_methods_supported", List.of("S256"));
 
         // 문서에 적힌 것을 그대로 보내면 적어도 요청 자체는 받아들여진다.
-        // 틀린 코드라 invalid_grant 로 끝나지만, unsupported_grant_type 이 아닌 것이 요점이다.
+        // 틀린 값이라 invalid_grant 로 끝나지만, unsupported_grant_type 이 아닌 것이 요점이다.
         assertThat(tokenErrorFor("authorization_code")).isEqualTo("invalid_grant");
+        assertThat(tokenErrorFor("refresh_token")).isEqualTo("invalid_grant");
 
-        // 문서에 없는 방식은 실제로도 거절된다. 전에 이 문서가 적어두던 값들이다.
+        // 문서에 없는 방식은 실제로도 거절된다. 전에 이 문서가 적어두던 값이다.
         assertThat(tokenErrorFor("password")).isEqualTo("unsupported_grant_type");
-        assertThat(tokenErrorFor("refresh_token")).isEqualTo("unsupported_grant_type");
     }
 
     /** 토큰 엔드포인트에 grant_type 하나만 바꿔 보내고 돌아온 error 를 읽는다. 전부 400 이다. */
