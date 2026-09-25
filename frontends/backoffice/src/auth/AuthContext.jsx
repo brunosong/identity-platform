@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as authApi from '../api/auth';
-import { exchangeCode } from '../api/authorize';
+import { exchangeCode, refreshTokens } from '../api/authorize';
 import { decode } from '../api/jwt';
 
 /**
@@ -72,14 +72,14 @@ export function AuthProvider({ children }) {
     }, [setTokens]);
 
     /**
-     * 손에 refresh 토큰이 없어도 부른다. 그 토큰은 httpOnly 쿠키에 있고 이 앱은 값을 모른다.
-     * 있는지 없는지도 브라우저만 안다.
+     * 재발급. 받은 쌍을 <b>통째로</b> 갈아끼운다. access 만 챙기고 refresh 를 두면, 이미 죽은
+     * 토큰을 다음에 다시 내게 되고 서버는 그것을 탈취로 본다(회전).
      */
     const refresh = useCallback(async () => {
-        const result = await authApi.refresh();
-        if (result.ok) setTokens(result.data.tokens);
+        const result = await refreshTokens(tokens?.refreshToken);
+        if (result.ok) setTokens(result.tokens);
         return result;
-    }, [setTokens]);
+    }, [tokens, setTokens]);
 
     const logout = useCallback(async () => {
         const result = tokens?.accessToken

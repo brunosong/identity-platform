@@ -89,8 +89,6 @@ export async function exchangeCode(code) {
     }
 
     const result = await request(endpoints().auth, 'POST', `/realms/${REALM}/token`, {
-        // 응답이 refresh 토큰을 httpOnly 쿠키로 심는다. 이것이 없으면 브라우저가 그 쿠키를 버린다.
-        withCookies: true,
         form: {
             grant_type: 'authorization_code',
             code,
@@ -105,17 +103,44 @@ export async function exchangeCode(code) {
         return { ...result, message: result.message ?? result.data?.error ?? '토큰 교환에 실패했습니다.' };
     }
 
-    // 응답 이름이 snake_case 다. OAuth 명세의 모양이라 앱 쪽 이름으로 옮겨 담는다.
-    //
-    // refresh_token 이 없다. 그것은 httpOnly 쿠키로 왔고 이 앱은 값을 알지 못한다.
-    // 재발급할 때 브라우저가 알아서 싣는다.
-    return {
-        ok: true,
-        status: result.status,
-        tokens: {
-            tokenType: result.data.token_type,
-            accessToken: result.data.access_token,
+    return { ok: true, status: result.status, tokens: toTokens(result.data) };
+}
+
+/**
+ * refresh 토큰으로 새 쌍을 받는다.
+ *
+ * 코드 교환과 <b>같은 엔드포인트</b>다. 무엇을 하는 요청인지는 주소가 아니라 grant_type 이
+ * 가른다(RFC 6749 6절). 토큰은 헤더가 아니라 폼 본문에 싣는다.
+ *
+ * <b>돌아온 refresh 토큰을 반드시 갈아끼워야 한다.</b> 방금 낸 것은 이 호출로 죽는다(회전).
+ * 옛 것을 다시 내면 서버가 탈취로 보고 그 계보를 통째로 끊는다.
+ */
+export async function refreshTokens(refreshToken) {
+    if (!refreshToken) {
+        return { ok: false, status: 0, message: '리프레시 토큰이 없습니다.' };
+    }
+
+    const result = await request(endpoints().auth, 'POST', `/realms/${REALM}/token`, {
+        form: {
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+            client_id: CLIENT_ID,
         },
+    });
+
+    if (!result.ok) {
+        return { ...result, message: result.message ?? result.data?.error ?? '재발급에 실패했습니다.' };
+    }
+
+    return { ok: true, status: result.status, tokens: toTokens(result.data) };
+}
+
+/** 응답 이름이 snake_case 다. OAuth 명세의 모양이라 앱 쪽 이름으로 옮겨 담는다. */
+function toTokens(data) {
+    return {
+        tokenType: data.token_type,
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
     };
 }
 
