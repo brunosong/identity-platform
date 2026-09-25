@@ -197,10 +197,41 @@ class SilentAuthorizationIntegrationTest {
 
         // 새 refresh 토큰이 나왔으니 쿠키를 다시 심는다. 안 심으면 브라우저가 지나간 값을 계속 든다.
         //
-        // 값이 달라지는지는 확인하지 않는다. refresh 토큰에는 sub, iss, type, iat, exp 만 있고
-        // jti 같은 고유값이 없어서, 같은 초에 재발급하면 글자까지 같은 토큰이 나온다.
-        // 회전(한 번 쓰면 폐기)이 없다는 뜻이고, 그것은 따로 할 일이다.
-        assertThat(refreshCookieOf(renewed)).isNotBlank();
+        // 값은 반드시 달라진다. 토큰마다 jti 가 다르기 때문이다. 전에는 sub, iss, type, iat, exp 만
+        // 있어서 같은 초에 재발급하면 글자까지 같은 토큰이 나왔다.
+        assertThat(refreshCookieOf(renewed)).isNotBlank().isNotEqualTo(issued);
+    }
+
+    @Test
+    @DisplayName("이미 쓴 refresh 토큰이 다시 오면 그 계보가 통째로 끊긴다")
+    void reusedRefreshTokenRevokesTheWholeChain() {
+        String session = loginAndKeepSession();
+        String code = codeFrom(authorize("none", session, "state-7"));
+
+        String issued = refreshCookieOf(exchange(code));
+        String renewed = refreshCookieOf(refreshWith(issued));
+
+        // 방금 쓴 토큰을 다시 낸다. 훔친 쪽이 쓴 것인지 진짜 사용자가 뒤늦게 쓴 것인지 가릴 수 없다.
+        assertThat(refreshWith(issued).getStatusCode().value()).isEqualTo(401);
+
+        // 그래서 직전에 정상으로 받은 토큰까지 함께 죽는다. 계보를 통째로 끊는다는 것이 이 뜻이다.
+        assertThat(refreshWith(renewed).getStatusCode().value()).isEqualTo(401);
+    }
+
+    private ResponseEntity<Void> exchange(String code) {
+        return http.post().uri("/realms/portal/token")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body("grant_type=authorization_code&code=" + code
+                        + "&client_id=" + CLIENT_ID
+                        + "&redirect_uri=" + REDIRECT_URI
+                        + "&code_verifier=" + VERIFIER)
+                .retrieve().toBodilessEntity();
+    }
+
+    private ResponseEntity<String> refreshWith(String refreshCookie) {
+        return http.post().uri("/api/auth/realms/portal/token/refresh")
+                .header(HttpHeaders.COOKIE, "REFRESH_TOKEN=" + refreshCookie)
+                .retrieve().toEntity(String.class);
     }
 
     @Test

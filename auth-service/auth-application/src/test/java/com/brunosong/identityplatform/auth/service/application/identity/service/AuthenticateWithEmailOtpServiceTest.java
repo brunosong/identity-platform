@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.Instant;
 
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.tokenIssuance;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailOtpStore;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordEncoder;
@@ -55,7 +56,7 @@ class AuthenticateWithEmailOtpServiceTest {
         service = new AuthenticateWithEmailOtpService(
                 emailAccountRepo, principalRepo, new EmailOtpVerifier(otpStore, encoder),
                 new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(new FakeTokenIssuer())));
+                        tokenIssuance(new FakeTokenIssuer())));
     }
 
     private EmailOtpChallenge issueOtp() {

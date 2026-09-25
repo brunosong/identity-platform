@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.tokenIssuance;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordEncoder;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
@@ -52,7 +53,7 @@ class AuthenticateWithPasswordServiceTest {
                 principalRepo,
                 new PasswordCredentialVerifier(accountRepo, encoder),
                 new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(new FakeTokenIssuer())));
+                        tokenIssuance(new FakeTokenIssuer())));
     }
 
     @Test
@@ -125,7 +126,7 @@ class AuthenticateWithPasswordServiceTest {
         AuthenticateWithPasswordService svc = new AuthenticateWithPasswordService(
                 principalRepo,
                 new PasswordCredentialVerifier(accountRepo, new FakePasswordEncoder()),
-                new AuthenticationCompletion(principalRepo, eventPublisher, new TokenIssuance(issuer)));
+                new AuthenticationCompletion(principalRepo, eventPublisher, tokenIssuance(issuer)));
 
         svc.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 

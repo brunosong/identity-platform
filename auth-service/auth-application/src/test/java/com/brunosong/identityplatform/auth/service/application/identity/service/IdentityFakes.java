@@ -12,11 +12,14 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.ou
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.RefreshedSubject;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.RefreshChainRepository;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.RefreshedToken;
+import com.brunosong.identityplatform.auth.service.application.identity.token.TokenProperties;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailOtpChallenge;
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
+import com.brunosong.identityplatform.auth.service.domain.identity.RefreshChain;
 import com.brunosong.identityplatform.auth.service.domain.identity.PrincipalProfile;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
@@ -257,9 +260,40 @@ final class IdentityFakes {
         }
     }
 
+    /**
+     * 가짜 계보 저장소. 회전이 도는지 보려면 발급과 재발급이 같은 통을 봐야 한다.
+     */
+    static final class FakeRefreshChains implements RefreshChainRepository {
+        final Map<String, RefreshChain> byFamilyId = new LinkedHashMap<>();
+
+        @Override
+        public void save(RefreshChain chain) {
+            byFamilyId.put(chain.getFamilyId(), chain);
+        }
+
+        @Override
+        public Optional<RefreshChain> findById(String familyId) {
+            return Optional.ofNullable(byFamilyId.get(familyId));
+        }
+
+        @Override
+        public void revoke(String familyId) {
+            byFamilyId.remove(familyId);
+        }
+    }
+
+    /** 계보 저장소와 토큰 수명 기본값을 묶어 준다. 대부분의 테스트는 둘 다 관심 밖이다. */
+    static TokenIssuance tokenIssuance(TokenIssuerPort issuer) {
+        return new TokenIssuance(issuer, new FakeRefreshChains(), new TokenProperties());
+    }
+
     /** 토큰 형식은 관심 밖이라 subjectId 를 그대로 실어 준다. */
     static final class FakeTokenIssuer implements TokenIssuerPort {
         String refreshTokenSubjectId;
+        /** 재발급이 낼 계보. 회전을 보는 테스트만 채운다. */
+        RefreshedToken presented;
+        /** 마지막으로 토큰에 실린 계보. 회전이 실제로 갈아끼웠는지 본다. */
+        RefreshChain issuedChain;
         /** 마지막으로 발급을 요청받은 realm — 인증된 주체와 같은 realm 인지 보려고 남긴다. */
         Realm issuedRealm;
         Realm verifiedRealm;
@@ -268,16 +302,18 @@ final class IdentityFakes {
         /** 재발급이 refresh 토큰의 클라이언트를 그대로 쓰는지 보려고 둔다. */
 
         @Override
-        public TokenPair issue(Realm realm, Principal principal) {
+        public TokenPair issue(Realm realm, Principal principal, RefreshChain chain) {
             this.issuedRealm = realm;
+            this.issuedChain = chain;
             return new TokenPair("access:" + realm + ":" + principal.getSubjectId().value(),
                     "refresh:" + principal.getSubjectId().value());
         }
 
         @Override
-        public RefreshedSubject readRefreshToken(Realm realm, String refreshToken) {
+        public RefreshedToken readRefreshToken(Realm realm, String refreshToken) {
             this.verifiedRealm = realm;
-            return new RefreshedSubject(refreshTokenSubjectId);
+            return presented != null ? presented
+                    : new RefreshedToken(refreshTokenSubjectId, "family-1", "jti-1");
         }
     }
 

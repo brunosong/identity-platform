@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.tokenIssuance;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalProfileRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeSocialAccountRepository;
@@ -58,7 +59,7 @@ class AuthenticateWithSocialServiceTest {
                 provider(verifier), socialRepo, principalRepo, profileRepo, emailAccountRepo,
                 registeredPublisher,
                 new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(new FakeTokenIssuer())));
+                        tokenIssuance(new FakeTokenIssuer())));
     }
 
     private SocialAuthCommand command() {
@@ -122,7 +123,7 @@ class AuthenticateWithSocialServiceTest {
                 provider((SocialIdentityVerifierPort) null), socialRepo, principalRepo, profileRepo, emailAccountRepo,
                 registeredPublisher,
                 new AuthenticationCompletion(principalRepo, eventPublisher,
-                        new TokenIssuance(new FakeTokenIssuer())));
+                        tokenIssuance(new FakeTokenIssuer())));
 
         assertThatThrownBy(() -> noVerifier.authenticate(command()))
                 .isInstanceOf(IllegalStateException.class)

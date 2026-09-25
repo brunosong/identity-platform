@@ -16,12 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>{@code TokenIssuance} 가 이 패키지 밖으로 나가지 않게 두려고 만든 이음새다. 토큰을 만드는
  * 일은 identity 의 것이고, 인가 코드를 다루는 oauth 쪽은 "이 사람 앞으로 발급해 달라" 고만 한다.
  *
+ * <p>읽기 전용 트랜잭션이 아니다. 발급할 때 refresh 토큰의 계보가 한 줄 생긴다.
+ *
  * <p>인증 시각을 다시 남기지 않는다. 사람이 로그인한 시점은 1분 전 로그인 화면이었고, 앱이
  * 코드를 바꾸러 온 지금이 아니다.
  */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class PrincipalTokenIssuanceService implements IssueTokensForPrincipalUseCase {
 
     private final PrincipalRepository principalRepository;
