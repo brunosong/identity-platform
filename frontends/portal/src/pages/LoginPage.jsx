@@ -19,7 +19,7 @@ import Notice from '../components/Notice';
 export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { login, persist, setPersist } = useAuth();
+    const { login } = useAuth();
 
     const signedUpEmail = location.state?.justSignedUp;
 
@@ -136,18 +136,14 @@ export default function LoginPage() {
                 </p>
 
                 <h3>토큰 보관 방식</h3>
-                <label className="toggle">
-                    <input
-                        type="checkbox"
-                        checked={persist}
-                        onChange={(e) => setPersist(e.target.checked)}
-                    />
-                    <span>새로고침해도 로그인 유지 (<code>localStorage</code> 사용)</span>
-                </label>
                 <p className="field-hint">
-                    기본은 <b>메모리</b>입니다. 새로고침하면 로그아웃됩니다. 쿠키의
+                    <b>메모리에만 둡니다.</b> 새로고침하면 로그아웃됩니다. 쿠키의
                     <code>httpOnly</code> 를 포기하고 본문으로 토큰을 받는 순간 토큰은 스크립트가
                     읽을 수 있는 자리에 놓이고, 남은 완화책은 오래 남는 자리에 두지 않는 것뿐입니다.
+                </p>
+                <p className="field-hint">
+                    <code>localStorage</code> 로 옮기는 스위치가 있었는데 걷었습니다. 무엇이 언제
+                    죽는지 눈으로 보려는 동안에는 되살려주는 장치가 없는 편이 낫습니다.
                 </p>
 
                 <h3>realm 격리 확인</h3>

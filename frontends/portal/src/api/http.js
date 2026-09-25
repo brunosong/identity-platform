@@ -8,10 +8,10 @@
  * 재발급 요청의 폼 본문에 넣는다. 그래서 "이 요청이 인증된 요청인가" 가 코드에 드러난다.
  * 브라우저가 알아서 붙여주는 값은 하나도 없다.
  *
- * <h3>401 을 만나면 한 번 되살려 본다</h3>
- * access 토큰은 짧게 쓰는 값이라 화면을 열어둔 채로 만료될 수 있다. 그때마다 사람에게 오류를
- * 보여주는 대신, 재발급을 한 번 부르고 원래 요청을 다시 보낸다. <b>재시도는 한 번뿐이다.</b>
- * 되살리지 못하면 받은 401 을 그대로 호출자에게 돌려준다.
+ * <h3>401 을 대신 처리하지 않는다</h3>
+ * access 가 만료되면 받은 401 을 그대로 호출자에게 돌려준다. 뒤에서 조용히 재발급하고 원래
+ * 요청을 다시 보내는 장치를 두지 않는다. <b>만료가 눈에 보여야 무엇이 언제 죽는지 알 수 있다.</b>
+ * 재발급은 마이페이지의 버튼으로만 돈다.
  */
 
 /** 화면 하단 요청 로그를 위한 구독자들. */
@@ -36,36 +36,7 @@ function emit(entry) {
  * @param query    쿼리 파라미터
  * @returns {{ok, status, data, message, blocked}}
  */
-export async function request(baseUrl, method, path, options = {}) {
-    const result = await send(baseUrl, method, path, options);
-
-    // 토큰을 실어 보낸 요청의 401 만 만료로 본다. 로그인 전 호출의 401 은 다른 얘기고,
-    // 재발급 요청 자체는 token 을 안 쓰므로(쿠키로 돈다) 여기서 재귀하지 않는다.
-    if (result.status !== 401 || !options.token || !refreshAccessToken) return result;
-
-    const fresh = await refreshAccessToken();
-    if (!fresh) return result;    // 되살리지 못했다. 원래 401 을 그대로 돌려준다
-
-    // 재시도는 한 번뿐이다. send 는 다시 감싸지 않는다.
-    return send(baseUrl, method, path, { ...options, token: fresh });
-}
-
-/**
- * 만료된 access 토큰을 되살리는 방법을 등록한다. {@link AuthProvider} 가 앱이 뜰 때 넣는다.
- *
- * 이 파일이 AuthContext 를 직접 부르지 않는 이유는 순환 때문이다 - AuthContext 가 쓰는
- * api/auth.js 가 이미 이 파일을 쓴다. 그래서 방향을 뒤집어 등록으로 받는다.
- *
- * 돌려주는 것은 <b>새 access 토큰</b>이다. 재발급은 새 쌍을 주므로 refresh 토큰도 함께 갈리는데,
- * 그 보관은 AuthProvider 가 한다. 이 파일이 알아야 하는 것은 다시 보낼 때 실을 값 하나뿐이다.
- */
-let refreshAccessToken = null;
-
-export function setAccessTokenRefresher(refresher) {
-    refreshAccessToken = refresher;
-}
-
-async function send(baseUrl, method, path, { body, form, token, query } = {}) {
+export async function request(baseUrl, method, path, { body, form, token, query } = {}) {
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     // 폼 인코딩은 브라우저가 "단순 요청" 으로 쳐서 preflight 가 나가지 않는다.
