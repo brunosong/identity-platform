@@ -45,7 +45,10 @@ token:
   # 토큰의 iss 가 되는 기준 주소. realm 이 뒤에 붙는다 — .../realms/portal
   # 소비 서비스는 이 문자열을 그대로 대조하므로, 포트를 옮기면 이 값도 함께 옮겨야 한다.
   issuer: ${TOKEN_ISSUER:http://localhost:8080}
-  accessExpiration: 7200000      # 2시간
+  # access 를 1분으로 둔다. 실습용이라 짧다. 화면을 열어둔 채로 만료를 만나고, 앱이 401 을
+  # 받아 재발급을 부르고, 원래 요청을 다시 보내는 흐름을 기다리지 않고 볼 수 있다.
+  # 운영이라면 분 단위는 짧다. 재발급 왕복이 그만큼 잦아진다.
+  accessExpiration: 60000        # 1분
   refreshExpiration: 86400000    # 24시간
   # realm 마다 다른 키페어를 쓴다. kid 는 realm 전체에서 유일해야 한다 —
   # 겹치면 상대 realm 키로 검증이 통과한다(부팅에서 막는다).
