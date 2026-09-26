@@ -10,9 +10,11 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 public interface RegisterWithPasswordUseCase {
 
     /**
-     * 가입하고 그 사람으로 로그인까지 확정한다. 가입 화면에서 곧장 앱으로 돌아가기 때문이다.
+     * 가입하고 가입한 사람을 돌려준다. 로그인은 시키지 않는다. 가입 뒤 로그인할지는 입구가 정한다
+     * ({@link EstablishRegisteredAuthenticationUseCase}).
      *
-     * <p>이미 쓰이는 아이디나 이미 가입된 이메일이면 IllegalArgumentException.
+     * <p>인증번호가 틀리면 AuthenticationFailedException, 이미 쓰이는 아이디나 이미 가입된 이메일이면
+     * IllegalArgumentException.
      */
     AuthenticatedSubject register(RegisterWithPasswordCommand command);
 }

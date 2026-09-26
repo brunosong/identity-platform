@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.web.authorize;
 
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishRegisteredAuthenticationUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RegisterWithEmailUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RegisterWithPasswordUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RequestRegistrationOtpUseCase;
@@ -60,6 +61,7 @@ public class RegistrationController {
     private final RegisterWithPasswordUseCase registerWithPassword;
     private final RequestRegistrationOtpUseCase requestRegistrationOtp;
     private final RegisterWithEmailUseCase registerWithEmail;
+    private final EstablishRegisteredAuthenticationUseCase establishRegisteredAuthentication;
     private final LoginSessionStarter loginSessionStarter;
     private final AuthorizationCodeRedirect authorizationCodeRedirect;
 
@@ -210,9 +212,13 @@ public class RegistrationController {
         return value != null && !value.isEmpty();
     }
 
-    /** 가입이 끝났다. 로그인 폼과 마지막 두 걸음이 같다. 세션을 심고 code 를 앱에 돌려준다. */
-    private ModelAndView loggedIn(AuthenticatedSubject subject, AuthorizationRequest request,
+    /**
+     * 가입이 끝났다. 앱의 인가 요청으로 온 가입이라 곧장 앱으로 돌아간다. 로그인을 확정하고, 로그인 폼과
+     * 마지막 두 걸음이 같다. 세션을 심고 code 를 앱에 돌려준다.
+     */
+    private ModelAndView loggedIn(AuthenticatedSubject registered, AuthorizationRequest request,
                                   HttpServletRequest httpRequest, HttpServletResponse response) {
+        AuthenticatedSubject subject = establishRegisteredAuthentication.afterRegistration(registered);
         loginSessionStarter.start(subject, httpRequest, response);
         return authorizationCodeRedirect.issueAndRedirect(request, subject);
     }

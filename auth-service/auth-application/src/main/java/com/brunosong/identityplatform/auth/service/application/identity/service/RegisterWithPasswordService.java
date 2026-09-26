@@ -43,7 +43,6 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
     private final EmailAccountRepository emailAccountRepository;
     private final PasswordEncoderPort passwordEncoder;
     private final SubjectRegisteredEventPublisher subjectRegisteredEventPublisher;
-    private final AuthenticationCompletion authenticationCompletion;
     private final EmailOtpVerifier otpVerifier;
 
     public RegisterWithPasswordService(PrincipalRepository principalRepository,
@@ -52,7 +51,6 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
                                        EmailAccountRepository emailAccountRepository,
                                        PasswordEncoderPort passwordEncoder,
                                        SubjectRegisteredEventPublisher subjectRegisteredEventPublisher,
-                                       AuthenticationCompletion authenticationCompletion,
                                        EmailOtpVerifier otpVerifier) {
         this.principalRepository = principalRepository;
         this.principalProfileRepository = principalProfileRepository;
@@ -60,7 +58,6 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
         this.emailAccountRepository = emailAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.subjectRegisteredEventPublisher = subjectRegisteredEventPublisher;
-        this.authenticationCompletion = authenticationCompletion;
         this.otpVerifier = otpVerifier;
     }
 
@@ -93,10 +90,8 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
         // 인가 역할(authz)은 등록 이벤트를 받은 realm 별 리스너가 authz_subject_role 에 부여한다.
         // 신원(Principal)은 역할을 소유하지 않는다.
 
-        // 방금 정한 비밀번호를 적은 사람이 곧 이 사람이다. 가입 화면에서 곧장 앱으로 돌아간다.
-        Principal established = authenticationCompletion.establish(principal);
-        return new AuthenticatedSubject(established.getPrincipalId(),
-                established.getSubjectId().value(), established.getRealm());
+        return new AuthenticatedSubject(principal.getPrincipalId(),
+                principal.getSubjectId().value(), principal.getRealm());
     }
 
     /** 신규 신원: subjectId 채번 → 등록 알림 → Principal 과 이메일 계정 저장. */

@@ -48,7 +48,6 @@ public class RegisterWithEmailService implements RegisterWithEmailUseCase {
     private final EmailAccountRepository emailAccountRepository;
     private final EmailOtpVerifier otpVerifier;
     private final SubjectRegisteredEventPublisher subjectRegisteredEventPublisher;
-    private final AuthenticationCompletion authenticationCompletion;
 
     @Override
     @Transactional
@@ -65,10 +64,8 @@ public class RegisterWithEmailService implements RegisterWithEmailUseCase {
                 .flatMap(account -> principalRepository.findById(account.getPrincipalId()))
                 .orElseGet(() -> createPrincipal(command));
 
-        // 인증번호를 받아낸 사람이 곧 이 주소의 주인이다. 가입과 함께 로그인까지 확정한다.
-        Principal established = authenticationCompletion.establish(principal);
-        return new AuthenticatedSubject(established.getPrincipalId(),
-                established.getSubjectId().value(), established.getRealm());
+        return new AuthenticatedSubject(principal.getPrincipalId(),
+                principal.getSubjectId().value(), principal.getRealm());
     }
 
     /** 신규 신원: subjectId 채번 → 등록 알림 → Principal 과 이메일 계정 저장. */

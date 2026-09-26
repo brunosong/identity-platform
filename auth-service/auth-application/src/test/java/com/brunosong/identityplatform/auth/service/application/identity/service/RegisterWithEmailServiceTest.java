@@ -17,7 +17,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingEventPublisher;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailOtpStore;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordEncoder;
@@ -57,7 +56,7 @@ class RegisterWithEmailServiceTest {
         service = new RegisterWithEmailService(
                 principals, profiles, emailAccounts,
                 new EmailOtpVerifier(otpStore, new FakePasswordEncoder()),
-                registeredPublisher, new AuthenticationCompletion(principals, new RecordingEventPublisher()));
+                registeredPublisher);
     }
 
     /** 발송 단계를 거친 것과 같은 상태를 만든다. */

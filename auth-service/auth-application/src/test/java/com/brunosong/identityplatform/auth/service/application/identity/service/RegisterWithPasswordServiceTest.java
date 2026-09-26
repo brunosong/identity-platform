@@ -50,8 +50,7 @@ class RegisterWithPasswordServiceTest {
         otpStore = new FakeEmailOtpStore();
         service = new RegisterWithPasswordService(
                 principalRepo, profileRepo, accountRepo, emailAccountRepo, new FakePasswordEncoder(),
-                registeredPublisher, new AuthenticationCompletion(principalRepo, authenticatedPublisher),
-                new EmailOtpVerifier(otpStore, new FakePasswordEncoder()));
+                registeredPublisher, new EmailOtpVerifier(otpStore, new FakePasswordEncoder()));
     }
 
     /** 그 이메일로 가입용 인증번호를 보낸 뒤 받은 번호를 적은 명령. 대부분의 테스트가 이 상태에서 시작한다. */
@@ -181,14 +180,14 @@ class RegisterWithPasswordServiceTest {
     }
 
     @Test
-    @DisplayName("가입하면 그 사람으로 로그인까지 된다. 인증 시각과 인증 이벤트가 남는다")
-    void registerAlsoAuthenticates() {
-        // 가입 화면은 곧장 앱으로 돌아간다. 가입한 사람에게 로그인을 한 번 더 시키지 않는다.
+    @DisplayName("가입은 로그인이 아니다. 인증 시각과 인증 이벤트를 남기지 않는다")
+    void registerDoesNotAuthenticate() {
+        // 가입 뒤 로그인할지는 입구가 정한다. 가입만 하는 입구로 온 사람에게 로그인 기록이 남으면 안 된다.
         String principalId = service.register(command("gildong", "gildong@example.com")).principalId().value();
 
         Principal principal = principalRepo.byId.get(principalId);
-        assertThat(principal.getLastAuthenticatedAt()).isNotNull();
-        assertThat(authenticatedPublisher.published).hasSize(1);
+        assertThat(principal.getLastAuthenticatedAt()).isNull();
+        assertThat(authenticatedPublisher.published).isEmpty();
     }
 
     @Test
