@@ -26,9 +26,10 @@
 
 <div class="card">
     <h1>BrunoSong 가입</h1>
-    <p class="sub">
+    <p class="sub" th:if="${request}">
         가입하면 바로 <span th:text="${request.clientId}">앱</span> 로 돌아갑니다.
     </p>
+    <p class="sub" th:unless="${request}">가입을 마치면 완료 화면이 뜹니다. 로그인은 앱에서 따로 합니다.</p>
 
     <p class="error" th:if="${error}" th:text="${error}"></p>
     <p class="notice" th:if="${otpSent}">
@@ -39,9 +40,12 @@
       두 걸음이다. 먼저 이메일로 가입용 인증번호를 받고, 번호와 함께 비밀번호를 정한다.
       비밀번호로 가입해도 번호를 먼저 받는다. 확인하지 않은 주소로 계정을 만들면 그 주소는 남의 것일 수 있다.
       어느 걸음인지는 서버가 모델(otpSent)로 알려준다. 새로고침에 흐트러지지 않는다.
+
+      입구가 둘이라 폼 주소(formBase)와 들고 다니는 값이 다르다. 앱의 인가 요청으로 온 가입은 그 요청을,
+      가입만 하는 가입은 돌아갈 앱과 주소만 들고 다닌다.
     -->
-    <form th:unless="${otpSent}" th:action="@{|/realms/${realm}/auth/register/send-code|}" method="post">
-        <div th:replace="~{oauth/login :: hiddenRequest}"></div>
+    <form th:unless="${otpSent}" th:action="@{${formBase} + '/send-code'}" method="post">
+        <div th:replace="~{:: carried}"></div>
 
         <label for="email">이메일</label>
         <input id="email" name="email" type="email" required autofocus autocomplete="email"
@@ -56,8 +60,8 @@
         <button type="submit">인증번호 받기</button>
     </form>
 
-    <form th:if="${otpSent}" th:action="@{|/realms/${realm}/auth/register|}" method="post">
-        <div th:replace="~{oauth/login :: hiddenRequest}"></div>
+    <form th:if="${otpSent}" th:action="@{${formBase}}" method="post">
+        <div th:replace="~{:: carried}"></div>
 
         <label for="sentTo">이메일</label>
         <input id="sentTo" name="email" type="email" readonly th:value="${email}">
@@ -78,8 +82,8 @@
         <button type="submit">가입</button>
     </form>
 
-    <!-- 이미 계정이 있으면 같은 인가 요청을 들고 로그인 화면으로 돌아간다. -->
-    <form th:action="@{|/realms/${realm}/auth|}" method="get">
+    <!-- 이미 계정이 있으면 같은 인가 요청을 들고 로그인 화면으로 돌아간다. 가입만 하는 입구에는 없다. -->
+    <form th:if="${request}" th:action="@{|/realms/${realm}/auth|}" method="get">
         <div th:replace="~{oauth/login :: hiddenRequest}"></div>
         <input type="hidden" name="response_type" value="code">
 
@@ -90,6 +94,17 @@
         이 화면은 <b>BrunoSong 인증 서버</b>가 그립니다. 가입 정보와 비밀번호는 앱을 거치지 않습니다.
     </p>
 </div>
+
+<!-- 폼이 들고 다니는 값. 인가 요청이 있으면 그것을, 없으면 돌아갈 앱과 주소만. -->
+<th:block th:fragment="carried">
+    <th:block th:if="${request}">
+        <div th:replace="~{oauth/login :: hiddenRequest}"></div>
+    </th:block>
+    <th:block th:unless="${request}">
+        <input type="hidden" name="client_id" th:value="${clientId}">
+        <input type="hidden" name="redirect_uri" th:value="${redirectUri}">
+    </th:block>
+</th:block>
 
 </body>
 </html>

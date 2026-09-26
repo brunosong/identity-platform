@@ -173,6 +173,64 @@ class RegistrationIntegrationTest {
         assertThat(again.getBody()).doesNotContain("이미 가입된");
     }
 
+    @Test
+    @DisplayName("가입만 하는 입구는 완료 화면을 보여주고, 등록된 돌아갈 주소를 링크로만 건다. 로그인은 안 된다")
+    void signUpOnlyShowsCompletion() {
+        String email = "signup-only-" + UUID.randomUUID() + "@example.com";
+        String app = "client_id=" + PORTAL_CLIENT + "&redirect_uri=" + encode("http://localhost:5173/");
+
+        ResponseEntity<String> screen = http.get()
+                .uri(URI.create("http://localhost:" + port + "/realms/portal/register?" + app))
+                .retrieve().toEntity(String.class);
+        assertThat(screen.getStatusCode().value()).isEqualTo(200);
+        assertThat(screen.getBody()).contains("/realms/portal/register/send-code");
+
+        post("/realms/portal/register/send-code", app + profileOf(email, "가입만"));
+        ResponseEntity<String> done = post("/realms/portal/register",
+                app + profileOf(email, "가입만") + "&code=123456&password=pw12345678");
+
+        assertThat(done.getStatusCode().value()).isEqualTo(200);
+        assertThat(done.getHeaders().getLocation()).isNull();
+        assertThat(done.getBody()).contains("가입을 완료했습니다").contains("href=\"http://localhost:5173/\"");
+        // 세션을 심지 않는다. 앱으로 돌아가 로그인을 다시 한다.
+        assertThat(done.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE))
+                .noneMatch(cookie -> cookie.startsWith("AUTH_SESSION="));
+
+        // 가입은 제대로 됐다. 정한 비밀번호로 로그인하면 토큰이 나온다.
+        assertThat(new CodeFlowLogin(port).portalWithPassword(email, "pw12345678").accessToken()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("가입만 하는 입구에 등록되지 않은 주소를 적으면 링크를 보이지 않는다. 가입은 막지 않는다")
+    void signUpOnlyHidesUnregisteredReturnUri() {
+        String email = "signup-evil-" + UUID.randomUUID() + "@example.com";
+        String app = "client_id=" + PORTAL_CLIENT + "&redirect_uri=" + encode("https://evil.example.com/");
+
+        post("/realms/portal/register/send-code", app + profileOf(email, "a"));
+        ResponseEntity<String> done = post("/realms/portal/register", app + profileOf(email, "a") + "&code=123456");
+
+        assertThat(done.getStatusCode().value()).isEqualTo(200);
+        assertThat(done.getBody()).contains("가입을 완료했습니다").doesNotContain("evil.example.com");
+    }
+
+    @Test
+    @DisplayName("직원 realm 에는 가입만 하는 입구도 없다")
+    void signUpOnlyIsClosedForAdmin() {
+        ResponseEntity<String> screen = http.get()
+                .uri(URI.create("http://localhost:" + port + "/realms/admin/register"))
+                .retrieve().toEntity(String.class);
+        assertThat(screen.getStatusCode().value()).isEqualTo(404);
+        assertThat(post("/realms/admin/register/send-code", "email=x@example.com&name=x").getStatusCode().value())
+                .isEqualTo(404);
+    }
+
+    private ResponseEntity<String> post(String path, String body) {
+        return http.post().uri(path)
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(body)
+                .retrieve().toEntity(String.class);
+    }
+
     private static String profileOf(String email, String name) {
         return "&email=" + encode(email) + "&name=" + encode(name);
     }
