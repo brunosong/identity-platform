@@ -136,13 +136,26 @@ class SilentAuthorizationIntegrationTest {
     }
 
     @Test
+    @DisplayName("prompt=create 면 로그인 화면 대신 가입 화면을 그린다")
+    void createPromptRendersRegistrationScreen() {
+        ResponseEntity<String> response = http.get()
+                .uri(URI.create("http://localhost:" + port + "/realms/portal/auth?response_type=code"
+                        + "&client_id=" + CLIENT_ID + "&redirect_uri=" + REDIRECT_URI
+                        + "&state=state-c&code_challenge=" + CHALLENGE + "&code_challenge_method=S256&prompt=create"))
+                .retrieve().toEntity(String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).contains("/realms/portal/auth/register/send-code");
+    }
+
+    @Test
     @DisplayName("발급자 문서가 적은 prompt 값과 실제로 받는 값이 같다")
     void discoveryMatchesWhatTheEndpointAccepts() {
         Map<String, Object> document = http.get()
                 .uri("/realms/portal/.well-known/openid-configuration")
                 .retrieve().body(new ParameterizedTypeReference<>() { });
 
-        assertThat(document).containsEntry("prompt_values_supported", List.of("none"))
+        assertThat(document).containsEntry("prompt_values_supported", List.of("none", "create"))
                 // 재발급이 토큰 엔드포인트로 들어왔으니 문서에도 적혀 있어야 한다.
                 .containsEntry("grant_types_supported", List.of("authorization_code", "refresh_token"));
     }

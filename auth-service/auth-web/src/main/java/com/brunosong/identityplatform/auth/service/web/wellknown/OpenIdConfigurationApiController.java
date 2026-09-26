@@ -43,7 +43,8 @@ import java.util.Map;
  * 빼두면 클라이언트가 지원하지 않는 줄 알고 {@code code_challenge} 없이 보내는데, 그 요청은
  * 전부 거절된다.
  *
- * <p>{@code prompt_values_supported} 도 같은 이유로 적는다. 아는 값은 {@code none} 하나이고,
+ * <p>{@code prompt_values_supported} 도 같은 이유로 적는다. 아는 값은 {@code none} 과 가입 화면을
+ * 여는 {@code create} 이고,
  * 나머지는 무시하지 않고 거절한다. 조용히 무시하면 {@code prompt=login} 으로 재인증을 요구한 쪽이
  * 다시 물었다고 믿는데 실제로는 세션이 그대로 통과한다.
  *
@@ -84,8 +85,8 @@ public class OpenIdConfigurationApiController {
         document.put("grant_types_supported", List.of("authorization_code", "refresh_token"));
         // PKCE 는 필수이고 plain 은 받지 않는다.
         document.put("code_challenge_methods_supported", List.of("S256"));
-        // 아는 prompt 는 none 하나다. login, consent 를 보내면 400 이다.
-        document.put("prompt_values_supported", List.of("none"));
+        // 아는 prompt 는 none 과 create 다. login, consent 를 보내면 400 이다.
+        document.put("prompt_values_supported", List.of("none", "create"));
         // 시크릿 없는 앱은 none, 있는 앱은 본문에 client_secret 을 싣는다. Basic 헤더는 받지 않는다.
         document.put("token_endpoint_auth_methods_supported", List.of("none", "client_secret_post"));
         document.put("subject_types_supported", List.of("public"));

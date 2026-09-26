@@ -55,8 +55,14 @@ import org.springframework.web.servlet.ModelAndView;
 @RequiredArgsConstructor
 public class AuthorizationEndpointController {
 
-    /** 화면을 띄우지 말라는 요청(OIDC Core 3.1.2.1). 이 서비스가 아는 prompt 값은 이것뿐이다. */
+    /** 화면을 띄우지 말라는 요청(OIDC Core 3.1.2.1). */
     private static final String SILENT = "none";
+
+    /**
+     * 로그인 대신 가입 화면을 띄우라는 요청(OIDC Prompt Create 1.0). 앱의 "회원가입" 버튼이 쓴다.
+     * 가입 화면을 앱이 따로 두지 않고, 가입이 끝나면 로그인과 같은 끝(code)으로 돌아간다.
+     */
+    private static final String CREATE = "create";
 
     private final AuthenticationRealm authenticationRealm;
     private final StartAuthorizationUseCase startAuthorization;
@@ -93,6 +99,16 @@ public class AuthorizationEndpointController {
             return errorScreen(e.getMessage());
         }
 
+        // 가입해 달라는 요청이면 세션과 상관없이 가입 화면이다. 로그인해 있는 사람이 새 계정을
+        // 만들려는 것일 수 있다. 요청 검증은 이미 끝났다.
+        if (CREATE.equals(prompt)) {
+            if (!resolved.allowsSelfRegistration()) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return errorScreen("이 realm 은 셀프 가입을 지원하지 않습니다.");
+            }
+            return RegistrationController.registerScreen(resolved, request);
+        }
+
         // 이미 로그인해 있으면 묻지 않는다. 세션 확인을 요청 검증 뒤에 두는 것이 중요하다 -
         // 등록되지 않은 앱의 요청에 코드를 내주는 일이 없어야 한다.
         //
@@ -105,14 +121,14 @@ public class AuthorizationEndpointController {
     }
 
     /**
-     * 아는 값은 {@code none} 하나다. 나머지는 받지 않는다.
+     * 아는 값은 {@code none} 과 {@code create} 다. 나머지는 받지 않는다.
      *
      * <p>모르는 값을 조용히 무시하면 {@code prompt=login} 을 보낸 쪽이 다시 물었다고 믿는데 실제로는
      * 세션이 그대로 통과한다. 재인증을 요구한 자리에서 그러면 곤란하다. 발급자 문서가 적어둔 값
      * ({@code prompt_values_supported})과도 어긋난다.
      */
     private static void requireSupportedPrompt(String prompt) {
-        if (prompt != null && !prompt.isBlank() && !SILENT.equals(prompt)) {
+        if (prompt != null && !prompt.isBlank() && !SILENT.equals(prompt) && !CREATE.equals(prompt)) {
             throw new IllegalArgumentException("지원하지 않는 prompt 입니다: " + prompt);
         }
     }
