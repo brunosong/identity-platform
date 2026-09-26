@@ -11,6 +11,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 
 /**
  * 인가 코드 - "이 사람은 방금 우리 앞에서 로그인했다" 는 증서.
@@ -87,6 +88,16 @@ public class AuthorizationCode {
 
     public boolean isExpired(Instant now) {
         return !now.isBefore(expiresAt);
+    }
+
+    /**
+     * 로그인 결과를 id_token 으로도 달라고 했는가. scope 에 {@code openid} 가 낱말로 있어야 한다.
+     *
+     * <p>scope 는 공백으로 나뉜 낱말 목록이다(RFC 6749 3.3). 글자 포함으로 보면 {@code openid2}
+     * 같은 값에도 id_token 이 나간다.
+     */
+    public boolean requestsOpenId() {
+        return scope != null && List.of(scope.split(" ")).contains("openid");
     }
 
     /**

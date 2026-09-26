@@ -310,6 +310,11 @@ final class IdentityFakes {
         }
 
         @Override
+        public String issueIdToken(Realm realm, String subjectId, String clientId, String nonce) {
+            return "id:" + clientId + ":" + subjectId + ":" + nonce;
+        }
+
+        @Override
         public RefreshedToken readRefreshToken(Realm realm, String refreshToken) {
             this.verifiedRealm = realm;
             return presented != null ? presented

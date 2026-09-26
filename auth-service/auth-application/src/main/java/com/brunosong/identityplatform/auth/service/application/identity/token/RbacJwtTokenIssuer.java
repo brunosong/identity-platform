@@ -115,6 +115,34 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         return new TokenPair(access, refresh);
     }
 
+    /**
+     * id_token. 로그인을 요청한 앱에게 "누가 로그인했나" 를 알려주는 값이다(OIDC Core 2).
+     *
+     * <p>access 토큰과 같은 키로 서명한다. 앱은 이미 아는 JWKS 로 검증하면 된다.
+     * 수명도 access 토큰과 같다. 앱이 받자마자 검증하고 버리는 값이라 길 이유가 없다.
+     *
+     * <p>{@code type} 클레임은 싣지 않는다. 그 클레임은 auth 가 access 와 refresh 를 가르는 값이고,
+     * id_token 은 auth 에 다시 들어올 일이 없다.
+     */
+    @Override
+    public String issueIdToken(Realm realm, String subjectId, String clientId, String nonce) {
+        RealmSigningKeys.RealmKey key = signingKeys.of(realm);
+        long now = System.currentTimeMillis();
+        JwtBuilder builder = Jwts.builder()
+                .header().keyId(key.kid()).and()
+                .issuer(issuers.of(realm))
+                // 배열이 아니라 문자열 하나로 싣는다. 명세는 둘 다 허용하지만, 배열이면 azp 를 함께
+                // 따지는 라이브러리가 있다.
+                .audience().single(clientId)
+                .subject(subjectId)
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + accessExpirationMillis));
+        if (StringUtils.hasText(nonce)) {
+            builder.claim("nonce", nonce);
+        }
+        return builder.signWith(key.privateKey(), Jwts.SIG.RS256).compact();
+    }
+
     @Override
     public RefreshedToken readRefreshToken(Realm realm, String refreshToken) {
         Claims claims = parse(realm, refreshToken);

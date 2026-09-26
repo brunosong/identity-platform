@@ -47,11 +47,11 @@ import java.util.Map;
  * 나머지는 무시하지 않고 거절한다. 조용히 무시하면 {@code prompt=login} 으로 재인증을 요구한 쪽이
  * 다시 물었다고 믿는데 실제로는 세션이 그대로 통과한다.
  *
- * <h2>ID 토큰은 없다</h2>
- * {@code id_token} 을 발급하지 않는다. 그래서 이 문서는 OIDC RP 가 아니라 OAuth2 클라이언트가
- * 읽을 문서이고, {@code userinfo_endpoint} 처럼 ID 토큰에 딸린 자리도 비어 있다.
- * {@code id_token_signing_alg_values_supported} 만 남겨둔 것은 리소스 서버가 서명 알고리즘을
- * 읽을 표준 자리가 이것뿐이어서다.
+ * <h2>ID 토큰은 신원 하나만</h2>
+ * 인가 요청의 scope 에 {@code openid} 가 있으면 코드 교환 응답에 {@code id_token} 이 붙는다.
+ * 담는 것은 {@code sub} 까지다. 이름이나 이메일 같은 프로필 claim 은 없고, 그래서
+ * {@code scopes_supported} 도 {@code openid} 하나이며 {@code userinfo_endpoint} 도 비어 있다.
+ * {@code max_age} 를 받지 않으므로 {@code auth_time} 도 싣지 않는다.
  *
  * <p>인증이 필요 없다. 여기 담긴 것은 모두 공개 정보다.
  */
@@ -79,6 +79,8 @@ public class OpenIdConfigurationApiController {
         document.put("end_session_endpoint", issuer + "/logout");
         document.put("jwks_uri", issuer + "/.well-known/jwks.json");
         document.put("response_types_supported", List.of("code"));
+        // 아는 scope 는 openid 하나다. 있으면 id_token 이 나간다.
+        document.put("scopes_supported", List.of("openid"));
         document.put("grant_types_supported", List.of("authorization_code", "refresh_token"));
         // PKCE 는 필수이고 plain 은 받지 않는다.
         document.put("code_challenge_methods_supported", List.of("S256"));

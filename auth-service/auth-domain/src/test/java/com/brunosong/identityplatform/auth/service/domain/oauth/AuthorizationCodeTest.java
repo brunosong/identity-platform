@@ -84,6 +84,23 @@ class AuthorizationCodeTest {
         assertThat(issued().belongsTo("portal", "http://localhost:5173/", VERIFIER)).isFalse();
     }
 
+    @Test
+    @DisplayName("scope 에 openid 가 낱말로 있을 때만 id_token 을 달라는 요청이다")
+    void requestsOpenIdOnlyForTheWord() {
+        assertThat(withScope("openid").requestsOpenId()).isTrue();
+        assertThat(withScope("profile openid email").requestsOpenId()).isTrue();
+        assertThat(withScope("openid2").requestsOpenId()).isFalse();
+        assertThat(withScope("profile").requestsOpenId()).isFalse();
+        assertThat(withScope(null).requestsOpenId()).isFalse();
+    }
+
+    private static AuthorizationCode withScope(String scope) {
+        AuthorizationRequest request = AuthorizationRequest.of("code", "portal",
+                "http://localhost:5173/login/callback", scope, "state-1",
+                challengeOf(VERIFIER), "S256", null);
+        return AuthorizationCode.issue(Realm.PORTAL, request, new PrincipalId("p-1"), NOW);
+    }
+
     /** 앱이 하는 계산과 같은 것. 여기서 직접 해봐야 우리 검증이 그 계산과 맞는지 확인된다. */
     private static String challengeOf(String verifier) {
         try {

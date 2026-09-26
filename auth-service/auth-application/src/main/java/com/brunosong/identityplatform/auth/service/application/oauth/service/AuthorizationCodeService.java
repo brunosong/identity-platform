@@ -2,12 +2,14 @@ package com.brunosong.identityplatform.auth.service.application.oauth.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.IssueTokensForPrincipalUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidClientException;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ExchangeAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.IssueAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.IssueAuthorizationCodeCommand;
+import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.result.ExchangedTokens;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.out.AuthorizationCodeRepository;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.out.OAuthClientRepository;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationCode;
@@ -35,6 +37,7 @@ public class AuthorizationCodeService implements IssueAuthorizationCodeUseCase,
     private final AuthorizationCodeRepository codeRepository;
     private final OAuthClientRepository clientRepository;
     private final IssueTokensForPrincipalUseCase issueTokens;
+    private final TokenIssuerPort tokenIssuer;
 
     /**
      * 코드를 만들어 그 자리에서 저장한다.
@@ -66,7 +69,7 @@ public class AuthorizationCodeService implements IssueAuthorizationCodeUseCase,
      */
     @Override
     @Transactional
-    public AuthenticationResult exchange(ExchangeAuthorizationCodeCommand command) {
+    public ExchangedTokens exchange(ExchangeAuthorizationCodeCommand command) {
         AuthorizationCode code = codeRepository.consume(command.code())
                 .orElseThrow(() -> new InvalidGrantException("없거나 이미 쓴 코드입니다."));
 
@@ -82,7 +85,22 @@ public class AuthorizationCodeService implements IssueAuthorizationCodeUseCase,
         }
         authenticateClient(command);
 
-        return issueTokens.forPrincipal(code.getPrincipalId());
+        AuthenticationResult result = issueTokens.forPrincipal(code.getPrincipalId());
+        return new ExchangedTokens(result, idTokenFor(code, result));
+    }
+
+    /**
+     * 인가 요청이 {@code openid} 를 달라고 했으면 id_token 을 만든다.
+     *
+     * <p>{@code aud} 에 싣는 앱과 {@code nonce} 는 요청이 아니라 코드에서 꺼낸다. 둘 다 로그인을
+     * 시작할 때 적어 둔 값이고, 교환하러 온 요청이 다시 적어 보내는 값은 믿을 이유가 없다.
+     */
+    private String idTokenFor(AuthorizationCode code, AuthenticationResult result) {
+        if (!code.requestsOpenId()) {
+            return null;
+        }
+        return tokenIssuer.issueIdToken(code.getRealm(), result.subjectId(), code.getClientId(),
+                code.getNonce());
     }
 
     /**

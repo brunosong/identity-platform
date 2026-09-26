@@ -20,6 +20,14 @@ public interface TokenIssuerPort {
      */
     TokenPair issue(Realm realm, Principal principal, RefreshChain chain);
 
+    /**
+     * id_token. access 토큰과 받는 쪽이 다르다. 저쪽은 API 가 받고 이쪽은 로그인을 요청한 앱이
+     * 받는다. 그래서 {@code aud} 가 시스템이 아니라 {@code clientId} 다.
+     *
+     * @param nonce 인가 요청에 있었으면 그대로 싣는다. 없으면 비워 둔다
+     */
+    String issueIdToken(Realm realm, String subjectId, String clientId, String nonce);
+
     /** 검증까지 포함한다. 무효/만료/다른 realm 이면 실패로 끝난다. */
     RefreshedToken readRefreshToken(Realm realm, String refreshToken);
 }

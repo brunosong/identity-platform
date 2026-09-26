@@ -6,6 +6,7 @@ import com.brunosong.identityplatform.auth.service.application.oauth.exception.I
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ExchangeAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
+import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.result.ExchangedTokens;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
@@ -159,14 +160,24 @@ public class TokenEndpointController {
     /**
      * 두 방식의 응답이 같은 모양이다. 재발급도 새 refresh 토큰을 함께 내려야 한다.
      * 회전 때문에 방금 쓴 토큰은 죽었고, 앱이 다음에 낼 것은 여기 실린 값이다.
+     *
+     * <p>{@code id_token} 은 코드 교환에서 {@code openid} 를 달라고 했을 때만 실린다. 재발급에서는
+     * 내지 않는다. 명세상 선택이고, 로그인이 새로 일어난 것이 아니다.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record TokenResponse(@JsonProperty("access_token") String accessToken,
                                 @JsonProperty("refresh_token") String refreshToken,
+                                @JsonProperty("id_token") String idToken,
                                 @JsonProperty("token_type") String tokenType) {
 
         static TokenResponse of(AuthenticationResult result) {
-            return new TokenResponse(result.tokens().accessToken(), result.tokens().refreshToken(), "Bearer");
+            return new TokenResponse(result.tokens().accessToken(), result.tokens().refreshToken(), null, "Bearer");
+        }
+
+        static TokenResponse of(ExchangedTokens exchanged) {
+            AuthenticationResult result = exchanged.authentication();
+            return new TokenResponse(result.tokens().accessToken(), result.tokens().refreshToken(),
+                    exchanged.idToken(), "Bearer");
         }
     }
 

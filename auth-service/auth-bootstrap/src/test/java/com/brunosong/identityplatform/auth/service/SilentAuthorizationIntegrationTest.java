@@ -21,6 +21,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -162,6 +164,37 @@ class SilentAuthorizationIntegrationTest {
     }
 
     @Test
+    @DisplayName("openid 를 달라고 했으면 id_token 이 붙는다. aud 는 앱이고 nonce 는 요청한 값이다")
+    void openIdScopeAddsIdToken() {
+        String session = loginAndKeepSession();
+        String code = codeFrom(authorize("none", session, "state-8", "&scope=openid&nonce=n-0S6_WzA2Mj"));
+
+        ResponseEntity<String> response = exchange(code);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        String idToken = fieldOf(response, "id_token");
+        String claims = payloadOf(idToken);
+        assertThat(claims).contains("\"aud\":\"portal\"")
+                .contains("\"nonce\":\"n-0S6_WzA2Mj\"")
+                .contains("\"iss\":\"http://localhost:8080/realms/portal\"");
+        // sub 는 access 토큰과 같은 사람이어야 한다.
+        assertThat(subOf(claims)).isEqualTo(subOf(payloadOf(fieldOf(response, "access_token"))));
+    }
+
+    @Test
+    @DisplayName("openid 가 없으면 id_token 도 없고, 재발급에서도 내지 않는다")
+    void noIdTokenWithoutOpenIdOrOnRefresh() {
+        String session = loginAndKeepSession();
+
+        ResponseEntity<String> withoutOpenId = exchange(codeFrom(authorize("none", session, "state-9")));
+        assertThat(withoutOpenId.getBody()).doesNotContain("id_token");
+
+        String code = codeFrom(authorize("none", session, "state-10", "&scope=openid"));
+        ResponseEntity<String> renewed = refreshWith(refreshTokenOf(exchange(code)));
+        assertThat(renewed.getBody()).contains("access_token").doesNotContain("id_token");
+    }
+
+    @Test
     @DisplayName("재발급도 같은 엔드포인트다. grant_type 이 가른다")
     void refreshUsesTheSameEndpoint() {
         String session = loginAndKeepSession();
@@ -236,12 +269,25 @@ class SilentAuthorizationIntegrationTest {
 
     /** 응답 본문에서 refresh 토큰만 꺼낸다. JSON 하나 읽자고 매퍼를 들이지 않는다. */
     private static String refreshTokenOf(ResponseEntity<String> response) {
-        Matcher matcher = Pattern.compile("\"refresh_token\"\s*:\s*\"([^\"]+)\"")
+        return fieldOf(response, "refresh_token");
+    }
+
+    private static String fieldOf(ResponseEntity<String> response, String field) {
+        Matcher matcher = Pattern.compile("\"" + field + "\"\s*:\s*\"([^\"]+)\"")
                 .matcher(String.valueOf(response.getBody()));
         if (!matcher.find()) {
-            throw new IllegalStateException("본문에 refresh 토큰이 없다: " + response.getBody());
+            throw new IllegalStateException("본문에 " + field + " 이 없다: " + response.getBody());
         }
         return matcher.group(1);
+    }
+
+    /** 서명은 보지 않고 가운데 조각만 푼다. 무엇이 실렸는지만 본다. */
+    private static String payloadOf(String jwt) {
+        return new String(Base64.getUrlDecoder().decode(jwt.split("\\.")[1]), StandardCharsets.UTF_8);
+    }
+
+    private static String subOf(String claims) {
+        return claims.replaceAll(".*\"sub\":\"([^\"]+)\".*", "$1");
     }
 
     private static String codeFrom(ResponseEntity<Void> response) {
@@ -289,13 +335,19 @@ class SilentAuthorizationIntegrationTest {
     }
 
     private ResponseEntity<Void> authorize(String prompt, String sessionId, String state) {
+        return authorize(prompt, sessionId, state, "");
+    }
+
+    /** {@code extraQuery} 는 scope, nonce 처럼 이 테스트가 가끔만 싣는 값이다. {@code &} 부터 적는다. */
+    private ResponseEntity<Void> authorize(String prompt, String sessionId, String state, String extraQuery) {
         StringBuilder uri = new StringBuilder("/realms/portal/auth")
                 .append("?response_type=code")
                 .append("&client_id=").append(CLIENT_ID)
                 .append("&redirect_uri=").append(REDIRECT_URI)
                 .append("&state=").append(state)
                 .append("&code_challenge=").append(CHALLENGE)
-                .append("&code_challenge_method=S256");
+                .append("&code_challenge_method=S256")
+                .append(extraQuery);
         if (prompt != null) {
             uri.append("&prompt=").append(prompt);
         }

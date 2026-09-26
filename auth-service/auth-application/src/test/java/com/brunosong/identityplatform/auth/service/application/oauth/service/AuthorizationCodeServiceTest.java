@@ -2,11 +2,16 @@ package com.brunosong.identityplatform.auth.service.application.oauth.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.IssueTokensForPrincipalUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.RefreshedToken;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidClientException;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.IssueAuthorizationCodeCommand;
+import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.result.ExchangedTokens;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.out.AuthorizationCodeRepository;
+import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
+import com.brunosong.identityplatform.auth.service.domain.identity.RefreshChain;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.TokenPair;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationCode;
@@ -56,7 +61,7 @@ class AuthorizationCodeServiceTest {
         OAuthClientServiceTest.FakeClientRepository clients = new OAuthClientServiceTest.FakeClientRepository();
         clients.save(OAuthClient.register(CLIENT, Realm.PORTAL, List.of(REDIRECT)));
         clients.save(OAuthClient.register(SERVER_CLIENT, Realm.PORTAL, List.of(REDIRECT)).withSecret(SECRET));
-        service = new AuthorizationCodeService(codes, clients, new FakeTokenIssuance());
+        service = new AuthorizationCodeService(codes, clients, new FakeTokenIssuance(), new FakeIdTokenIssuer());
     }
 
     private String issuedCode() {
@@ -84,7 +89,8 @@ class AuthorizationCodeServiceTest {
     @Test
     @DisplayName("시크릿이 있는 앱은 맞는 시크릿과 PKCE 원본을 함께 내면 토큰을 받는다")
     void confidentialClientWithSecret() {
-        AuthenticationResult result = service.exchange(serverExchange(issuedCodeFor(SERVER_CLIENT), SECRET));
+        AuthenticationResult result = service.exchange(serverExchange(issuedCodeFor(SERVER_CLIENT), SECRET))
+                .authentication();
 
         assertThat(result.tokens().accessToken()).isEqualTo("access:p-1");
     }
@@ -131,7 +137,7 @@ class AuthorizationCodeServiceTest {
     @Test
     @DisplayName("발급한 코드는 저장되고, 그것으로 토큰을 받는다")
     void exchangeIssuesTokens() {
-        AuthenticationResult result = service.exchange(exchange(issuedCode()));
+        AuthenticationResult result = service.exchange(exchange(issuedCode())).authentication();
 
         assertThat(result.principalId()).isEqualTo("p-1");
         assertThat(result.tokens().accessToken()).isEqualTo("access:p-1");
@@ -233,6 +239,47 @@ class AuthorizationCodeServiceTest {
         @Override
         public Optional<AuthorizationCode> consume(String code) {
             return Optional.ofNullable(stored.remove(code));
+        }
+    }
+
+    @Test
+    @DisplayName("openid 를 달라고 했으면 id_token 이 붙는다. aud 와 nonce 는 코드에 적어 둔 값이다")
+    void openIdScopeAddsIdToken() {
+        ExchangedTokens exchanged = service.exchange(exchange(issuedCode()));
+
+        assertThat(exchanged.idToken()).isEqualTo("id:PORTAL:portal:subject-p-1:nonce-1");
+    }
+
+    @Test
+    @DisplayName("openid 를 달라고 하지 않았으면 id_token 이 없다")
+    void noOpenIdScopeNoIdToken() {
+        AuthorizationRequest withoutOpenId = AuthorizationRequest.of("code", CLIENT, REDIRECT, "profile",
+                "state-1", challengeOf(VERIFIER), "S256", null);
+        String code = service.issue(new IssueAuthorizationCodeCommand(withoutOpenId, Realm.PORTAL, PRINCIPAL))
+                .getCode();
+
+        ExchangedTokens exchanged = service.exchange(exchange(code));
+
+        assertThat(exchanged.idToken()).isNull();
+        assertThat(exchanged.authentication().tokens().accessToken()).isEqualTo("access:p-1");
+    }
+
+    /** id_token 에 무엇을 실으라고 했는지만 글자로 남긴다. 나머지 발급은 이 테스트가 부르지 않는다. */
+    static class FakeIdTokenIssuer implements TokenIssuerPort {
+
+        @Override
+        public String issueIdToken(Realm realm, String subjectId, String clientId, String nonce) {
+            return "id:" + realm + ":" + clientId + ":" + subjectId + ":" + nonce;
+        }
+
+        @Override
+        public TokenPair issue(Realm realm, Principal principal, RefreshChain chain) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RefreshedToken readRefreshToken(Realm realm, String refreshToken) {
+            throw new UnsupportedOperationException();
         }
     }
 
