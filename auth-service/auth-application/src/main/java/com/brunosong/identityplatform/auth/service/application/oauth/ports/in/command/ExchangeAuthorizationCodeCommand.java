@@ -12,11 +12,13 @@ import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
  *   <li>{@code clientId} - 시작한 앱과 같은 앱인가</li>
  *   <li>{@code redirectUri} - 시작할 때 적어 보낸 주소와 같은가(RFC 6749 4.1.3)</li>
  *   <li>{@code codeVerifier} - PKCE 원본. 해시해서 발급 때 받아둔 값과 맞춘다</li>
+ *   <li>{@code clientSecret} - 시크릿이 있는 앱만 낸다. 없는 앱은 비워 둔다</li>
  * </ul>
  *
- * <p>시크릿이 없다. 브라우저에서 도는 앱은 시크릿을 지킬 수 없어 public client 로만 등록되고,
- * 시크릿이 하던 일을 {@code codeVerifier} 가 요청마다 대신한다.
+ * <p>시크릿은 폼 본문으로만 받는다({@code client_secret_post}). {@code Authorization: Basic}
+ * 헤더는 읽지 않는다.
  */
 public record ExchangeAuthorizationCodeCommand(Realm realm, String code, String clientId,
-                                               String redirectUri, String codeVerifier) {
+                                               String redirectUri, String codeVerifier,
+                                               String clientSecret) {
 }

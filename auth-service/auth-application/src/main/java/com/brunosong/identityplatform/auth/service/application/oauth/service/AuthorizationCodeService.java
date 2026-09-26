@@ -2,13 +2,16 @@ package com.brunosong.identityplatform.auth.service.application.oauth.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.IssueTokensForPrincipalUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
+import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidClientException;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ExchangeAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.IssueAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.IssueAuthorizationCodeCommand;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.out.AuthorizationCodeRepository;
+import com.brunosong.identityplatform.auth.service.application.oauth.ports.out.OAuthClientRepository;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationCode;
+import com.brunosong.identityplatform.auth.service.domain.oauth.OAuthClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +33,7 @@ public class AuthorizationCodeService implements IssueAuthorizationCodeUseCase,
         ExchangeAuthorizationCodeUseCase {
 
     private final AuthorizationCodeRepository codeRepository;
+    private final OAuthClientRepository clientRepository;
     private final IssueTokensForPrincipalUseCase issueTokens;
 
     /**
@@ -55,7 +59,10 @@ public class AuthorizationCodeService implements IssueAuthorizationCodeUseCase,
      * 명세도 그렇게 하라고 한다(RFC 6749 4.1.2) - 한 번 잘못 쓰인 코드는 태워버리는 편이 안전하다.
      * 같은 코드가 두 번 들어왔다는 것 자체가 어딘가 새고 있다는 신호이기도 하다.
      *
-     * <p>실패는 전부 같은 예외다. 사유는 메시지로 남아 로그에만 찍힌다.
+     * <p>코드에 관한 실패는 전부 같은 예외다. 사유는 메시지로 남아 로그에만 찍힌다.
+     *
+     * <p>시크릿은 코드와 PKCE 를 다 본 뒤에 본다. 시크릿을 따질 앱이 누구인지는 코드가 정한다.
+     * 시크릿이 틀려도 코드는 이미 꺼냈으니 함께 탄다.
      */
     @Override
     @Transactional
@@ -73,7 +80,27 @@ public class AuthorizationCodeService implements IssueAuthorizationCodeUseCase,
         if (!code.belongsTo(command.clientId(), command.redirectUri(), command.codeVerifier())) {
             throw new InvalidGrantException("이 코드의 임자가 아닙니다.");
         }
+        authenticateClient(command);
 
         return issueTokens.forPrincipal(code.getPrincipalId());
+    }
+
+    /**
+     * 시크릿이 있는 앱은 맞는 시크릿을 내야 하고, 없는 앱은 아무것도 내지 않아야 한다.
+     *
+     * <p>없는 앱이 낸 시크릿을 모른 척 넘기지 않는다. 설정이 어긋난 앱이 그대로 붙어버리면
+     * 그 앱은 자기가 시크릿으로 보호받는다고 믿게 된다.
+     */
+    private void authenticateClient(ExchangeAuthorizationCodeCommand command) {
+        OAuthClient client = clientRepository.findByClientId(command.realm(), command.clientId())
+                .orElseThrow(() -> new InvalidClientException("등록되지 않은 앱입니다: " + command.clientId()));
+        boolean authenticated = client.isConfidential()
+                ? client.authenticates(command.clientSecret())
+                : command.clientSecret() == null;
+        if (!authenticated) {
+            throw new InvalidClientException(client.isConfidential()
+                    ? "시크릿이 맞지 않습니다: " + command.clientId()
+                    : "시크릿이 없는 앱이 시크릿을 냈습니다: " + command.clientId());
+        }
     }
 }

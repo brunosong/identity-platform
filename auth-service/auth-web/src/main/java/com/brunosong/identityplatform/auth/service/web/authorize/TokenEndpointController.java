@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.auth.service.web.authorize;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RefreshTokenUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
+import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidClientException;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ExchangeAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
@@ -13,6 +14,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -68,7 +70,10 @@ public class TokenEndpointController {
     private final ExchangeAuthorizationCodeUseCase exchangeAuthorizationCode;
     private final RefreshTokenUseCase refreshToken;
 
-    /** 코드를 토큰으로 바꾼다. 시크릿 대신 PKCE 원본을 낸다. */
+    /**
+     * 코드를 토큰으로 바꾼다. PKCE 원본은 모든 앱이 내고, 시크릿이 있는 앱은 {@code client_secret} 도
+     * 본문에 함께 싣는다.
+     */
     @PostMapping(path = "/realms/{realm}/token",
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
             params = "grant_type=authorization_code")
@@ -76,10 +81,11 @@ public class TokenEndpointController {
                                   @RequestParam(required = false) String code,
                                   @RequestParam(name = "redirect_uri", required = false) String redirectUri,
                                   @RequestParam(name = "client_id", required = false) String clientId,
-                                  @RequestParam(name = "code_verifier", required = false) String codeVerifier) {
+                                  @RequestParam(name = "code_verifier", required = false) String codeVerifier,
+                                  @RequestParam(name = "client_secret", required = false) String clientSecret) {
         Realm resolved = authenticationRealm.of(realm);
-        return TokenResponse.of(exchangeAuthorizationCode.exchange(
-                new ExchangeAuthorizationCodeCommand(resolved, code, clientId, redirectUri, codeVerifier)));
+        return TokenResponse.of(exchangeAuthorizationCode.exchange(new ExchangeAuthorizationCodeCommand(
+                resolved, code, clientId, redirectUri, codeVerifier, clientSecret)));
     }
 
     /**
@@ -116,6 +122,18 @@ public class TokenEndpointController {
     ResponseEntity<TokenError> invalidGrant(RuntimeException e) {
         log.warn("토큰 발급 실패: {}", e.getMessage());
         return ResponseEntity.badRequest().body(new TokenError("invalid_grant"));
+    }
+
+    /**
+     * 앱이 자기가 그 앱임을 증명하지 못했다. 명세대로 401 이다(RFC 6749 5.2).
+     *
+     * <p>{@code WWW-Authenticate} 헤더는 싣지 않는다. 명세가 그것을 요구하는 것은 앱이
+     * {@code Authorization} 헤더로 인증하려 했을 때인데, 우리는 그 헤더로 시크릿을 받지 않는다.
+     */
+    @ExceptionHandler(InvalidClientException.class)
+    ResponseEntity<TokenError> invalidClient(InvalidClientException e) {
+        log.warn("토큰 발급 실패: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new TokenError("invalid_client"));
     }
 
     /** 이 엔드포인트가 아는 방식이 아니다. */

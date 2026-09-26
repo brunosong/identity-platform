@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.auth.service.application.oauth.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.IssueTokensForPrincipalUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
+import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidClientException;
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.IssueAuthorizationCodeCommand;
@@ -10,6 +11,7 @@ import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.P
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.TokenPair;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationCode;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
+import com.brunosong.identityplatform.auth.service.domain.oauth.OAuthClient;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -40,27 +43,89 @@ class AuthorizationCodeServiceTest {
     private static final String REDIRECT = "http://localhost:5173/login/callback";
     private static final PrincipalId PRINCIPAL = new PrincipalId("p-1");
 
+    /** 시크릿이 있는 앱. */
+    private static final String SERVER_CLIENT = "batch";
+    private static final String SECRET = "s3cret-value";
+
     private FakeCodeRepository codes;
     private AuthorizationCodeService service;
 
     @BeforeEach
     void setUp() {
         codes = new FakeCodeRepository();
-        service = new AuthorizationCodeService(codes, new FakeTokenIssuance());
+        OAuthClientServiceTest.FakeClientRepository clients = new OAuthClientServiceTest.FakeClientRepository();
+        clients.save(OAuthClient.register(CLIENT, Realm.PORTAL, List.of(REDIRECT)));
+        clients.save(OAuthClient.register(SERVER_CLIENT, Realm.PORTAL, List.of(REDIRECT)).withSecret(SECRET));
+        service = new AuthorizationCodeService(codes, clients, new FakeTokenIssuance());
     }
 
     private String issuedCode() {
-        return service.issue(new IssueAuthorizationCodeCommand(request(), Realm.PORTAL, PRINCIPAL))
+        return issuedCodeFor(CLIENT);
+    }
+
+    private String issuedCodeFor(String clientId) {
+        return service.issue(new IssueAuthorizationCodeCommand(request(clientId), Realm.PORTAL, PRINCIPAL))
                 .getCode();
     }
 
     private static AuthorizationRequest request() {
-        return AuthorizationRequest.of("code", CLIENT, REDIRECT, "openid", "state-1",
+        return request(CLIENT);
+    }
+
+    private static AuthorizationRequest request(String clientId) {
+        return AuthorizationRequest.of("code", clientId, REDIRECT, "openid", "state-1",
                 challengeOf(VERIFIER), "S256", "nonce-1");
     }
 
+    private static ExchangeAuthorizationCodeCommand serverExchange(String code, String secret) {
+        return new ExchangeAuthorizationCodeCommand(Realm.PORTAL, code, SERVER_CLIENT, REDIRECT, VERIFIER, secret);
+    }
+
+    @Test
+    @DisplayName("시크릿이 있는 앱은 맞는 시크릿과 PKCE 원본을 함께 내면 토큰을 받는다")
+    void confidentialClientWithSecret() {
+        AuthenticationResult result = service.exchange(serverExchange(issuedCodeFor(SERVER_CLIENT), SECRET));
+
+        assertThat(result.tokens().accessToken()).isEqualTo("access:p-1");
+    }
+
+    @Test
+    @DisplayName("시크릿이 있는 앱이 시크릿을 틀리거나 빼면 거절하고, 코드는 탄다")
+    void confidentialClientWithoutRightSecret() {
+        String wrong = issuedCodeFor(SERVER_CLIENT);
+        assertThatThrownBy(() -> service.exchange(serverExchange(wrong, "guess")))
+                .isInstanceOf(InvalidClientException.class);
+
+        String missing = issuedCodeFor(SERVER_CLIENT);
+        assertThatThrownBy(() -> service.exchange(serverExchange(missing, null)))
+                .isInstanceOf(InvalidClientException.class);
+
+        assertThat(codes.stored).isEmpty();
+    }
+
+    @Test
+    @DisplayName("시크릿이 있어도 PKCE 원본이 틀리면 거절한다")
+    void confidentialClientStillNeedsPkce() {
+        // 시크릿은 "그 앱인가" 를 볼 뿐 "그 로그인을 시작한 쪽인가" 는 보지 않는다.
+        String code = issuedCodeFor(SERVER_CLIENT);
+
+        assertThatThrownBy(() -> service.exchange(new ExchangeAuthorizationCodeCommand(
+                Realm.PORTAL, code, SERVER_CLIENT, REDIRECT, "틀린-값", SECRET)))
+                .isInstanceOf(InvalidGrantException.class);
+    }
+
+    @Test
+    @DisplayName("시크릿이 없는 앱이 시크릿을 내면 거절한다")
+    void publicClientMustNotSendSecret() {
+        String code = issuedCode();
+
+        assertThatThrownBy(() -> service.exchange(new ExchangeAuthorizationCodeCommand(
+                Realm.PORTAL, code, CLIENT, REDIRECT, VERIFIER, "anything")))
+                .isInstanceOf(InvalidClientException.class);
+    }
+
     private static ExchangeAuthorizationCodeCommand exchange(String code) {
-        return new ExchangeAuthorizationCodeCommand(Realm.PORTAL, code, CLIENT, REDIRECT, VERIFIER);
+        return new ExchangeAuthorizationCodeCommand(Realm.PORTAL, code, CLIENT, REDIRECT, VERIFIER, null);
     }
 
     @Test
@@ -100,7 +165,7 @@ class AuthorizationCodeServiceTest {
         String code = issuedCode();
 
         assertThatThrownBy(() -> service.exchange(new ExchangeAuthorizationCodeCommand(
-                Realm.PORTAL, code, CLIENT, REDIRECT, "주운-사람이-지어낸-값")))
+                Realm.PORTAL, code, CLIENT, REDIRECT, "주운-사람이-지어낸-값", null)))
                 .isInstanceOf(InvalidGrantException.class);
     }
 
@@ -110,7 +175,7 @@ class AuthorizationCodeServiceTest {
         String code = issuedCode();
 
         assertThatThrownBy(() -> service.exchange(new ExchangeAuthorizationCodeCommand(
-                Realm.PORTAL, code, "evil", REDIRECT, VERIFIER)))
+                Realm.PORTAL, code, "evil", REDIRECT, VERIFIER, null)))
                 .isInstanceOf(InvalidGrantException.class);
     }
 
@@ -120,7 +185,7 @@ class AuthorizationCodeServiceTest {
         String code = issuedCode();
 
         assertThatThrownBy(() -> service.exchange(new ExchangeAuthorizationCodeCommand(
-                Realm.PORTAL, code, CLIENT, "http://localhost:5173/", VERIFIER)))
+                Realm.PORTAL, code, CLIENT, "http://localhost:5173/", VERIFIER, null)))
                 .isInstanceOf(InvalidGrantException.class);
     }
 
@@ -130,7 +195,7 @@ class AuthorizationCodeServiceTest {
         String code = issuedCode();
 
         assertThatThrownBy(() -> service.exchange(new ExchangeAuthorizationCodeCommand(
-                Realm.ADMIN, code, CLIENT, REDIRECT, VERIFIER)))
+                Realm.ADMIN, code, CLIENT, REDIRECT, VERIFIER, null)))
                 .isInstanceOf(InvalidGrantException.class);
     }
 
@@ -140,7 +205,7 @@ class AuthorizationCodeServiceTest {
         // 꺼내는 것이 곧 지우는 것이다. 한 번 잘못 쓰인 코드는 태운다.
         String code = issuedCode();
         assertThatThrownBy(() -> service.exchange(new ExchangeAuthorizationCodeCommand(
-                Realm.PORTAL, code, CLIENT, REDIRECT, "틀린-값")));
+                Realm.PORTAL, code, CLIENT, REDIRECT, "틀린-값", null)));
 
         assertThat(codes.stored).isEmpty();
     }

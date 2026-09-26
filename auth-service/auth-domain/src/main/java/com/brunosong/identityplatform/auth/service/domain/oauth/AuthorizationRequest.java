@@ -41,8 +41,9 @@ public class AuthorizationRequest {
      * <p>받는 것은 code 를 달라는 요청 하나뿐이다. 토큰을 바로 달라는 요청(implicit)은 받지
      * 않는다 - 토큰이 주소창에 실려 오면 브라우저 기록과 리퍼러에 남는다.
      *
-     * <p>PKCE 는 선택이 아니다. 등록되는 앱이 전부 시크릿 없는 public client 라, 이것이 없으면
-     * code 를 가로챈 쪽을 걸러낼 수단이 하나도 없다.
+     * <p>PKCE 는 선택이 아니다. 시크릿 없는 public client 는 이것이 없으면 code 를 가로챈 쪽을
+     * 걸러낼 수단이 하나도 없다. 시크릿이 있는 앱도 예외로 두지 않는다. 시크릿은 "그 앱인가" 를
+     * 보고, PKCE 는 "그 로그인을 시작한 쪽인가" 를 본다.
      */
     public static AuthorizationRequest of(String responseType, String clientId, String redirectUri,
                                           String scope, String state,

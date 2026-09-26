@@ -84,8 +84,8 @@ public class OpenIdConfigurationApiController {
         document.put("code_challenge_methods_supported", List.of("S256"));
         // 아는 prompt 는 none 하나다. login, consent 를 보내면 400 이다.
         document.put("prompt_values_supported", List.of("none"));
-        // 등록되는 앱이 전부 시크릿 없는 public client 다.
-        document.put("token_endpoint_auth_methods_supported", List.of("none"));
+        // 시크릿 없는 앱은 none, 있는 앱은 본문에 client_secret 을 싣는다. Basic 헤더는 받지 않는다.
+        document.put("token_endpoint_auth_methods_supported", List.of("none", "client_secret_post"));
         document.put("subject_types_supported", List.of("public"));
         document.put("id_token_signing_alg_values_supported", List.of("RS256"));
 

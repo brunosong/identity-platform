@@ -67,7 +67,7 @@ class OAuthClientServiceTest {
                 .isFalse();
     }
 
-    private static class FakeClientRepository implements OAuthClientRepository {
+    static class FakeClientRepository implements OAuthClientRepository {
 
         private final Map<String, OAuthClient> store = new HashMap<>();
 
