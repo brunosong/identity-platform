@@ -141,6 +141,7 @@ public class OtpLoginController {
                                           String email, String error) {
         return new ModelAndView("oauth/login")
                 .addObject("realm", realm.toLowerCase())
+                .addObject("registrationOpen", Realm.valueOf(realm.toUpperCase()).allowsSelfRegistration())
                 .addObject("request", request)
                 .addObject("otpSent", true)
                 .addObject("email", email)

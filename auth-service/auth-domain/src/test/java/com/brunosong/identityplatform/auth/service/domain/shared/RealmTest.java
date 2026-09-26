@@ -23,16 +23,11 @@ class RealmTest {
     }
 
     @Test
-    @DisplayName("어드민은 이메일 인증번호로만 가입할 수 있다")
-    void adminAllowsOnlyEmailOtp() {
-        assertThat(Realm.ADMIN.allowsSelfRegistration()).isTrue();
-        assertThat(Realm.ADMIN.allowsSelfRegistrationWith(RegistrationMethod.EMAIL_OTP)).isTrue();
-    }
-
-    @Test
-    @DisplayName("어드민에 비밀번호 가입은 열리지 않는다")
-    void adminDeniesPasswordRegistration() {
-        // 직원은 비밀번호 계정을 갖지 않는다. 열리면 만들 수 없는 계정을 요구하는 경로가 생긴다.
+    @DisplayName("어드민은 스스로 가입할 수 없다. 직원 계정은 다른 관리자가 만든다")
+    void adminIsClosed() {
+        // realm 이름은 숨길 수 없다. 열어 두면 아무나 직원 realm 의 신원과 토큰을 얻는다.
+        assertThat(Realm.ADMIN.allowsSelfRegistration()).isFalse();
+        assertThat(Realm.ADMIN.allowsSelfRegistrationWith(RegistrationMethod.EMAIL_OTP)).isFalse();
         assertThat(Realm.ADMIN.allowsSelfRegistrationWith(RegistrationMethod.PASSWORD)).isFalse();
     }
 
@@ -43,15 +38,6 @@ class RealmTest {
         for (Realm realm : Realm.values()) {
             assertThat(realm.allowsSelfRegistration())
                     .isEqualTo(!realm.registrationMethods().isEmpty());
-        }
-    }
-
-    @Test
-    @DisplayName("어느 realm 도 스스로 가입을 전부 닫고 있지 않다")
-    void everyRealmOpensAtLeastOneMethod() {
-        // 닫으려면 방식 집합을 비우면 된다. 지금은 둘 다 열려 있고, 무엇으로 여는지가 다르다.
-        for (Realm realm : Realm.values()) {
-            assertThat(realm.registrationMethods()).isNotEmpty();
         }
     }
 

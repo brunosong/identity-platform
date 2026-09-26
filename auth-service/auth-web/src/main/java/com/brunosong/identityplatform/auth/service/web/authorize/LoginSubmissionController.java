@@ -10,6 +10,7 @@ import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.co
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.LoginSession;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.brunosong.identityplatform.auth.service.web.support.LoginSessionCookie;
 import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
@@ -102,6 +103,7 @@ public class LoginSubmissionController {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         return new ModelAndView("oauth/login")
                 .addObject("realm", realm.toLowerCase())
+                .addObject("registrationOpen", Realm.valueOf(realm.toUpperCase()).allowsSelfRegistration())
                 .addObject("request", request)
                 .addObject("error", message);
     }

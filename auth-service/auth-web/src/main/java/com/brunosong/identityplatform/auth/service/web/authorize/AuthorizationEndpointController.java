@@ -117,7 +117,7 @@ public class AuthorizationEndpointController {
                 .map(subject -> authorizationCodeRedirect.issueAndRedirect(request, subject))
                 .orElseGet(() -> SILENT.equals(prompt)
                         ? authorizationCodeRedirect.loginRequired(request)
-                        : loginScreen(realm, request));
+                        : loginScreen(resolved, request));
     }
 
     /**
@@ -133,9 +133,10 @@ public class AuthorizationEndpointController {
         }
     }
 
-    private static ModelAndView loginScreen(String realm, AuthorizationRequest request) {
+    private static ModelAndView loginScreen(Realm realm, AuthorizationRequest request) {
         return new ModelAndView("oauth/login")
-                .addObject("realm", realm.toLowerCase())
+                .addObject("realm", realm.name().toLowerCase())
+                .addObject("registrationOpen", realm.allowsSelfRegistration())
                 .addObject("request", request);
     }
 

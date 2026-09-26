@@ -76,18 +76,36 @@ class RegistrationIntegrationTest {
     }
 
     @Test
-    @DisplayName("직원 가입 화면에는 비밀번호 가입이 없고, 비밀번호 가입 폼을 보내도 받지 않는다")
-    void adminHasNoPasswordRegistration() {
+    @DisplayName("직원 realm 은 가입이 닫혀 있다. 화면도, 폼도, prompt=create 도 받지 않는다")
+    void adminRegistrationIsClosed() {
         ResponseEntity<String> screen = http.get()
                 .uri(URI.create("http://localhost:" + port + "/realms/admin/auth/register?" + query(ADMIN_CLIENT, ADMIN_REDIRECT)))
                 .retrieve().toEntity(String.class);
-        assertThat(screen.getStatusCode().value()).isEqualTo(200);
-        assertThat(screen.getBody()).doesNotContain("/realms/admin/auth/register\"")
-                .contains("/realms/admin/auth/register/send-code");
+        assertThat(screen.getStatusCode().value()).isEqualTo(404);
 
-        ResponseEntity<Void> posted = form("/realms/admin/auth/register", ADMIN_CLIENT, ADMIN_REDIRECT,
-                "&email=x@example.com&name=x&password=pw12345678");
-        assertThat(posted.getStatusCode().value()).isEqualTo(404);
+        assertThat(form("/realms/admin/auth/register/send-code", ADMIN_CLIENT, ADMIN_REDIRECT,
+                "&email=x@example.com&name=x").getStatusCode().value()).isEqualTo(404);
+        assertThat(form("/realms/admin/auth/register", ADMIN_CLIENT, ADMIN_REDIRECT,
+                "&email=x@example.com&name=x&password=pw12345678").getStatusCode().value()).isEqualTo(404);
+
+        ResponseEntity<String> create = http.get()
+                .uri(URI.create("http://localhost:" + port + "/realms/admin/auth?response_type=code&prompt=create&"
+                        + query(ADMIN_CLIENT, ADMIN_REDIRECT)))
+                .retrieve().toEntity(String.class);
+        assertThat(create.getStatusCode().value()).isEqualTo(400);
+        assertThat(create.getBody()).doesNotContain("/auth/register/send-code");
+    }
+
+    @Test
+    @DisplayName("직원 로그인 화면에는 회원가입 버튼이 없다")
+    void adminLoginScreenHasNoSignUp() {
+        ResponseEntity<String> login = http.get()
+                .uri(URI.create("http://localhost:" + port + "/realms/admin/auth?response_type=code&"
+                        + query(ADMIN_CLIENT, ADMIN_REDIRECT)))
+                .retrieve().toEntity(String.class);
+
+        assertThat(login.getStatusCode().value()).isEqualTo(200);
+        assertThat(login.getBody()).doesNotContain("/realms/admin/auth/register");
     }
 
     @Test
