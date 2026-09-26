@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth, MANAGE_PERMISSION } from '../auth/AuthContext';
-import { jwks, myPermissions, trySocialHere } from '../api/auth';
+import { jwks, myPermissions } from '../api/auth';
 import TokenInspector from '../components/TokenInspector';
 import Notice from '../components/Notice';
 
@@ -68,19 +68,6 @@ export default function HomePage() {
             text: `어드민 realm 의 공개키 ${result.data.keys?.length ?? 0}개. `
                 + '포털 주소에는 이 키가 없습니다 — 그래서 포털만 상대하는 서비스는 어드민 토큰을 '
                 + '검증할 수조차 없습니다.',
-        });
-    }
-
-    async function onTrySocial() {
-        setBusy(true);
-        const result = await trySocialHere();
-        setBusy(false);
-
-        setNotice({
-            kind: result.ok ? 'err' : 'ok',
-            text: `(${result.status}) ${result.message ?? ''} — `
-                + '소셜은 최초 로그인에 신원을 새로 만듭니다(JIT). 직원 realm 에서 열려 있으면 '
-                + '아무나 소셜 로그인만으로 직원 신원을 만들 수 있어서, 고객 realm 에서만 엽니다.',
         });
     }
 
@@ -170,16 +157,6 @@ export default function HomePage() {
 
             <TokenInspector label="access 토큰" token={tokens?.accessToken} />
             <TokenInspector label="refresh 토큰" token={tokens?.refreshToken} kind="refresh" />
-
-            <div className="card muted-card">
-                <h2>realm 격리 확인 — 소셜 로그인</h2>
-                <p className="field-hint">
-                    어드민 realm 에서 소셜 로그인을 시도합니다. 404 여야 합니다.
-                </p>
-                <div className="row">
-                    <button onClick={onTrySocial} disabled={busy}>어드민 realm 에서 소셜 로그인 시도</button>
-                </div>
-            </div>
         </div>
     );
 }

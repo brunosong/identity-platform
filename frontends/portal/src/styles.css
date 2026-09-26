@@ -270,12 +270,8 @@ pre.raw {
 .btn-block { width: 100%; }
 
 /* 우리 로그인 버튼. 구글 버튼 바로 아래에 온다. */
-.btn-brunosong { margin-top: 10px; }
 
 /* 구글 버튼은 흰 바탕이다. 구글 가이드가 그렇게 요구한다. */
-.btn-google { background: #fff; color: #1f1f1f; gap: 10px; font-weight: 500; }
-.btn-google:hover { background: #f1f3f4; }
-.google-mark { width: 18px; height: 18px; }
 
 .divider {
     display: flex; align-items: center; gap: 12px;

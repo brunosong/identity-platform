@@ -45,29 +45,11 @@ export function AuthProvider({ children }) {
         setTokensState(next);
     }, []);
 
-    const login = useCallback(async ({ loginId, password }) => {
-        const result = await authApi.login({ loginId, password });
-        if (result.ok) setTokens(result.data.tokens);
-        return result;
-    }, [setTokens]);
-
     /**
-     * 구글에서 받은 code 로 로그인한다.
+     * auth 에서 받은 code 로 로그인한다. 토큰을 받는 길은 이것 하나다.
      *
-     * 비밀번호 로그인과 결과가 같다 - 응답 본문에 우리 토큰이 온다. 앞의 과정만 다를 뿐,
-     * 토큰을 손에 쥐는 방식은 하나다.
-     */
-    const loginWithSocial = useCallback(async (code) => {
-        const result = await authApi.loginWithSocial(code);
-        if (result.ok) setTokens(result.data.tokens);
-        return result;
-    }, [setTokens]);
-
-    /**
-     * 우리 인증 서버에서 받은 code 로 로그인한다.
-     *
-     * 다른 두 방식과 끝이 같다 - 토큰을 받아 여기 담는다. 다른 것은 앞의 과정뿐이다.
-     * 이 방식에서는 비밀번호가 이 앱을 거치지 않았다.
+     * 비밀번호든 구글이든 사람을 확인하는 일은 auth 의 로그인 화면이 했다. 이 앱이 받는 것은
+     * 그 결과로 나온 code 이고, 그것을 토큰으로 바꿔 여기 담는다.
      */
     const loginWithCode = useCallback(async (code) => {
         const result = await exchangeCode(code);
@@ -128,12 +110,10 @@ export function AuthProvider({ children }) {
         decoded,
         claims: decoded?.payload ?? null,
         isLoggedIn: Boolean(tokens?.accessToken),
-        login,
-        loginWithSocial,
         loginWithCode,
         logout,
         refresh,
-    }), [tokens, decoded, login, loginWithSocial, loginWithCode, logout, refresh]);
+    }), [tokens, decoded, loginWithCode, logout, refresh]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

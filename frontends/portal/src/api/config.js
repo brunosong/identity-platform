@@ -45,16 +45,6 @@ export function defaultEndpoints() {
     return { ...DEFAULTS };
 }
 
-/**
- * 구글 OAuth 클라이언트 ID.
- *
- * 공개값이다. 인가 요청 주소에 그대로 실려 나가므로 감출 수 있는 값이 아니다.
- * 감춰야 하는 것은 시크릿이고, 그건 auth-service 만 갖는다.
- */
-export function googleClientId() {
-    return import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
-}
-
 function trimSlash(url) {
     return url.replace(/\/+$/, '');
 }

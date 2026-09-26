@@ -10,28 +10,12 @@ import { request } from './http';
  * realm 이름(PORTAL/ADMIN)과 주체 유형(CUSTOMER/EMPLOYEE)은 다른 값이다. 영역이 포털이고
  * 그 안에 사는 사람이 고객이다.
  *
- * 다만 격리를 눈으로 확인하는 실험(다른 realm 으로 시도)은 남겨둔다. 실험 결과로 받은 토큰은
- * 보관하지 않는다.
+ * 로그인은 여기 없다. 토큰은 auth 의 로그인 화면을 거쳐 code 교환으로만 받는다(authorize.js).
  */
 
 const REALM = 'portal';
 
 const authUrl = () => endpoints().auth;
-
-/**
- * 구글에서 받은 code 를 넘겨 우리 토큰을 받는다.
- *
- * 여기서부터는 비밀번호 로그인과 완전히 같다. fetch 로 묻고 응답 본문으로 토큰을 받는다.
- * 구글을 다녀오는 리다이렉트 구간을 건너오기 위한 다리가 code 하나였을 뿐이다.
- *
- * 이 code 로 남의 계정에 들어갈 수는 없다. 교환은 auth-service 가 우리 client_id 와
- * client_secret 으로 하고, 다른 앱에게 발급된 code 는 구글이 거절한다.
- */
-export function loginWithSocial(authorizationCode) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login/social`, {
-        body: { provider: 'GOOGLE', authorizationCode },
-    });
-}
 
 /** 고객 가입. 이메일이 곧 로그인 아이디다(고객은 별도 아이디가 없다). */
 export function register({ email, password, name, phoneNumber }) {
@@ -67,12 +51,6 @@ export function registerWithEmail({ email, name, phoneNumber, verificationCode }
     });
 }
 
-export function login({ loginId, password }) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login`, {
-        body: { loginId, password },
-    });
-}
-
 /**
  * 로그아웃. 무효화 대상은 토큰에서, realm 은 경로에서 온다.
  *
@@ -95,11 +73,4 @@ export function myPermissions(accessToken) {
  */
 export function jwks() {
     return request(authUrl(), 'GET', `/realms/${REALM}/.well-known/jwks.json`);
-}
-
-/** realm 격리 실험 — 같은 자격증명을 다른 realm 에 넣어본다. 성공해도 토큰을 쓰지 않는다. */
-export function tryOtherRealm(realm, { loginId, password }) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${realm}/login`, {
-        body: { loginId, password },
-    });
 }

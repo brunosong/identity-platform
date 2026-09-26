@@ -90,12 +90,3 @@ export function tryPasswordRegister({ email, name }) {
         body: { email, name, password: 'pw12345678', phoneNumber: null },
     });
 }
-
-
-
-/** realm 격리 실험 — 어드민 realm 에서 소셜 로그인을 시도한다. 404 여야 한다. */
-export function trySocialHere() {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/login/social`, {
-        body: { provider: 'KAKAO', authorizationCode: 'x' },
-    });
-}
