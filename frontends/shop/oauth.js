@@ -6,7 +6,7 @@
 
 const AUTH = 'http://localhost:8080';
 const REALM = 'portal';          // 포털과 같은 realm. 그래서 세션이 공유된다
-const CLIENT_ID = 'shop-web';        // oauth_client 에 등록된 이름(V9004 시드)
+const CLIENT_ID = 'portal-1rtojq5fqz7u'; // 등록할 때 auth 가 발급한 값(V9002 시드)
 export const REDIRECT_URI = 'http://localhost:5176/callback.html';
 /** 로그아웃하고 돌아올 자리. 이것도 등록된 주소여야 한다. */
 const HOME = 'http://localhost:5176/';

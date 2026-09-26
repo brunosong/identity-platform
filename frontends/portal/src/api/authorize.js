@@ -14,8 +14,8 @@ import { request } from './http';
 /** 이 앱이 속한 realm. 고객 포털이므로 고정이다. */
 const REALM = 'portal';
 
-/** oauth_client 에 등록한 이름. 주소창에 그대로 실려 나가는 공개값이다. */
-const CLIENT_ID = 'portal';
+/** 등록할 때 auth 가 발급한 값(V9002 시드). 주소창에 그대로 실려 나가는 공개값이다. */
+const CLIENT_ID = 'portal-17kqqi85h2ks';
 
 /** 등록된 주소와 글자 그대로 같아야 한다. 슬래시 하나만 달라도 거절당한다. */
 export const REDIRECT_URI = `${location.origin}/login/callback`;

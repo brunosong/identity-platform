@@ -1,8 +1,8 @@
--- 로컬 개발용 부트스트랩 직원.
+-- 로컬 개발용: 부트스트랩 직원.
 --
--- 닭과 달걀 문제를 푼다: 직원 계정은 관리자만 만들 수 있는데(/api/auth/employee/register 는
+-- 닭과 달걀 문제를 푼다. 직원 계정은 관리자만 만들 수 있는데(/api/auth/employee/register 는
 -- AUTHZ_MANAGE 권한을 요구한다), 그 권한을 가진 최초의 직원이 없으면 아무도 시작할 수 없다.
--- 실제 운영에서도 최초 관리자는 이렇게 데이터로 심는다.
+-- 운영에서도 최초 관리자는 이렇게 데이터로 심는다.
 --
 -- 직원은 비밀번호 계정을 갖지 않는다(RegisterEmployeeAccountService 는 EmailAccount 만 만든다).
 -- 로그인은 이메일 OTP 로 하고, local 프로파일에서는 메일을 보내지 않고 고정코드 123456 을 쓴다.
@@ -27,10 +27,7 @@ VALUES ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000
 ON CONFLICT (realm, email) DO NOTHING;
 
 -- 역할 부여 ------------------------------------------------------------------
--- 역할 하나만 붙인다. 그 역할이 auth-service 의 AUTHZ_MANAGE 권한을 갖고 있어(V9000)
--- 토큰이 이렇게 나간다:
---   realm_access.roles                    = ["ADMIN"]
---   resource_access["auth-service"].roles = ["AUTHZ_MANAGE"]
+-- 역할 하나만 붙인다. 그 역할이 auth-service 의 AUTHZ_MANAGE 권한을 갖고 있다(V9000).
 INSERT INTO authz_subject_role (realm, subject_id, role_id, assigned_at)
 SELECT 'ADMIN', 'admin-esntl-0001', r.role_id, now()
 FROM authz_role r

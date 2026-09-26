@@ -57,8 +57,8 @@ class SilentAuthorizationIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    /** V9003 시드가 등록해 둔 앱과 주소. 글자 그대로 대조되므로 그대로 쓴다. */
-    private static final String CLIENT_ID = "portal";
+    /** V9002 시드가 등록해 둔 포털 앱과 주소. 글자 그대로 대조되므로 그대로 쓴다. */
+    private static final String CLIENT_ID = "portal-17kqqi85h2ks";
     private static final String REDIRECT_URI = "http://localhost:5173/login/callback";
     private static final String PASSWORD = "pw12345678";
 
@@ -174,7 +174,7 @@ class SilentAuthorizationIntegrationTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         String idToken = fieldOf(response, "id_token");
         String claims = payloadOf(idToken);
-        assertThat(claims).contains("\"aud\":\"portal\"")
+        assertThat(claims).contains("\"aud\":\"" + CLIENT_ID + "\"")
                 .contains("\"nonce\":\"n-0S6_WzA2Mj\"")
                 .contains("\"iss\":\"http://localhost:8080/realms/portal\"");
         // sub 는 access 토큰과 같은 사람이어야 한다.

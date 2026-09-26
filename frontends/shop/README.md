@@ -32,7 +32,7 @@ auth-service 도 떠 있어야 한다.
 
 | 무엇 | 어디 |
 |---|---|
-| 등록된 돌아갈 주소 | `auth-bootstrap/.../db/seed/V9004__local_seed_oauth_client_shop.sql` (또는 `:8080/page/oauth-clients` 화면) |
+| 등록된 돌아갈 주소 | `auth-bootstrap/.../db/seed/V9002__local_seed_oauth_client.sql` (또는 `:8080/page/oauth-clients` 화면) |
 | 앱이 보내는 주소 | `oauth.js` 의 `REDIRECT_URI` |
 | CORS 허용 출처 | `auth-bootstrap/src/main/resources/application-local.yml` |
 

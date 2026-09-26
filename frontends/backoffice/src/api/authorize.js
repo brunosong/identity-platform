@@ -14,8 +14,8 @@ import { request } from './http';
 /** 이 앱이 속한 realm. 직원 앱이므로 고정이다. */
 const REALM = 'admin';
 
-/** oauth_client 에 등록된 이름(V9006 시드). 주소창에 실려 나가는 공개값이다. */
-const CLIENT_ID = 'backoffice';
+/** 등록할 때 auth 가 발급한 값(V9002 시드). 주소창에 실려 나가는 공개값이다. */
+const CLIENT_ID = 'admin-ln4efwmg0tee';
 
 /** 등록된 주소와 글자 그대로 같아야 한다. */
 export const REDIRECT_URI = `${location.origin}/login/callback`;
