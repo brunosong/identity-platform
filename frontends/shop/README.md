@@ -40,10 +40,10 @@ auth-service 도 떠 있어야 한다.
 
 ```
 1. http://localhost:5176/   ->  [로그인]  ->  8080 로그인 화면이 뜬다
-                                             codeflow@example.com / codeflow123!
+                                             계정이 없으면 그 화면의 회원가입으로 만든다
 2. 돌아오면 토큰 클레임이 보인다
 
-3. http://localhost:5173/login  ->  [BrunoSong 로그인]
+3. http://localhost:5173  ->  [로그인]
    로그인 화면이 뜨지 않는다. 주소창이 8080 을 스쳤다 바로 돌아온다
 ```
 

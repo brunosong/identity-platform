@@ -170,10 +170,11 @@ java -jar target/auth-bootstrap-0.0.1-SNAPSHOT.jar
 
 ```
 Migrating schema "public" to version "1 - baseline schema"
-Migrating schema "public" to version "2 - authz service"
-Migrating schema "public" to version "9000 - local seed data"
+...
+Migrating schema "public" to version "8 - oauth client name"
+Migrating schema "public" to version "9000 - local seed authz"
 Migrating schema "public" to version "9001 - local seed employee"
-Migrating schema "public" to version "9002 - local seed order"
+Migrating schema "public" to version "9002 - local seed oauth client"
 Started AuthServiceApplication
 ```
 
@@ -282,18 +283,17 @@ lsof -i :8080
 | | |
 |---|---|
 | 직원 관리자 (ADMIN realm) | `admin@example.com` · 이메일 OTP, 고정코드 **`123456`** |
-| 고객 (PORTAL realm) | 없음 — 화면에서 직접 가입(`POST /api/auth/realms/portal/register`) |
+| 고객 (PORTAL realm) | 없음. 포털의 회원가입을 누르면 auth 의 가입 화면이 뜬다(`prompt=create`) |
 
 계정을 만드는 방법은 realm 이 정한다.
 
-| realm | 셀프 가입 | 관리자 등록 |
+| realm | 셀프 가입 (auth 가입 화면) | 관리자 등록 |
 |---|---|---|
-| PORTAL | 비밀번호 **또는** 이메일 인증 | — |
-| ADMIN | 이메일 인증만 | 있음 (역할까지 배정) |
+| PORTAL | 비밀번호 **또는** 이메일 인증 | 없음 |
+| ADMIN | 닫힘 | 있음 (역할까지 배정) |
 
-어느 쪽이든 **비밀번호를 정하는 것은 포털뿐**이다 — 직원 계정은 이메일 계정만 갖는다.
-어드민 셀프 가입으로 만든 계정에는 역할이 하나도 붙지 않아, 로그인은 되지만 아무것도 열지
-못한다. 쓸 수 있게 만드는 것은 `AUTHZ_MANAGE` 를 가진 운영자다.
+**비밀번호를 정하는 것은 포털뿐**이다. 직원 계정은 이메일 계정만 갖는다. 직원 realm 은 가입이
+닫혀 있다. realm 이름은 주소창에 그대로 나와서, 열어 두면 아무나 직원 신원과 토큰을 얻는다.
 
 직원 계정은 관리자만 만들 수 있어서(`AUTHZ_MANAGE` 권한 필요) **최초 한 명은 데이터로 심어야 한다** —
 닭과 달걀 문제다. 실제 운영에서도 최초 관리자는 이렇게 넣는다.

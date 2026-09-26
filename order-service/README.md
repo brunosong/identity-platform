@@ -213,24 +213,36 @@ auth 와 customer-service, order-service 를 모두 띄우고 시작한다. 고�
 (부트스트랩되는 것은 직원뿐이다) 둘을 가입시켜 놓는다. 하나는 내 것, 하나는 남의 것이다.
 
 ```bash
-AUTH=http://localhost:8080/api/auth
+AUTH=http://localhost:8080
 CUST=http://localhost:8081/api/customers
 ORDER=http://localhost:8082/api/orders
 
-login() {
-    curl -s -X POST $AUTH/realms/portal/login -H 'Content-Type: application/json' \
-        -d "{\"loginId\":\"$1\",\"password\":\"pw12345678\"}" \
-        | python -c "import json,sys;print(json.load(sys.stdin)['tokens']['accessToken'])"
+# 토큰을 바로 내주는 로그인 API 는 없다. 앱이 하는 그대로 로그인 화면의 폼을 내고 code 를 바꾼다.
+# PKCE 한 쌍은 RFC 7636 부록 B 의 예시다. 통합 테스트의 CodeFlowLogin 도 같은 걸음을 밟는다.
+PKCE='-d code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM -d code_challenge_method=S256'
+VERIFIER=dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk
+PORTAL_APP='-d client_id=portal-17kqqi85h2ks -d redirect_uri=http://localhost:5173/login/callback'
+ADMIN_APP='-d client_id=admin-ln4efwmg0tee -d redirect_uri=http://localhost:5174/login/callback'
+
+# 폼 응답(303)의 Location 에서 code 를 꺼내 토큰 엔드포인트에서 바꾼다. $1=realm $2=앱 $3=폼 경로 $4..=폼 값
+token() {
+    realm=$1; app=$2; path=$3; shift 3
+    code=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST $AUTH/realms/$realm/$path $app $PKCE "$@" \
+        | sed 's/.*code=\([^&]*\).*/\1/')
+    curl -s -X POST $AUTH/realms/$realm/token -d grant_type=authorization_code -d code=$code \
+        $app -d code_verifier=$VERIFIER \
+        | python -c "import json,sys;print(json.load(sys.stdin)['access_token'])"
+}
+login()  { token portal "$PORTAL_APP" auth/login --data-urlencode "loginId=$1" -d password=pw12345678; }
+signup() { token portal "$PORTAL_APP" auth/register --data-urlencode "email=$1" -d name=$1 -d password=pw12345678; }
+admin()  {
+    curl -s -o /dev/null -X POST $AUTH/realms/admin/auth/send-code $ADMIN_APP $PKCE -d email=admin@example.com
+    token admin "$ADMIN_APP" auth/login/otp -d email=admin@example.com -d code=123456   # local 은 고정코드
 }
 
-for who in hong kim; do
-    curl -s -o /dev/null -X POST $AUTH/realms/portal/register \
-        -H 'Content-Type: application/json' \
-        -d "{\"email\":\"$who@example.com\",\"password\":\"pw12345678\",\"name\":\"$who\"}"
-done
-
-# 한 번만 로그인한다
-TOKEN=$(login hong@example.com)
+# 가입하면 로그인까지 된 채로 code 가 나온다. kim 의 토큰은 뒤에서 다시 로그인해 받는다
+TOKEN=$(signup hong@example.com)
+signup kim@example.com > /dev/null
 
 # 토큰 안을 들여다본다
 python -c "
@@ -289,13 +301,7 @@ curl -s -o /dev/null -w '%{http_code}\n' $ORDER/does-not-exist -H "Authorization
 서명조차 확인하지 못한다.
 
 ```bash
-curl -s -o /dev/null -X POST $AUTH/realms/admin/login/email-otp/send-code \
-  -H 'Content-Type: application/json' -d '{"email":"admin@example.com"}'
-ADMIN=$(curl -s -X POST $AUTH/realms/admin/login/email-otp \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"admin@example.com","verificationCode":"123456"}' \
-  | python -c "import json,sys;print(json.load(sys.stdin)['tokens']['accessToken'])")
-
+ADMIN=$(admin)
 curl -s -o /dev/null -w '%{http_code}\n' $ORDER -H "Authorization: Bearer $ADMIN"   # 401
 ```
 
