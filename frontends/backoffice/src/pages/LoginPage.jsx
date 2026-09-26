@@ -34,11 +34,6 @@ export default function LoginPage() {
         window.location.href = await authorizeUrl();
     }
 
-    /** 가입도 auth 가 그린다. 가입이 끝나면 로그인된 채로 돌아온다. */
-    async function onSignUp() {
-        setBusy(true);
-        window.location.href = await authorizeUrl({ prompt: 'create' });
-    }
 
     return (
         <div className="page narrow">
@@ -67,17 +62,13 @@ export default function LoginPage() {
             <div className="card">
                 <h2>계정이 없다면</h2>
                 <p className="hint">
-                    <b>스스로 가입할 수 있습니다</b> — 이메일 인증번호만 있으면 됩니다. 다만 그렇게
-                    만든 계정에는 <b>역할이 하나도 없어서</b> 로그인은 되지만 아무 관리 화면도
-                    열리지 않습니다. 쓸 수 있게 만드는 것은 <code>AUTHZ_MANAGE</code> 를 가진
-                    운영자입니다.
+                    <b>스스로 가입할 수 없습니다.</b> 직원 계정은 <code>AUTHZ_MANAGE</code> 를 가진
+                    관리자가 만들어 줍니다(직원 등록 화면). 직원 realm 의 이름은 주소창에 그대로
+                    나오므로, 가입을 열어 두면 아무나 직원 신원과 토큰을 얻게 됩니다.
                     <br /><br />
-                    최초 한 명은 역할을 줄 사람이 없어서 데이터로 심습니다 — 닭과 달걀 문제입니다.
+                    최초 한 명은 만들어 줄 사람이 없어서 데이터로 심습니다 — 닭과 달걀 문제입니다.
                     local 시드가 <code>admin@example.com</code> 을 심어둡니다.
                 </p>
-                <div className="row">
-                    <button onClick={onSignUp} disabled={busy}>이메일로 가입</button>
-                </div>
             </div>
 
             <div className="card">
