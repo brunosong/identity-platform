@@ -4,6 +4,7 @@ import com.brunosong.identityplatform.auth.client.AuthTokenVerifier;
 import com.brunosong.identityplatform.auth.client.AuthenticatedToken;
 import com.brunosong.identityplatform.auth.client.JwksKeySource;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RegisterWithPasswordUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RequestRegistrationOtpUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +69,9 @@ class JwksVerificationIntegrationTest {
 
     @Autowired
     private RegisterWithPasswordUseCase registerWithPassword;
+
+    @Autowired
+    private RequestRegistrationOtpUseCase requestRegistrationOtp;
 
     /**
      * 발급자는 <b>식별자</b>라 문자열로 대조하고, JWKS 주소는 <b>주소</b>라 실제로 접속한다.
@@ -480,8 +484,9 @@ class JwksVerificationIntegrationTest {
 
     /** 가입은 유스케이스로 직접 부른다 — 이 테스트가 보려는 것은 가입 API 가 아니라 토큰 검증이다. */
     private void registerCustomer(String email) {
+        requestRegistrationOtp.request(Realm.PORTAL, email);   // local 은 고정코드 123456
         registerWithPassword.register(new RegisterWithPasswordCommand(
-                Realm.PORTAL, email, "Tester", null, email, "pw12345678"));
+                Realm.PORTAL, email, "Tester", null, email, "pw12345678", "123456"));
     }
 
     private String login(String email) {

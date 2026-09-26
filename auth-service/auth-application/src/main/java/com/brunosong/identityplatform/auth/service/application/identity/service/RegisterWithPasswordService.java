@@ -44,6 +44,7 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
     private final PasswordEncoderPort passwordEncoder;
     private final SubjectRegisteredEventPublisher subjectRegisteredEventPublisher;
     private final AuthenticationCompletion authenticationCompletion;
+    private final EmailOtpVerifier otpVerifier;
 
     public RegisterWithPasswordService(PrincipalRepository principalRepository,
                                        PrincipalProfileRepository principalProfileRepository,
@@ -51,7 +52,8 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
                                        EmailAccountRepository emailAccountRepository,
                                        PasswordEncoderPort passwordEncoder,
                                        SubjectRegisteredEventPublisher subjectRegisteredEventPublisher,
-                                       AuthenticationCompletion authenticationCompletion) {
+                                       AuthenticationCompletion authenticationCompletion,
+                                       EmailOtpVerifier otpVerifier) {
         this.principalRepository = principalRepository;
         this.principalProfileRepository = principalProfileRepository;
         this.passwordAccountRepository = passwordAccountRepository;
@@ -59,14 +61,19 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
         this.passwordEncoder = passwordEncoder;
         this.subjectRegisteredEventPublisher = subjectRegisteredEventPublisher;
         this.authenticationCompletion = authenticationCompletion;
+        this.otpVerifier = otpVerifier;
     }
 
     @Override
     @Transactional
     public AuthenticatedSubject register(RegisterWithPasswordCommand command) {
-        // 이미 가입된 이메일이면 받지 않는다. 그 신원에 비밀번호를 붙여 주면, 남의 이메일을 적은
-        // 사람이 자기 비밀번호로 그 사람의 계정에 들어간다. 이 폼은 이메일 소유를 확인하지 않는다.
-        // 기존 신원에 비밀번호를 더하는 일은 그 신원으로 로그인한 뒤에 해야 한다.
+        // 인증번호부터 본다. 이 이메일의 주인이 아니면 아래로 내려가지 않는다. 순서가 중요하다.
+        // 가입 여부를 먼저 알려주면 주소의 주인이 아니어도 누가 가입했는지 훑을 수 있다.
+        otpVerifier.verify(command.email(), command.verificationCode());
+
+        // 이미 가입된 이메일이면 받지 않는다. 그 신원에 비밀번호를 붙이는 일은 그 신원으로
+        // 로그인한 뒤에 해야 한다. 가입용 인증번호는 가입되지 않은 주소로만 나가므로 정상적인
+        // 흐름에서는 여기 닿지 않는다. 코드를 받은 뒤 사이에 가입된 경우를 막는다.
         if (emailAccountRepository.findByEmail(command.realm(), command.email()).isPresent()) {
             throw new IllegalArgumentException("이미 가입된 이메일입니다. 그 계정으로 로그인하세요.");
         }
@@ -104,9 +111,8 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
         // 저장하지 않아 증발했다.
         principalProfileRepository.save(PrincipalProfile.create(
                 principal.getPrincipalId(), command.name(), command.phoneNumber()));
-        // 폼에 적혔을 뿐 확인한 적이 없다 — 남의 주소일 수 있다. 이 주소로 OTP 로그인을 해내면
-        // 그때 확인됨으로 올라간다(AuthenticateWithEmailOtpService).
-        emailAccountRepository.save(EmailAccount.unverified(
+        // 인증번호를 받아냈으므로 이 주소의 주인이 맞다.
+        emailAccountRepository.save(EmailAccount.verified(
                 principal.getPrincipalId(), command.realm(), command.email()));
         return principal;
     }

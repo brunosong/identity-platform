@@ -19,8 +19,6 @@
         .foot { margin-top: 20px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px; }
         .error { margin: 0 0 16px; padding: 9px 12px; background: #fdf1f2; border-left: 3px solid #b00020; font-size: 13px; color: #8a0018; }
         .notice { margin: 0 0 16px; padding: 9px 12px; background: #f2f7f2; border-left: 3px solid #1a7f37; font-size: 13px; color: #1a5b2a; }
-        .divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 4px; color: #999; font-size: 12px; }
-        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #e5e5e5; }
         .code { letter-spacing: 4px; font-family: ui-monospace, monospace; }
     </style>
 </head>
@@ -38,10 +36,27 @@
     </p>
 
     <!--
-      인증번호를 보낸 뒤에는 번호를 받는 폼 하나만 남긴다. 이름과 주소는 앞 단계에서 적은 값이다.
-      화면이 스스로 기억하지 않고 서버가 모델(otpSent)로 알려준다. 새로고침에 흐트러지지 않는다.
+      두 걸음이다. 먼저 이메일로 가입용 인증번호를 받고, 번호와 함께 비밀번호를 정한다.
+      비밀번호로 가입해도 번호를 먼저 받는다. 확인하지 않은 주소로 계정을 만들면 그 주소는 남의 것일 수 있다.
+      어느 걸음인지는 서버가 모델(otpSent)로 알려준다. 새로고침에 흐트러지지 않는다.
     -->
-    <form th:if="${otpSent}" th:action="@{|/realms/${realm}/auth/register/email|}" method="post">
+    <form th:unless="${otpSent}" th:action="@{|/realms/${realm}/auth/register/send-code|}" method="post">
+        <div th:replace="~{oauth/login :: hiddenRequest}"></div>
+
+        <label for="email">이메일</label>
+        <input id="email" name="email" type="email" required autofocus autocomplete="email"
+               th:value="${email}">
+
+        <label for="name">이름</label>
+        <input id="name" name="name" type="text" required autocomplete="name" th:value="${name}">
+
+        <label for="phoneNumber">전화번호 (선택)</label>
+        <input id="phoneNumber" name="phoneNumber" type="tel" autocomplete="tel" th:value="${phoneNumber}">
+
+        <button type="submit">인증번호 받기</button>
+    </form>
+
+    <form th:if="${otpSent}" th:action="@{|/realms/${realm}/auth/register|}" method="post">
         <div th:replace="~{oauth/login :: hiddenRequest}"></div>
 
         <label for="sentTo">이메일</label>
@@ -53,50 +68,15 @@
         <input id="code" name="code" type="text" class="code" required autofocus
                inputmode="numeric" maxlength="6" autocomplete="one-time-code">
 
+        <th:block th:if="${passwordAllowed}">
+            <label for="password">비밀번호 (선택)</label>
+            <input id="password" name="password" type="password" minlength="8" maxlength="64"
+                   autocomplete="new-password">
+            <p class="hint">정하면 비밀번호로도 로그인할 수 있습니다. 비우면 인증번호로만 로그인합니다.</p>
+        </th:block>
+
         <button type="submit">가입</button>
     </form>
-
-    <th:block th:unless="${otpSent}">
-        <!-- 비밀번호를 정해 가입한다. 직원 realm 에는 없다. 직원은 비밀번호 계정을 갖지 않는다. -->
-        <form th:if="${passwordAllowed}" th:action="@{|/realms/${realm}/auth/register|}" method="post">
-            <div th:replace="~{oauth/login :: hiddenRequest}"></div>
-
-            <label for="email">이메일</label>
-            <input id="email" name="email" type="email" required autofocus autocomplete="email"
-                   th:value="${email}">
-
-            <label for="name">이름</label>
-            <input id="name" name="name" type="text" required autocomplete="name" th:value="${name}">
-
-            <label for="phoneNumber">전화번호 (선택)</label>
-            <input id="phoneNumber" name="phoneNumber" type="tel" autocomplete="tel" th:value="${phoneNumber}">
-
-            <label for="password">비밀번호</label>
-            <input id="password" name="password" type="password" required minlength="8" maxlength="64"
-                   autocomplete="new-password">
-
-            <button type="submit">가입</button>
-        </form>
-
-        <div class="divider" th:if="${passwordAllowed and emailAllowed}"><span>또는 비밀번호 없이</span></div>
-
-        <!-- 비밀번호 없이 가입한다. 인증번호를 받아낸 것이 이 주소의 주인이라는 증명이다. -->
-        <form th:if="${emailAllowed}" th:action="@{|/realms/${realm}/auth/register/send-code|}" method="post">
-            <div th:replace="~{oauth/login :: hiddenRequest}"></div>
-
-            <label for="otpEmail">이메일</label>
-            <input id="otpEmail" name="email" type="email" required autocomplete="email"
-                   th:value="${email}">
-
-            <label for="otpName">이름</label>
-            <input id="otpName" name="name" type="text" required autocomplete="name" th:value="${name}">
-
-            <label for="otpPhone">전화번호 (선택)</label>
-            <input id="otpPhone" name="phoneNumber" type="tel" autocomplete="tel" th:value="${phoneNumber}">
-
-            <button type="submit" th:classappend="${passwordAllowed} ? 'secondary' : ''">인증번호 받기</button>
-        </form>
-    </th:block>
 
     <!-- 이미 계정이 있으면 같은 인가 요청을 들고 로그인 화면으로 돌아간다. -->
     <form th:action="@{|/realms/${realm}/auth|}" method="get">

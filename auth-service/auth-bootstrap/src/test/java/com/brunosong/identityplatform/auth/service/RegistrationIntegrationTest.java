@@ -64,15 +64,16 @@ class RegistrationIntegrationTest {
     }
 
     @Test
-    @DisplayName("포털 가입 화면은 비밀번호 가입과 인증번호 가입을 둘 다 연다")
-    void portalScreenOffersBothMethods() {
+    @DisplayName("포털 가입 화면은 인증번호부터 받는다")
+    void portalScreenStartsWithCode() {
         ResponseEntity<String> screen = http.get()
                 .uri(URI.create("http://localhost:" + port + "/realms/portal/auth/register?" + query(PORTAL_CLIENT, PORTAL_REDIRECT)))
                 .retrieve().toEntity(String.class);
 
         assertThat(screen.getStatusCode().value()).isEqualTo(200);
-        assertThat(screen.getBody()).contains("/realms/portal/auth/register\"")
-                .contains("/realms/portal/auth/register/send-code");
+        // 첫 걸음에는 비밀번호 칸이 없다. 비밀번호는 번호를 받은 뒤에 정한다.
+        assertThat(screen.getBody()).contains("/realms/portal/auth/register/send-code")
+                .doesNotContain("name=\"password\"");
     }
 
     @Test
@@ -109,12 +110,14 @@ class RegistrationIntegrationTest {
     }
 
     @Test
-    @DisplayName("비밀번호로 가입하면 로그인된 채로 code 가 앱에 간다")
+    @DisplayName("번호를 받고 비밀번호를 정해 가입하면 로그인된 채로 code 가 앱에 간다")
     void passwordRegistrationEndsInCode() {
-        String email = "signup-" + UUID.randomUUID() + "@example.com";
+        String profile = profileOf("signup-" + UUID.randomUUID() + "@example.com", "가입자");
+        form("/realms/portal/auth/register/send-code", PORTAL_CLIENT, PORTAL_REDIRECT, profile);
 
+        // local 프로파일은 메일을 보내지 않고 고정코드를 쓴다.
         ResponseEntity<Void> response = form("/realms/portal/auth/register", PORTAL_CLIENT, PORTAL_REDIRECT,
-                "&email=" + encode(email) + "&name=" + encode("가입자") + "&password=pw12345678");
+                profile + "&code=123456&password=pw12345678");
 
         assertThat(response.getStatusCode().value()).isEqualTo(303);
         URI location = response.getHeaders().getLocation();
@@ -126,37 +129,52 @@ class RegistrationIntegrationTest {
     }
 
     @Test
-    @DisplayName("이미 가입된 이메일로는 비밀번호 가입을 받지 않는다")
-    void existingEmailIsRefused() {
-        String email = "twice-" + UUID.randomUUID() + "@example.com";
-        form("/realms/portal/auth/register", PORTAL_CLIENT, PORTAL_REDIRECT,
-                "&email=" + encode(email) + "&name=a&password=pw12345678");
-
-        ResponseEntity<String> again = http.post().uri("/realms/portal/auth/register")
-                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
-                .body(formBody(PORTAL_CLIENT, PORTAL_REDIRECT, "&email=" + encode(email) + "&name=b&password=other-pw-123"))
-                .retrieve().toEntity(String.class);
-
-        assertThat(again.getStatusCode().value()).isEqualTo(400);
-        assertThat(again.getHeaders().getLocation()).isNull();
-        assertThat(again.getBody()).contains("이미 가입된 이메일");
-    }
-
-    @Test
-    @DisplayName("인증번호로 가입해도 로그인된 채로 code 가 앱에 간다")
-    void emailRegistrationEndsInCode() {
-        String email = "otp-signup-" + UUID.randomUUID() + "@example.com";
-        String profile = "&email=" + encode(email) + "&name=" + encode("번호가입");
-
+    @DisplayName("비밀번호를 비우면 인증번호로만 로그인하는 계정이 되고, 역시 로그인된 채로 돌아간다")
+    void emailOnlyRegistrationEndsInCode() {
+        String profile = profileOf("otp-signup-" + UUID.randomUUID() + "@example.com", "번호가입");
         ResponseEntity<Void> sent = form("/realms/portal/auth/register/send-code", PORTAL_CLIENT, PORTAL_REDIRECT, profile);
         assertThat(sent.getStatusCode().value()).isEqualTo(200);
 
-        // local 프로파일은 메일을 보내지 않고 고정코드를 쓴다.
-        ResponseEntity<Void> response = form("/realms/portal/auth/register/email", PORTAL_CLIENT, PORTAL_REDIRECT,
+        ResponseEntity<Void> response = form("/realms/portal/auth/register", PORTAL_CLIENT, PORTAL_REDIRECT,
                 profile + "&code=123456");
 
         assertThat(response.getStatusCode().value()).isEqualTo(303);
         assertThat(response.getHeaders().getLocation().getQuery()).contains("code=");
+    }
+
+    @Test
+    @DisplayName("번호를 받지 않았으면 비밀번호가 있어도 가입되지 않는다")
+    void passwordAloneDoesNotRegister() {
+        // 확인하지 않은 주소로 계정을 만들 수 없다. 남의 주소일 수 있다.
+        ResponseEntity<Void> response = form("/realms/portal/auth/register", PORTAL_CLIENT, PORTAL_REDIRECT,
+                profileOf("nocode-" + UUID.randomUUID() + "@example.com", "a") + "&code=123456&password=pw12345678");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+        assertThat(response.getHeaders().getLocation()).isNull();
+    }
+
+    @Test
+    @DisplayName("이미 가입된 이메일은 번호가 나가지 않아 가입되지 않고, 가입 여부도 드러나지 않는다")
+    void existingEmailIsRefusedWithoutSayingSo() {
+        String profile = profileOf("twice-" + UUID.randomUUID() + "@example.com", "a");
+        form("/realms/portal/auth/register/send-code", PORTAL_CLIENT, PORTAL_REDIRECT, profile);
+        form("/realms/portal/auth/register", PORTAL_CLIENT, PORTAL_REDIRECT, profile + "&code=123456");
+
+        // 같은 주소로 다시 가입해 본다. 가입용 번호는 가입된 주소로 나가지 않는다.
+        form("/realms/portal/auth/register/send-code", PORTAL_CLIENT, PORTAL_REDIRECT, profile);
+        ResponseEntity<String> again = http.post().uri("/realms/portal/auth/register")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(formBody(PORTAL_CLIENT, PORTAL_REDIRECT, profile + "&code=123456&password=other-pw-123"))
+                .retrieve().toEntity(String.class);
+
+        assertThat(again.getStatusCode().value()).isEqualTo(401);
+        assertThat(again.getHeaders().getLocation()).isNull();
+        // "이미 가입된 이메일" 이라고 말하면 주소를 넣어보는 것만으로 누가 가입했는지 훑을 수 있다.
+        assertThat(again.getBody()).doesNotContain("이미 가입된");
+    }
+
+    private static String profileOf(String email, String name) {
+        return "&email=" + encode(email) + "&name=" + encode(name);
     }
 
     @Test

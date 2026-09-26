@@ -2,11 +2,14 @@ package com.brunosong.identityplatform.auth.service.application.identity.service
 
 import com.brunosong.identityplatform.auth.service.application.identity.event.SubjectRegisteredEvent;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
+import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
+import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.env.MockEnvironment;
 
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingEventPublisher;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordAccountRepository;
@@ -14,6 +17,8 @@ import static com.brunosong.identityplatform.auth.service.application.identity.s
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalProfileRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailOtpStore;
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.provider;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingSubjectRegisteredPublisher;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,6 +36,7 @@ class RegisterWithPasswordServiceTest {
     private FakeEmailAccountRepository emailAccountRepo;
     private RecordingSubjectRegisteredPublisher registeredPublisher;
     private RecordingEventPublisher authenticatedPublisher;
+    private FakeEmailOtpStore otpStore;
     private RegisterWithPasswordService service;
 
     @BeforeEach
@@ -41,14 +47,43 @@ class RegisterWithPasswordServiceTest {
         registeredPublisher = new RecordingSubjectRegisteredPublisher();
         profileRepo = new FakePrincipalProfileRepository();
         authenticatedPublisher = new RecordingEventPublisher();
+        otpStore = new FakeEmailOtpStore();
         service = new RegisterWithPasswordService(
                 principalRepo, profileRepo, accountRepo, emailAccountRepo, new FakePasswordEncoder(),
-                registeredPublisher, new AuthenticationCompletion(principalRepo, authenticatedPublisher));
+                registeredPublisher, new AuthenticationCompletion(principalRepo, authenticatedPublisher),
+                new EmailOtpVerifier(otpStore, new FakePasswordEncoder()));
     }
 
+    /** 그 이메일로 가입용 인증번호를 보낸 뒤 받은 번호를 적은 명령. 대부분의 테스트가 이 상태에서 시작한다. */
     private RegisterWithPasswordCommand command(String loginId, String email) {
+        issueCode(email);
         return new RegisterWithPasswordCommand(
-                Realm.PORTAL, email, "홍길동", "01012345678", loginId, "pw1234!");
+                Realm.PORTAL, email, "홍길동", "01012345678", loginId, "pw1234!", "123456");
+    }
+
+    /** 발송 단계를 거친 것과 같은 상태를 만든다. local 프로파일은 고정코드 123456 을 쓴다. */
+    private void issueCode(String email) {
+        MockEnvironment local = new MockEnvironment();
+        local.setActiveProfiles("local");
+        new EmailOtpIssuer(otpStore, new FakePasswordEncoder(), local, provider((to, code) -> { }))
+                .issue(email);
+    }
+
+    @Test
+    @DisplayName("인증번호가 없거나 틀리면 아무것도 만들지 않는다")
+    void requiresVerificationCode() {
+        // 비밀번호 가입도 이메일의 주인임을 먼저 증명해야 한다. 남의 주소로 계정을 만들 수 없다.
+        assertThatThrownBy(() -> service.register(new RegisterWithPasswordCommand(
+                Realm.PORTAL, "nocode@example.com", "홍길동", null, "nocode@example.com", "pw1234!", "123456")))
+                .isInstanceOf(AuthenticationFailedException.class);
+
+        issueCode("wrong@example.com");
+        assertThatThrownBy(() -> service.register(new RegisterWithPasswordCommand(
+                Realm.PORTAL, "wrong@example.com", "홍길동", null, "wrong@example.com", "pw1234!", "000000")))
+                .isInstanceOf(AuthenticationFailedException.class);
+
+        assertThat(principalRepo.byId).isEmpty();
+        assertThat(registeredPublisher.published).isEmpty();
     }
 
     @Test
@@ -105,9 +140,10 @@ class RegisterWithPasswordServiceTest {
     @Test
     @DisplayName("이미 가입된 이메일로는 비밀번호 가입을 받지 않는다(계정 탈취 방지)")
     void existingEmailIsRefused() {
-        // 받아 주면 그 신원에 비밀번호가 붙는다. 이 폼은 이메일 소유를 확인하지 않으므로, 남의 이메일을
-        // 적은 사람이 자기 비밀번호로 그 사람의 계정에 들어가게 된다.
-        service.register(command("gildong", "same@example.com"));
+        // 구글이나 인증번호로 이미 가입해 둔 사람이다. 받아 주면 그 신원에 비밀번호가 붙는다.
+        // 가입용 번호는 가입된 주소로 나가지 않지만, 번호를 받은 뒤 사이에 가입된 경우를 여기서 막는다.
+        Principal existing = principalRepo.seed("subject-1", Realm.PORTAL);
+        emailAccountRepo.save(EmailAccount.verified(existing.getPrincipalId(), Realm.PORTAL, "same@example.com"));
 
         assertThatThrownBy(() -> service.register(command("gildong2", "same@example.com")))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -125,6 +161,15 @@ class RegisterWithPasswordServiceTest {
                 .get()
                 .extracting(a -> a.getPrincipalId().value())
                 .isEqualTo(principalId);
+    }
+
+    @Test
+    @DisplayName("비밀번호로 가입해도 이메일은 확인된 주소다. 인증번호를 받아냈기 때문이다")
+    void emailAccountIsVerified() {
+        service.register(command("gildong", "gildong@example.com"));
+
+        assertThat(emailAccountRepo.findByEmail(Realm.PORTAL, "gildong@example.com").orElseThrow().isVerified())
+                .isTrue();
     }
 
     @Test

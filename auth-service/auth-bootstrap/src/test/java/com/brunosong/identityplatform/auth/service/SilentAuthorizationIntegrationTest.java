@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RegisterWithPasswordUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RequestRegistrationOtpUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,6 +72,9 @@ class SilentAuthorizationIntegrationTest {
 
     @Autowired
     private RegisterWithPasswordUseCase registerWithPassword;
+
+    @Autowired
+    private RequestRegistrationOtpUseCase requestRegistrationOtp;
 
     private RestClient http;
 
@@ -317,8 +321,9 @@ class SilentAuthorizationIntegrationTest {
      */
     private String loginAndKeepSession() {
         String email = "silent-" + UUID.randomUUID() + "@example.com";
+        requestRegistrationOtp.request(Realm.PORTAL, email);   // local 은 고정코드 123456
         registerWithPassword.register(new RegisterWithPasswordCommand(
-                Realm.PORTAL, email, "Tester", null, email, PASSWORD));
+                Realm.PORTAL, email, "Tester", null, email, PASSWORD, "123456"));
 
         ResponseEntity<Void> response = http.post()
                 .uri("/realms/portal/auth/login")
