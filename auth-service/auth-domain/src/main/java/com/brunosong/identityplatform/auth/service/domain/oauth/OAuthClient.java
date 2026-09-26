@@ -9,6 +9,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -30,7 +31,22 @@ import java.util.Set;
 @Getter
 public class OAuthClient {
 
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+    private static final int ID_RANDOM_LENGTH = 12;
+    private static final int NAME_MAX_LENGTH = 100;
+
+    /**
+     * 등록할 때 우리가 발급한다. 사람이 짓지 않는다.
+     *
+     * <p>사람이 지으면 portal, admin, web 같은 흔한 이름으로 몰려 겹치고, 다른 이름과 우연히 같아질
+     * 수 있다. 실제로 backoffice 라는 앱 이름이 ADMIN 시스템 이름(access 토큰의 aud)과 같아서,
+     * 그 앱의 id_token 이 access 토큰으로 통과할 수 있었다.
+     */
     private final String clientId;
+
+    /** 사람이 알아보는 이름. 화면과 로그에만 쓰고 토큰에는 싣지 않는다. 바꿔도 앱은 그대로다. */
+    private final String name;
 
     /** 이 앱이 상대하는 realm. 앱은 realm 하나에만 속한다 - 고객 앱으로 어드민 로그인을 시작할 수 없다. */
     private final Realm realm;
@@ -49,9 +65,10 @@ public class OAuthClient {
     @Getter(AccessLevel.NONE)
     private final String secretHash;
 
-    private OAuthClient(String clientId, Realm realm, Set<String> redirectUris, boolean enabled,
-                        String secretHash) {
+    private OAuthClient(String clientId, String name, Realm realm, Set<String> redirectUris,
+                        boolean enabled, String secretHash) {
         this.clientId = clientId;
+        this.name = name;
         this.realm = realm;
         this.redirectUris = redirectUris;
         this.enabled = enabled;
@@ -59,19 +76,35 @@ public class OAuthClient {
     }
 
     /**
-     * 새로 등록한다. 등록된 앱은 켜진 채로 시작한다 - 꺼진 채로 만들 이유가 없다.
+     * 새로 등록한다. client_id 는 여기서 발급한다. 등록된 앱은 켜진 채로 시작한다.
      *
      * <p>주소는 여기서 한 번 걸러진다. 대조는 문자 그대로 하므로, 들어올 때 이상한 값이면
      * 그 앱은 영영 로그인이 안 되고 원인은 로그인 시점에야 드러난다.
      */
-    public static OAuthClient register(String clientId, Realm realm, Collection<String> redirectUris) {
-        return new OAuthClient(requireClientId(clientId), requireRealm(realm),
+    public static OAuthClient register(Realm realm, String name, Collection<String> redirectUris) {
+        Realm checkedRealm = requireRealm(realm);
+        return new OAuthClient(newClientId(checkedRealm), requireName(name), checkedRealm,
                 requireRedirectUris(redirectUris), true, null);
     }
 
-    public static OAuthClient restore(String clientId, Realm realm, Set<String> redirectUris,
+    public static OAuthClient restore(String clientId, String name, Realm realm, Set<String> redirectUris,
                                       boolean enabled, String secretHash) {
-        return new OAuthClient(clientId, realm, Set.copyOf(redirectUris), enabled, secretHash);
+        return new OAuthClient(clientId, name, realm, Set.copyOf(redirectUris), enabled, secretHash);
+    }
+
+    /**
+     * {@code realm 소문자-난수 12자}. 예: {@code portal-17kqqi85h2ks}.
+     *
+     * <p>접두어는 로그에서 어느 realm 의 앱인지 알아보라고 붙인다. 경로의 realm 과 같은 글자다.
+     * 난수는 36^12 가지라 겹칠 일이 사실상 없고, 겹쳐도 저장 전에 이름이 비어 있는지 한 번 더 본다.
+     * 값 자체는 비밀이 아니다. 주소창에 그대로 나간다.
+     */
+    private static String newClientId(Realm realm) {
+        StringBuilder id = new StringBuilder(realm.name().toLowerCase()).append('-');
+        for (int i = 0; i < ID_RANDOM_LENGTH; i++) {
+            id.append(ID_ALPHABET.charAt(RANDOM.nextInt(ID_ALPHABET.length())));
+        }
+        return id.toString();
     }
 
     /** 이 시크릿을 쥔 앱으로 만든다. 원문은 해시해서 담고 버린다. */
@@ -79,7 +112,7 @@ public class OAuthClient {
         if (secret == null || secret.isBlank()) {
             throw new IllegalArgumentException("secret must not be blank");
         }
-        return new OAuthClient(clientId, realm, redirectUris, enabled, hash(secret));
+        return new OAuthClient(clientId, name, realm, redirectUris, enabled, hash(secret));
     }
 
     public boolean isConfidential() {
@@ -122,11 +155,15 @@ public class OAuthClient {
         return redirectUri != null && redirectUris.contains(redirectUri);
     }
 
-    private static String requireClientId(String clientId) {
-        if (clientId == null || clientId.isBlank()) {
-            throw new IllegalArgumentException("clientId must not be blank");
+    private static String requireName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("name must not be blank");
         }
-        return clientId.trim();
+        String trimmed = name.trim();
+        if (trimmed.length() > NAME_MAX_LENGTH) {
+            throw new IllegalArgumentException("name must be at most " + NAME_MAX_LENGTH + " characters");
+        }
+        return trimmed;
     }
 
     private static Realm requireRealm(Realm realm) {

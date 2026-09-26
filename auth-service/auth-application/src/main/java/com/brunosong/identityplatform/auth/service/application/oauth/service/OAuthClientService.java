@@ -42,12 +42,14 @@ public class OAuthClientService implements RegisterOAuthClientUseCase, FindOAuth
      *
      * <p>시크릿은 32바이트 난수다. 사람이 고른 값을 받지 않는다. 그래야 해시 한 번으로 저장해도
      * 되돌릴 수 없다는 판단({@link OAuthClient})이 성립한다.
+     *
+     * <p>client_id 는 도메인이 난수로 뽑는다. 겹칠 일은 사실상 없지만 저장 전에 한 번 더 본다.
+     * 겹치면 다시 뽑지 않고 실패로 끝낸다. 그런 일이 생겼다면 난수 쪽이 고장 난 것이다.
      */
     @Override
     @Transactional
     public RegisteredOAuthClient register(RegisterOAuthClientCommand command) {
-        OAuthClient client = OAuthClient.register(command.clientId(), command.realm(),
-                command.redirectUris());
+        OAuthClient client = OAuthClient.register(command.realm(), command.name(), command.redirectUris());
         if (clientRepository.exists(client.getClientId())) {
             throw new OAuthClientAlreadyExistsException(client.getClientId());
         }

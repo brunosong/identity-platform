@@ -55,6 +55,7 @@ public class OAuthClientPersistenceAdapter implements OAuthClientRepository {
     private static OAuthClientJpaEntity toEntity(OAuthClient client) {
         OAuthClientJpaEntity e = new OAuthClientJpaEntity();
         e.setClientId(client.getClientId());
+        e.setClientName(client.getName());
         e.setRealm(client.getRealm().name());
         e.setEnabled(client.isEnabled());
         e.setClientSecretHash(client.secretHash());
@@ -63,7 +64,7 @@ public class OAuthClientPersistenceAdapter implements OAuthClientRepository {
     }
 
     private static OAuthClient toDomain(OAuthClientJpaEntity e) {
-        return OAuthClient.restore(e.getClientId(), Realm.valueOf(e.getRealm()),
+        return OAuthClient.restore(e.getClientId(), e.getClientName(), Realm.valueOf(e.getRealm()),
                 e.getRedirectUris(), e.isEnabled(), e.getClientSecretHash());
     }
 }

@@ -34,6 +34,11 @@
 
 <div class="notice" th:if="${message}" th:text="${message}"></div>
 <div class="notice bad" th:if="${error}" th:text="${error}"></div>
+<div class="notice secret" th:if="${clientId}">
+    client_id
+    <code th:text="${clientId}"></code>
+    앱 설정에 이 값을 넣는다. 목록에서도 다시 볼 수 있다.
+</div>
 <div class="notice secret" th:if="${secret}">
     client_secret
     <code th:text="${secret}"></code>
@@ -42,9 +47,9 @@
 
 <form method="post">
     <label>
-        client_id
-        <span>주소창에 그대로 나간다. 등록 후에는 바꿀 수 없다.</span>
-        <input type="text" name="clientId" required autocomplete="off">
+        이름
+        <span>사람이 알아보는 이름. client_id 는 등록하면 따로 발급된다.</span>
+        <input type="text" name="name" required maxlength="100" autocomplete="off">
     </label>
 
     <label>
@@ -72,8 +77,9 @@
 <table th:if="${!clients.isEmpty()}">
     <thead>
     <tr>
+        <th style="width: 16%">이름</th>
         <th style="width: 22%">client_id</th>
-        <th style="width: 14%">realm</th>
+        <th style="width: 10%">realm</th>
         <th style="width: 10%">상태</th>
         <th style="width: 12%">시크릿</th>
         <th>돌아갈 주소</th>
@@ -81,7 +87,8 @@
     </thead>
     <tbody>
     <tr th:each="client : ${clients}">
-        <td th:text="${client.clientId}"></td>
+        <td th:text="${client.name}"></td>
+        <td class="uris" th:text="${client.clientId}"></td>
         <td th:text="${client.realm}"></td>
         <td th:text="${client.enabled} ? '사용' : '중지'" th:classappend="${client.enabled} ? '' : 'off'"></td>
         <td th:text="${client.confidential} ? '있음' : '없음'"></td>

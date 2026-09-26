@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OAuthClientTest {
 
     private static final OAuthClient PORTAL_APP = OAuthClient.restore(
-            "portal", Realm.PORTAL,
+            "portal-17kqqi85h2ks", "포털", Realm.PORTAL,
             Set.of("http://localhost:5173/callback"), true, null);
 
     @Test
@@ -104,10 +104,10 @@ class OAuthClientTest {
         @Test
         @DisplayName("등록한 앱은 켜진 채로 시작하고 주소를 그대로 들고 있다")
         void registersEnabled() {
-            OAuthClient client = OAuthClient.register("shop", Realm.PORTAL,
+            OAuthClient client = OAuthClient.register(Realm.PORTAL, "쇼핑몰",
                     List.of("https://shop.example.com/callback"));
 
-            assertThat(client.getClientId()).isEqualTo("shop");
+            assertThat(client.getName()).isEqualTo("쇼핑몰");
             assertThat(client.isEnabled()).isTrue();
             assertThat(client.allowsRedirect("https://shop.example.com/callback")).isTrue();
         }
@@ -116,14 +116,14 @@ class OAuthClientTest {
         @DisplayName("주소가 하나도 없으면 등록할 수 없다")
         void rejectsEmptyRedirectUris() {
             // 돌려보낼 곳이 없는 앱은 로그인을 시작해 봐야 갈 데가 없다.
-            assertThatThrownBy(() -> OAuthClient.register("shop", Realm.PORTAL, List.of()))
+            assertThatThrownBy(() -> OAuthClient.register(Realm.PORTAL, "쇼핑몰", List.of()))
                     .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         @DisplayName("상대 주소는 거절한다")
         void rejectsRelativeUri() {
-            assertThatThrownBy(() -> OAuthClient.register("shop", Realm.PORTAL, List.of("/callback")))
+            assertThatThrownBy(() -> OAuthClient.register(Realm.PORTAL, "쇼핑몰", List.of("/callback")))
                     .isInstanceOf(IllegalArgumentException.class);
         }
 
@@ -132,7 +132,7 @@ class OAuthClientTest {
         void rejectsOtherScheme() {
             // 커스텀 스킴(myapp://)은 모바일 앱의 자리다. 지금 상대하는 것은 브라우저 앱뿐이고,
             // 받아주려면 그 스킴을 누가 가져갈 수 있는지부터 따져야 한다.
-            assertThatThrownBy(() -> OAuthClient.register("shop", Realm.PORTAL,
+            assertThatThrownBy(() -> OAuthClient.register(Realm.PORTAL, "쇼핑몰",
                     List.of("myapp://callback"))).isInstanceOf(IllegalArgumentException.class);
         }
 
@@ -140,7 +140,7 @@ class OAuthClientTest {
         @DisplayName("조각이 붙은 주소는 거절한다")
         void rejectsFragment() {
             // 조각은 브라우저가 서버로 보내지 않아 대조할 수가 없다(RFC 6749 3.1.2).
-            assertThatThrownBy(() -> OAuthClient.register("shop", Realm.PORTAL,
+            assertThatThrownBy(() -> OAuthClient.register(Realm.PORTAL, "쇼핑몰",
                     List.of("https://shop.example.com/callback#done")))
                     .isInstanceOf(IllegalArgumentException.class);
         }
@@ -148,11 +148,33 @@ class OAuthClientTest {
         @Test
         @DisplayName("앞뒤 공백은 떼고 담는다")
         void trimsInput() {
-            OAuthClient client = OAuthClient.register("  shop  ", Realm.PORTAL,
+            OAuthClient client = OAuthClient.register(Realm.PORTAL, "  쇼핑몰  ",
                     List.of("  https://shop.example.com/callback  "));
 
-            assertThat(client.getClientId()).isEqualTo("shop");
+            assertThat(client.getName()).isEqualTo("쇼핑몰");
             assertThat(client.allowsRedirect("https://shop.example.com/callback")).isTrue();
+        }
+
+        @Test
+        @DisplayName("client_id 는 realm 접두어에 난수 12자를 붙여 발급한다. 등록할 때마다 다르다")
+        void issuesClientId() {
+            OAuthClient portal = OAuthClient.register(Realm.PORTAL, "쇼핑몰", List.of("https://shop.example.com/cb"));
+            OAuthClient again = OAuthClient.register(Realm.PORTAL, "쇼핑몰", List.of("https://shop.example.com/cb"));
+            OAuthClient admin = OAuthClient.register(Realm.ADMIN, "백오피스", List.of("https://admin.example.com/cb"));
+
+            assertThat(portal.getClientId()).matches("portal-[a-z0-9]{12}");
+            assertThat(admin.getClientId()).matches("admin-[a-z0-9]{12}");
+            // 같은 이름으로 두 번 등록해도 다른 앱이다. 이름은 식별자가 아니다.
+            assertThat(again.getClientId()).isNotEqualTo(portal.getClientId());
+        }
+
+        @Test
+        @DisplayName("이름이 비었거나 100자를 넘으면 등록할 수 없다")
+        void rejectsBadName() {
+            assertThatThrownBy(() -> OAuthClient.register(Realm.PORTAL, " ", List.of("https://shop.example.com/cb")))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> OAuthClient.register(Realm.PORTAL, "가".repeat(101),
+                    List.of("https://shop.example.com/cb"))).isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

@@ -46,6 +46,9 @@ public class OAuthClientJpaEntity {
     @Column(name = "client_id", length = 100)
     private String clientId;
 
+    @Column(name = "client_name", nullable = false, length = 100)
+    private String clientName;
+
     @Column(name = "realm", nullable = false, length = 20)
     private String realm;
 

@@ -94,12 +94,13 @@ class OAuthClientPersistenceIntegrationTest {
     @Test
     @DisplayName("등록하면 주소까지 함께 저장된다")
     void savesClientWithRedirectUris() {
-        adapter.save(OAuthClient.register("shop", Realm.PORTAL,
-                List.of("https://shop.example.com/callback", "https://shop.example.com/silent")));
+        String clientId = adapter.save(OAuthClient.register(Realm.PORTAL, "쇼핑몰",
+                List.of("https://shop.example.com/callback", "https://shop.example.com/silent"))).getClientId();
         em.flush();
         em.clear();
 
-        OAuthClient saved = adapter.findByClientId(Realm.PORTAL, "shop").orElseThrow();
+        OAuthClient saved = adapter.findByClientId(Realm.PORTAL, clientId).orElseThrow();
+        assertThat(saved.getName()).isEqualTo("쇼핑몰");
         assertThat(saved.isEnabled()).isTrue();
         assertThat(saved.allowsRedirect("https://shop.example.com/callback")).isTrue();
         assertThat(saved.allowsRedirect("https://shop.example.com/silent")).isTrue();
@@ -108,12 +109,12 @@ class OAuthClientPersistenceIntegrationTest {
     @Test
     @DisplayName("시크릿은 해시로 저장되고 읽어와도 대조된다")
     void savesSecretHash() {
-        adapter.save(OAuthClient.register("batch", Realm.PORTAL,
-                List.of("https://batch.example.com/callback")).withSecret("s3cret-value"));
+        String clientId = adapter.save(OAuthClient.register(Realm.PORTAL, "배치",
+                List.of("https://batch.example.com/callback")).withSecret("s3cret-value")).getClientId();
         em.flush();
         em.clear();
 
-        OAuthClient saved = adapter.findByClientId(Realm.PORTAL, "batch").orElseThrow();
+        OAuthClient saved = adapter.findByClientId(Realm.PORTAL, clientId).orElseThrow();
         assertThat(saved.isConfidential()).isTrue();
         assertThat(saved.authenticates("s3cret-value")).isTrue();
     }
@@ -143,12 +144,13 @@ class OAuthClientPersistenceIntegrationTest {
 
     private void insertClient(String clientId, String realm, boolean enabled) {
         em.createNativeQuery("""
-                        INSERT INTO oauth_client (client_id, realm, enabled, created_at, updated_at)
-                        VALUES (?, ?, ?, now(), now())
+                        INSERT INTO oauth_client (client_id, client_name, realm, enabled, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, now(), now())
                         """)
                 .setParameter(1, clientId)
-                .setParameter(2, realm)
-                .setParameter(3, enabled)
+                .setParameter(2, clientId)
+                .setParameter(3, realm)
+                .setParameter(4, enabled)
                 .executeUpdate();
     }
 

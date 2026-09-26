@@ -37,10 +37,10 @@ class OAuthClientServiceTest {
     @DisplayName("confidential 로 등록하면 시크릿 원문을 한 번 돌려주고, 저장된 앱은 그것으로 통과한다")
     void confidentialGetsSecret() {
         RegisteredOAuthClient registered = service.register(
-                new RegisterOAuthClientCommand("batch", Realm.PORTAL, REDIRECTS, true));
+                new RegisterOAuthClientCommand(Realm.PORTAL, "배치", REDIRECTS, true));
 
         assertThat(registered.secret()).isNotBlank();
-        OAuthClient saved = clients.findByClientId(Realm.PORTAL, "batch").orElseThrow();
+        OAuthClient saved = clients.findByClientId(Realm.PORTAL, registered.client().getClientId()).orElseThrow();
         assertThat(saved.isConfidential()).isTrue();
         assertThat(saved.authenticates(registered.secret())).isTrue();
     }
@@ -49,9 +49,9 @@ class OAuthClientServiceTest {
     @DisplayName("시크릿은 등록할 때마다 새로 뽑는다")
     void secretsDiffer() {
         String first = service.register(
-                new RegisterOAuthClientCommand("batch-a", Realm.PORTAL, REDIRECTS, true)).secret();
+                new RegisterOAuthClientCommand(Realm.PORTAL, "배치 A", REDIRECTS, true)).secret();
         String second = service.register(
-                new RegisterOAuthClientCommand("batch-b", Realm.PORTAL, REDIRECTS, true)).secret();
+                new RegisterOAuthClientCommand(Realm.PORTAL, "배치 B", REDIRECTS, true)).secret();
 
         assertThat(first).isNotEqualTo(second);
     }
@@ -60,10 +60,10 @@ class OAuthClientServiceTest {
     @DisplayName("public 으로 등록하면 시크릿이 없다")
     void publicGetsNoSecret() {
         RegisteredOAuthClient registered = service.register(
-                new RegisterOAuthClientCommand("shop", Realm.PORTAL, REDIRECTS, false));
+                new RegisterOAuthClientCommand(Realm.PORTAL, "쇼핑몰", REDIRECTS, false));
 
         assertThat(registered.secret()).isNull();
-        assertThat(clients.findByClientId(Realm.PORTAL, "shop").orElseThrow().isConfidential())
+        assertThat(clients.findByClientId(Realm.PORTAL, registered.client().getClientId()).orElseThrow().isConfidential())
                 .isFalse();
     }
 

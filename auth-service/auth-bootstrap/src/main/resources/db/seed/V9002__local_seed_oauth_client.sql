@@ -7,6 +7,8 @@
 -- portal, admin, web 같은 흔한 이름으로 몰리고, 실제로 backoffice 라는 앱 이름이 ADMIN 시스템
 -- 이름(access 토큰의 aud)과 겹쳐 그 앱의 id_token 이 access 토큰으로 통과할 수 있었다.
 -- 접두어는 로그에서 어느 realm 의 앱인지 알아보라고 붙인다. 값 자체는 비밀이 아니다.
+-- 등록 화면으로 넣으면 같은 모양으로 발급된다(OAuthClient.register). 시드는 한 번 뽑은 값을
+-- 고정해 둔다. 프론트 설정이 이 값을 그대로 적고 있다.
 --
 --   portal-17kqqi85h2ks   포털        frontends/portal
 --   portal-1rtojq5fqz7u   쇼핑몰      frontends/shop
@@ -18,10 +20,10 @@
 -- 포털과 쇼핑몰은 같은 realm 이다. 포털에서 로그인한 브라우저로 쇼핑몰 로그인을 누르면 로그인
 -- 화면이 뜨지 않아야 한다(통합 로그인). 백오피스는 realm 이 달라 세션이 갈리는 것이 정상이다.
 -- 백오피스 로그인은 인증번호 폼으로만 된다. 직원은 비밀번호 계정이 없다(V9001).
-INSERT INTO oauth_client (client_id, realm, enabled, created_at, updated_at)
-VALUES ('portal-17kqqi85h2ks', 'PORTAL', true, now(), now()),
-       ('portal-1rtojq5fqz7u', 'PORTAL', true, now(), now()),
-       ('admin-ln4efwmg0tee', 'ADMIN', true, now(), now())
+INSERT INTO oauth_client (client_id, client_name, realm, enabled, created_at, updated_at)
+VALUES ('portal-17kqqi85h2ks', '포털', 'PORTAL', true, now(), now()),
+       ('portal-1rtojq5fqz7u', '쇼핑몰', 'PORTAL', true, now(), now()),
+       ('admin-ln4efwmg0tee', '백오피스', 'ADMIN', true, now(), now())
 ON CONFLICT DO NOTHING;
 
 -- 돌아갈 주소 ----------------------------------------------------------------

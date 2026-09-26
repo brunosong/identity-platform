@@ -63,15 +63,16 @@ public class OAuthClientConsoleController {
      * 저장소에 해시만 남기 때문이다.
      */
     @PostMapping
-    public String register(@RequestParam String clientId,
+    public String register(@RequestParam String name,
                            @RequestParam Realm realm,
                            @RequestParam String redirectUris,
                            @RequestParam(defaultValue = "false") boolean confidential,
                            RedirectAttributes attributes) {
         try {
             RegisteredOAuthClient registered = registerClient.register(
-                    new RegisterOAuthClientCommand(clientId, realm, lines(redirectUris), confidential));
-            attributes.addFlashAttribute("message", clientId + " 을(를) 등록했다.");
+                    new RegisterOAuthClientCommand(realm, name, lines(redirectUris), confidential));
+            attributes.addFlashAttribute("message", registered.client().getName() + " 을(를) 등록했다.");
+            attributes.addFlashAttribute("clientId", registered.client().getClientId());
             attributes.addFlashAttribute("secret", registered.secret());
         } catch (OAuthClientAlreadyExistsException | IllegalArgumentException e) {
             attributes.addFlashAttribute("error", e.getMessage());

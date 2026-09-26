@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,8 +60,10 @@ class AuthorizationCodeServiceTest {
     void setUp() {
         codes = new FakeCodeRepository();
         OAuthClientServiceTest.FakeClientRepository clients = new OAuthClientServiceTest.FakeClientRepository();
-        clients.save(OAuthClient.register(CLIENT, Realm.PORTAL, List.of(REDIRECT)));
-        clients.save(OAuthClient.register(SERVER_CLIENT, Realm.PORTAL, List.of(REDIRECT)).withSecret(SECRET));
+        // client_id 를 이 테스트가 정해야 하므로 등록이 아니라 저장소에서 꺼낸 모양으로 만든다.
+        clients.save(OAuthClient.restore(CLIENT, "포털", Realm.PORTAL, Set.of(REDIRECT), true, null));
+        clients.save(OAuthClient.restore(SERVER_CLIENT, "배치", Realm.PORTAL, Set.of(REDIRECT), true, null)
+                .withSecret(SECRET));
         service = new AuthorizationCodeService(codes, clients, new FakeTokenIssuance(), new FakeIdTokenIssuer());
     }
 
