@@ -101,6 +101,13 @@
         </form>
     </th:block>
 
+    <!-- 가입도 여기서 한다. 같은 인가 요청을 들고 가서, 가입이 끝나면 로그인된 채로 앱에 돌아간다. -->
+    <form th:action="@{|/realms/${realm}/auth/register|}" method="get">
+        <div th:replace="~{:: hiddenRequest}"></div>
+
+        <button type="submit" class="secondary">회원가입</button>
+    </form>
+
     <p class="foot">
         이 화면은 <b>BrunoSong 인증 서버</b>가 그립니다. 비밀번호는 앱을 거치지 않습니다.
     </p>

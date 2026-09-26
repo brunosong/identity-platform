@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BrunoSong 가입</title>
+    <style>
+        body { font: 15px/1.6 system-ui, sans-serif; color: #1b1b1b; background: #f4f4f5; margin: 0; }
+        .card { width: 340px; margin: 72px auto; background: #fff; border: 1px solid #e0e0e0; padding: 32px 28px; }
+        h1 { font-size: 19px; margin: 0; }
+        h2 { font-size: 14px; margin: 0 0 4px; }
+        .sub { color: #666; font-size: 13px; margin: 4px 0 24px; }
+        .hint { color: #777; font-size: 12px; margin: 0; }
+        label { display: block; margin-top: 14px; font-size: 13px; font-weight: 600; }
+        input[type=text], input[type=email], input[type=password], input[type=tel] { width: 100%; padding: 9px 10px; margin-top: 5px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
+        input[readonly] { background: #f7f7f7; color: #666; }
+        button { width: 100%; margin-top: 22px; padding: 10px; font: inherit; font-weight: 600; border: 0; background: #1b1b1b; color: #fff; cursor: pointer; }
+        button.secondary { background: #fff; color: #1b1b1b; border: 1px solid #bbb; font-weight: 500; margin-top: 10px; }
+        .foot { margin-top: 20px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px; }
+        .error { margin: 0 0 16px; padding: 9px 12px; background: #fdf1f2; border-left: 3px solid #b00020; font-size: 13px; color: #8a0018; }
+        .notice { margin: 0 0 16px; padding: 9px 12px; background: #f2f7f2; border-left: 3px solid #1a7f37; font-size: 13px; color: #1a5b2a; }
+        .divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 4px; color: #999; font-size: 12px; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #e5e5e5; }
+        .code { letter-spacing: 4px; font-family: ui-monospace, monospace; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>BrunoSong 가입</h1>
+    <p class="sub">
+        가입하면 바로 <span th:text="${request.clientId}">앱</span> 로 돌아갑니다.
+    </p>
+
+    <p class="error" th:if="${error}" th:text="${error}"></p>
+    <p class="notice" th:if="${otpSent}">
+        <span th:text="${email}">메일 주소</span> 로 인증번호를 보냈습니다.
+    </p>
+
+    <!--
+      인증번호를 보낸 뒤에는 번호를 받는 폼 하나만 남긴다. 이름과 주소는 앞 단계에서 적은 값이다.
+      화면이 스스로 기억하지 않고 서버가 모델(otpSent)로 알려준다. 새로고침에 흐트러지지 않는다.
+    -->
+    <form th:if="${otpSent}" th:action="@{|/realms/${realm}/auth/register/email|}" method="post">
+        <div th:replace="~{oauth/login :: hiddenRequest}"></div>
+
+        <label for="sentTo">이메일</label>
+        <input id="sentTo" name="email" type="email" readonly th:value="${email}">
+        <input type="hidden" name="name" th:value="${name}">
+        <input type="hidden" name="phoneNumber" th:value="${phoneNumber}">
+
+        <label for="code">인증번호</label>
+        <input id="code" name="code" type="text" class="code" required autofocus
+               inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+
+        <button type="submit">가입</button>
+    </form>
+
+    <th:block th:unless="${otpSent}">
+        <!-- 비밀번호를 정해 가입한다. 직원 realm 에는 없다. 직원은 비밀번호 계정을 갖지 않는다. -->
+        <form th:if="${passwordAllowed}" th:action="@{|/realms/${realm}/auth/register|}" method="post">
+            <div th:replace="~{oauth/login :: hiddenRequest}"></div>
+
+            <label for="email">이메일</label>
+            <input id="email" name="email" type="email" required autofocus autocomplete="email"
+                   th:value="${email}">
+
+            <label for="name">이름</label>
+            <input id="name" name="name" type="text" required autocomplete="name" th:value="${name}">
+
+            <label for="phoneNumber">전화번호 (선택)</label>
+            <input id="phoneNumber" name="phoneNumber" type="tel" autocomplete="tel" th:value="${phoneNumber}">
+
+            <label for="password">비밀번호</label>
+            <input id="password" name="password" type="password" required minlength="8" maxlength="64"
+                   autocomplete="new-password">
+
+            <button type="submit">가입</button>
+        </form>
+
+        <div class="divider" th:if="${passwordAllowed and emailAllowed}"><span>또는 비밀번호 없이</span></div>
+
+        <!-- 비밀번호 없이 가입한다. 인증번호를 받아낸 것이 이 주소의 주인이라는 증명이다. -->
+        <form th:if="${emailAllowed}" th:action="@{|/realms/${realm}/auth/register/send-code|}" method="post">
+            <div th:replace="~{oauth/login :: hiddenRequest}"></div>
+
+            <label for="otpEmail">이메일</label>
+            <input id="otpEmail" name="email" type="email" required autocomplete="email"
+                   th:value="${email}">
+
+            <label for="otpName">이름</label>
+            <input id="otpName" name="name" type="text" required autocomplete="name" th:value="${name}">
+
+            <label for="otpPhone">전화번호 (선택)</label>
+            <input id="otpPhone" name="phoneNumber" type="tel" autocomplete="tel" th:value="${phoneNumber}">
+
+            <button type="submit" th:classappend="${passwordAllowed} ? 'secondary' : ''">인증번호 받기</button>
+        </form>
+    </th:block>
+
+    <!-- 이미 계정이 있으면 같은 인가 요청을 들고 로그인 화면으로 돌아간다. -->
+    <form th:action="@{|/realms/${realm}/auth|}" method="get">
+        <div th:replace="~{oauth/login :: hiddenRequest}"></div>
+        <input type="hidden" name="response_type" value="code">
+
+        <button type="submit" class="secondary">이미 계정이 있어요</button>
+    </form>
+
+    <p class="foot">
+        이 화면은 <b>BrunoSong 인증 서버</b>가 그립니다. 가입 정보와 비밀번호는 앱을 거치지 않습니다.
+    </p>
+</div>
+
+</body>
+</html>

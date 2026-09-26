@@ -64,16 +64,16 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
     @Override
     @Transactional
     public AuthenticatedSubject register(RegisterWithPasswordCommand command) {
-        // 아이디 중복은 같은 realm 안에서만 따진다 — 직원 "hong" 과 고객 "hong" 은 다른 계정이다.
-        if (passwordAccountRepository.existsByLoginId(command.realm(), command.loginId())) {
-            throw new IllegalArgumentException("이미 존재하는 아이디입니다: " + command.loginId());
-        }
-
         // 이미 가입된 이메일이면 받지 않는다. 그 신원에 비밀번호를 붙여 주면, 남의 이메일을 적은
         // 사람이 자기 비밀번호로 그 사람의 계정에 들어간다. 이 폼은 이메일 소유를 확인하지 않는다.
         // 기존 신원에 비밀번호를 더하는 일은 그 신원으로 로그인한 뒤에 해야 한다.
         if (emailAccountRepository.findByEmail(command.realm(), command.email()).isPresent()) {
             throw new IllegalArgumentException("이미 가입된 이메일입니다. 그 계정으로 로그인하세요.");
+        }
+
+        // 아이디 중복은 같은 realm 안에서만 따진다 — 직원 "hong" 과 고객 "hong" 은 다른 계정이다.
+        if (passwordAccountRepository.existsByLoginId(command.realm(), command.loginId())) {
+            throw new IllegalArgumentException("이미 존재하는 아이디입니다: " + command.loginId());
         }
 
         // auth 가 채번해서 "생겼다"만 알린다 — 누가 받아 프로필을 만드는지는 모른다.
