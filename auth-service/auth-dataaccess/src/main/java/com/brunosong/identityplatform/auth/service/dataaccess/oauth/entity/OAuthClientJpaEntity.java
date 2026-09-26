@@ -52,6 +52,10 @@ public class OAuthClientJpaEntity {
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
 
+    /** 비어 있으면 public client 다. 원문이 아니라 해시다. */
+    @Column(name = "client_secret_hash", length = 64)
+    private String clientSecretHash;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @BatchSize(size = 100)
     @CollectionTable(name = "oauth_client_redirect_uri",

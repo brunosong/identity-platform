@@ -21,7 +21,7 @@ class OAuthClientTest {
 
     private static final OAuthClient PORTAL_APP = OAuthClient.restore(
             "portal", Realm.PORTAL,
-            Set.of("http://localhost:5173/callback"), true);
+            Set.of("http://localhost:5173/callback"), true, null);
 
     @Test
     @DisplayName("등록된 주소는 통과한다")
@@ -53,6 +53,48 @@ class OAuthClientTest {
     @DisplayName("주소가 없으면 거절한다")
     void rejectsNull() {
         assertThat(PORTAL_APP.allowsRedirect(null)).isFalse();
+    }
+
+    @Nested
+    @DisplayName("시크릿")
+    class Secret {
+
+        private final OAuthClient confidential = PORTAL_APP.withSecret("s3cret-value");
+
+        @Test
+        @DisplayName("같은 시크릿을 내면 통과한다")
+        void authenticatesWithSameSecret() {
+            assertThat(confidential.isConfidential()).isTrue();
+            assertThat(confidential.authenticates("s3cret-value")).isTrue();
+        }
+
+        @Test
+        @DisplayName("다른 시크릿이나 빈 값은 거절한다")
+        void rejectsWrongSecret() {
+            assertThat(confidential.authenticates("s3cret-valuE")).isFalse();
+            assertThat(confidential.authenticates(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("원문을 담지 않는다")
+        void storesOnlyHash() {
+            assertThat(confidential.secretHash()).isNotBlank().doesNotContain("s3cret-value");
+        }
+
+        @Test
+        @DisplayName("시크릿이 없는 앱은 무엇을 내도 통과하지 않는다")
+        void publicClientNeverAuthenticates() {
+            // 시크릿 없는 앱에 아무 값이나 내고 통과하면 시크릿 검사가 뚫린 것과 같다.
+            assertThat(PORTAL_APP.isConfidential()).isFalse();
+            assertThat(PORTAL_APP.authenticates("anything")).isFalse();
+        }
+
+        @Test
+        @DisplayName("빈 시크릿으로는 만들 수 없다")
+        void rejectsBlankSecret() {
+            assertThatThrownBy(() -> PORTAL_APP.withSecret(" "))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Nested

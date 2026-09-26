@@ -57,12 +57,13 @@ public class OAuthClientPersistenceAdapter implements OAuthClientRepository {
         e.setClientId(client.getClientId());
         e.setRealm(client.getRealm().name());
         e.setEnabled(client.isEnabled());
+        e.setClientSecretHash(client.secretHash());
         e.setRedirectUris(new HashSet<>(client.getRedirectUris()));
         return e;
     }
 
     private static OAuthClient toDomain(OAuthClientJpaEntity e) {
         return OAuthClient.restore(e.getClientId(), Realm.valueOf(e.getRealm()),
-                e.getRedirectUris(), e.isEnabled());
+                e.getRedirectUris(), e.isEnabled(), e.getClientSecretHash());
     }
 }

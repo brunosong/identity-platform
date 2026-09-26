@@ -1,10 +1,15 @@
 package com.brunosong.identityplatform.auth.service.domain.oauth;
 
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
+import lombok.AccessLevel;
 import lombok.Getter;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -16,8 +21,11 @@ import java.util.Set;
  * 그 주소는 인가 요청이 적어 보내는 값이라 그대로 믿을 수 없다 - 믿으면 공격자가 자기 주소를
  * 적어 보내고, 우리가 발급한 code 를 우리 손으로 그쪽에 배달하게 된다.
  *
- * <p>시크릿은 없다. 브라우저에서 도는 앱은 시크릿을 지킬 수 없어 public client 로만 등록되고,
- * 시크릿이 하던 일(요청자가 진짜 그 앱인지 확인)은 PKCE 가 요청마다 대신한다.
+ * <p>시크릿은 있을 수도 없을 수도 있다. 브라우저에서 도는 앱은 시크릿을 지킬 수 없어 시크릿 없이
+ * 등록되고(public client), 요청자가 진짜 그 앱인지는 PKCE 가 요청마다 확인한다. 서버에서 도는 앱은
+ * 시크릿을 지킬 수 있으니 받아 두고(confidential client), 토큰을 바꾸러 올 때 함께 낸다.
+ * 시크릿이 있어도 PKCE 는 그대로 요구한다. 둘이 막는 것이 다르다. 시크릿은 "그 앱인가" 를 보고,
+ * PKCE 는 "그 로그인을 시작한 쪽인가" 를 본다.
  */
 @Getter
 public class OAuthClient {
@@ -32,11 +40,22 @@ public class OAuthClient {
     /** 꺼진 앱은 등록돼 있어도 인가 요청을 시작할 수 없다. 행을 지우는 것과 달리 기록이 남는다. */
     private final boolean enabled;
 
-    private OAuthClient(String clientId, Realm realm, Set<String> redirectUris, boolean enabled) {
+    /**
+     * 시크릿의 해시. 없으면 public client 다. 원문은 발급할 때 한 번 보여주고 어디에도 남기지 않는다.
+     *
+     * <p>비밀번호처럼 느린 해시를 쓰지 않는다. 사람이 고른 값이 아니라 우리가 뽑은 난수라서 사전을
+     * 대입할 여지가 없고, SHA-256 한 번이면 되돌릴 수 없다.
+     */
+    @Getter(AccessLevel.NONE)
+    private final String secretHash;
+
+    private OAuthClient(String clientId, Realm realm, Set<String> redirectUris, boolean enabled,
+                        String secretHash) {
         this.clientId = clientId;
         this.realm = realm;
         this.redirectUris = redirectUris;
         this.enabled = enabled;
+        this.secretHash = secretHash;
     }
 
     /**
@@ -47,12 +66,47 @@ public class OAuthClient {
      */
     public static OAuthClient register(String clientId, Realm realm, Collection<String> redirectUris) {
         return new OAuthClient(requireClientId(clientId), requireRealm(realm),
-                requireRedirectUris(redirectUris), true);
+                requireRedirectUris(redirectUris), true, null);
     }
 
     public static OAuthClient restore(String clientId, Realm realm, Set<String> redirectUris,
-                                      boolean enabled) {
-        return new OAuthClient(clientId, realm, Set.copyOf(redirectUris), enabled);
+                                      boolean enabled, String secretHash) {
+        return new OAuthClient(clientId, realm, Set.copyOf(redirectUris), enabled, secretHash);
+    }
+
+    /** 이 시크릿을 쥔 앱으로 만든다. 원문은 해시해서 담고 버린다. */
+    public OAuthClient withSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException("secret must not be blank");
+        }
+        return new OAuthClient(clientId, realm, redirectUris, enabled, hash(secret));
+    }
+
+    public boolean isConfidential() {
+        return secretHash != null;
+    }
+
+    /** 저장할 때만 꺼낸다. 대조는 {@link #authenticates(String)} 로 한다. */
+    public String secretHash() {
+        return secretHash;
+    }
+
+    /**
+     * 요청이 낸 시크릿이 이 앱의 것인가.
+     *
+     * <p>public client 는 항상 거짓이다. 시크릿이 없는 앱에 무언가를 냈다고 통과시키면, 시크릿을
+     * 검사했다는 말이 무의미해진다.
+     *
+     * <p>비교는 걸리는 시간이 값에 따라 달라지지 않게 한다. 앞에서부터 맞는 만큼 오래 걸리면 그
+     * 차이로 한 글자씩 맞춰갈 수 있다.
+     */
+    public boolean authenticates(String presentedSecret) {
+        if (secretHash == null || presentedSecret == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                secretHash.getBytes(StandardCharsets.US_ASCII),
+                hash(presentedSecret).getBytes(StandardCharsets.US_ASCII));
     }
 
     /**
@@ -120,5 +174,17 @@ public class OAuthClient {
             throw new IllegalArgumentException("redirectUri must not have a fragment: " + trimmed);
         }
         return trimmed;
+    }
+
+    /** base64url(sha256(secret)). 패딩 없이 적는다. */
+    private static String hash(String secret) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(secret.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 은 모든 JVM 이 갖춰야 하는 알고리즘이다. 없으면 실행 환경이 깨진 것이다.
+            throw new IllegalStateException(e);
+        }
     }
 }

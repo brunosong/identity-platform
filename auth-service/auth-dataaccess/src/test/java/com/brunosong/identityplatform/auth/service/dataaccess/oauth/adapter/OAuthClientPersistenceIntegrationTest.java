@@ -106,6 +106,26 @@ class OAuthClientPersistenceIntegrationTest {
     }
 
     @Test
+    @DisplayName("시크릿은 해시로 저장되고 읽어와도 대조된다")
+    void savesSecretHash() {
+        adapter.save(OAuthClient.register("batch", Realm.PORTAL,
+                List.of("https://batch.example.com/callback")).withSecret("s3cret-value"));
+        em.flush();
+        em.clear();
+
+        OAuthClient saved = adapter.findByClientId(Realm.PORTAL, "batch").orElseThrow();
+        assertThat(saved.isConfidential()).isTrue();
+        assertThat(saved.authenticates("s3cret-value")).isTrue();
+    }
+
+    @Test
+    @DisplayName("시크릿 없이 등록된 앱은 public client 로 읽힌다")
+    void clientWithoutSecretIsPublic() {
+        assertThat(adapter.findByClientId(Realm.PORTAL, "portal").orElseThrow().isConfidential())
+                .isFalse();
+    }
+
+    @Test
     @DisplayName("이름이 비어 있는지는 realm 과 무관하다")
     void existsIgnoresRealm() {
         // 같은 이름을 다른 realm 이 가져가면 주소창의 client_id 로 두 앱을 구분할 수 없다.
