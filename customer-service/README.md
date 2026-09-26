@@ -166,7 +166,11 @@ token() {
         | python -c "import json,sys;print(json.load(sys.stdin)['access_token'])"
 }
 login()  { token portal "$PORTAL_APP" auth/login --data-urlencode "loginId=$1" -d password=pw12345678; }
-signup() { token portal "$PORTAL_APP" auth/register --data-urlencode "email=$1" -d name=$1 -d password=pw12345678; }
+signup() {   # 가입도 인증번호부터 받는다. local 은 고정코드 123456
+    curl -s -o /dev/null -X POST $AUTH/realms/portal/auth/register/send-code $PORTAL_APP $PKCE \
+        --data-urlencode "email=$1" -d name=$1
+    token portal "$PORTAL_APP" auth/register --data-urlencode "email=$1" -d name=$1 -d code=123456 -d password=pw12345678
+}
 admin()  {
     curl -s -o /dev/null -X POST $AUTH/realms/admin/auth/send-code $ADMIN_APP $PKCE -d email=admin@example.com
     token admin "$ADMIN_APP" auth/login/otp -d email=admin@example.com -d code=123456   # local 은 고정코드
