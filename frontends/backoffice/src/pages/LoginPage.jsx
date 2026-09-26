@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { authorizeUrl } from '../api/authorize';
 import Notice from '../components/Notice';
@@ -25,16 +25,19 @@ export default function LoginPage() {
     const notice = justRegistered
         ? {
             kind: 'info',
-            text: `방금 만든 계정(${justRegistered})으로 로그인해 봅니다.`
-                + (location.state?.selfSignup
-                    ? ' 이 계정에는 역할이 없어서, 로그인은 되지만 관리 화면은 열리지 않습니다.'
-                    : ''),
+            text: `방금 만든 계정(${justRegistered})으로 로그인해 봅니다.`,
         }
         : null;
 
     async function onLogin() {
         setBusy(true);
         window.location.href = await authorizeUrl();
+    }
+
+    /** 가입도 auth 가 그린다. 가입이 끝나면 로그인된 채로 돌아온다. */
+    async function onSignUp() {
+        setBusy(true);
+        window.location.href = await authorizeUrl({ prompt: 'create' });
     }
 
     return (
@@ -73,7 +76,7 @@ export default function LoginPage() {
                     local 시드가 <code>admin@example.com</code> 을 심어둡니다.
                 </p>
                 <div className="row">
-                    <Link className="button-like" to="/signup">이메일로 가입</Link>
+                    <button onClick={onSignUp} disabled={busy}>이메일로 가입</button>
                 </div>
             </div>
 

@@ -6,7 +6,7 @@ import { request } from './http';
  *
  * <h3>로그인은 여기 없다</h3>
  * 인가 코드 흐름으로 옮기면서 자격증명을 다루는 함수가 이 파일에서 사라졌다(api/authorize.js).
- * 남은 것은 이미 받은 토큰으로 부르는 것들이다 — 재발급, 로그아웃, 내 권한, 가입, 관리 API.
+ * 남은 것은 이미 받은 토큰으로 부르는 것들이다 — 내 권한, 공개키. 가입도 auth 의 화면에서 한다.
  *
  * realm 은 경로가 정한다. 이 앱은 직원 앱이므로 항상 `admin` 이다 — 화면에서 고르게 두면
  * 직원 화면에서 고객으로 로그인하는 길이 생긴다.
@@ -40,43 +40,4 @@ export function myPermissions(accessToken) {
  */
 export function jwks() {
     return request(authUrl(), 'GET', `/realms/${REALM}/.well-known/jwks.json`);
-}
-
-/**
- * 가입용 인증번호 발송.
- *
- * <b>로그인용과 조건이 정반대다.</b> 로그인용은 등록된 주소에만 보내고, 이것은 등록되지 <i>않은</i>
- * 주소에만 보낸다. 그래서 경로도 `/register/email/send-code` 로 따로 있다.
- *
- * 응답은 어느 쪽이든 202 다 — "이미 가입된 이메일입니다" 를 돌려주면 주소를 넣어보는 것만으로
- * 누가 가입돼 있는지 훑을 수 있다.
- */
-export function sendRegistrationCode(email) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/register/email/send-code`, {
-        body: { email },
-    });
-}
-
-/**
- * 인증번호로 가입. <b>비밀번호를 보내지 않는다.</b>
- *
- * 어드민 realm 은 이 방식만 열려 있다 — 직원은 비밀번호 계정을 갖지 않기 때문이다.
- * 토큰은 나오지 않는다(가입과 로그인은 별개).
- */
-export function registerWithEmail({ email, name, phoneNumber, verificationCode }) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/register/email`, {
-        body: { email, name, phoneNumber, verificationCode },
-    });
-}
-
-/**
- * 비밀번호 셀프 가입을 시도해 본다 — <b>404 여야 한다.</b>
- *
- * 포털이 쓰는 것과 같은 경로다. 어드민에 열리면 이 서비스가 만들 수 없는 계정(직원 + 비밀번호)을
- * 요구하는 경로가 생긴다. 그 정책은 컨트롤러가 아니라 Realm enum 이 들고 있다.
- */
-export function tryPasswordRegister({ email, name }) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/register`, {
-        body: { email, name, password: 'pw12345678', phoneNumber: null },
-    });
 }

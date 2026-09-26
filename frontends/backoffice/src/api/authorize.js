@@ -32,7 +32,7 @@ const VERIFIER_KEY = 'backoffice.verifier';
  * PKCE 검증값을 만들어 sessionStorage 에 남긴다. 브라우저가 이 페이지를 떠났다 돌아오므로
  * 메모리로는 안 된다. 나갈 때는 해시만 보내고, 원본은 code 를 토큰으로 바꾸러 갈 때 낸다.
  */
-export async function authorizeUrl() {
+export async function authorizeUrl({ prompt = null } = {}) {
     const state = randomString();
     const verifier = randomString();
     sessionStorage.setItem(STATE_KEY, state);
@@ -46,6 +46,8 @@ export async function authorizeUrl() {
     url.searchParams.set('state', state);
     url.searchParams.set('code_challenge', await sha256Base64Url(verifier));
     url.searchParams.set('code_challenge_method', 'S256');
+    // create 면 auth 가 로그인 화면 대신 가입 화면을 그린다(OIDC Prompt Create).
+    if (prompt) url.searchParams.set('prompt', prompt);
     return url.toString();
 }
 

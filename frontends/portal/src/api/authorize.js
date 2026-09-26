@@ -35,7 +35,7 @@ const RETURN_TO_KEY = 'brunosong.returnTo';
  * 메모리로는 안 된다. 나갈 때는 해시만 보내고, 원본은 code 를 토큰으로 바꾸러 갈 때 낸다.
  * 그래서 요청을 들여다본 쪽이 code 를 주워도 토큰으로 바꾸지 못한다.
  */
-export async function authorizeUrl({ returnTo = null } = {}) {
+export async function authorizeUrl({ returnTo = null, prompt = null } = {}) {
     const state = randomString();
     const verifier = randomString();
     sessionStorage.setItem(STATE_KEY, state);
@@ -52,6 +52,8 @@ export async function authorizeUrl({ returnTo = null } = {}) {
     url.searchParams.set('state', state);
     url.searchParams.set('code_challenge', await sha256Base64Url(verifier));
     url.searchParams.set('code_challenge_method', 'S256');
+    // create 면 auth 가 로그인 화면 대신 가입 화면을 그린다(OIDC Prompt Create).
+    if (prompt) url.searchParams.set('prompt', prompt);
     return url.toString();
 }
 
