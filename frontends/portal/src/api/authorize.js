@@ -9,6 +9,7 @@
 
 import { endpoints } from './config';
 import { request } from './http';
+import { decode } from './jwt';
 
 /** 이 앱이 속한 realm. 고객 포털이므로 고정이다. */
 const REALM = 'portal';
@@ -25,6 +26,9 @@ const HOME = `${location.origin}/`;
 const STATE_KEY = 'brunosong.state';
 const VERIFIER_KEY = 'brunosong.verifier';
 
+/** id_token 에 그대로 실려 돌아와야 하는 값. 이 브라우저가 시작한 로그인의 결과인지 가린다. */
+const NONCE_KEY = 'brunosong.nonce';
+
 /** 로그인이 끝나면 어디로 보낼지. 브라우저가 앱을 떠나므로 메모리로는 안 된다. */
 const RETURN_TO_KEY = 'brunosong.returnTo';
 
@@ -38,8 +42,10 @@ const RETURN_TO_KEY = 'brunosong.returnTo';
 export async function authorizeUrl({ returnTo = null, prompt = null } = {}) {
     const state = randomString();
     const verifier = randomString();
+    const nonce = randomString();
     sessionStorage.setItem(STATE_KEY, state);
     sessionStorage.setItem(VERIFIER_KEY, verifier);
+    sessionStorage.setItem(NONCE_KEY, nonce);
     if (returnTo) sessionStorage.setItem(RETURN_TO_KEY, returnTo);
     else sessionStorage.removeItem(RETURN_TO_KEY);
 
@@ -50,6 +56,7 @@ export async function authorizeUrl({ returnTo = null, prompt = null } = {}) {
     // openid 가 있어야 신원을 담은 id_token 이 함께 나온다.
     url.searchParams.set('scope', 'openid');
     url.searchParams.set('state', state);
+    url.searchParams.set('nonce', nonce);
     url.searchParams.set('code_challenge', await sha256Base64Url(verifier));
     url.searchParams.set('code_challenge_method', 'S256');
     // create 면 auth 가 로그인 화면 대신 가입 화면을 그린다(OIDC Prompt Create).
@@ -100,7 +107,9 @@ export function logoutUrl() {
  */
 export async function exchangeCode(code) {
     const verifier = sessionStorage.getItem(VERIFIER_KEY);
+    const nonce = sessionStorage.getItem(NONCE_KEY);
     sessionStorage.removeItem(VERIFIER_KEY);
+    sessionStorage.removeItem(NONCE_KEY);
 
     if (!verifier) {
         return { ok: false, status: 0, message: '이 브라우저가 시작한 로그인이 아닙니다.' };
@@ -121,7 +130,40 @@ export async function exchangeCode(code) {
         return { ...result, message: result.message ?? result.data?.error ?? '토큰 교환에 실패했습니다.' };
     }
 
-    return { ok: true, status: result.status, tokens: toTokens(result.data) };
+    const tokens = toTokens(result.data);
+    const problem = idTokenProblem(tokens.idToken, nonce);
+    if (problem) {
+        // 토큰은 받았지만 누가 로그인했는지 믿을 수 없다. 받은 것을 모두 버린다.
+        return { ok: false, status: result.status, message: `id_token 을 받아들일 수 없습니다: ${problem}` };
+    }
+    return { ok: true, status: result.status, tokens };
+}
+
+/**
+ * 받은 id_token 이 이 앱의 이 로그인에 대한 것인지 본다. 문제가 없으면 null.
+ *
+ * 보는 것은 넷이다(OIDC Core 3.1.3.7).
+ * <ul>
+ *   <li>{@code iss} - 우리 인증 서버의 이 realm 이 만들었나</li>
+ *   <li>{@code aud} - <b>이 앱에게</b> 발급됐나. 다른 앱이 받은 id_token 을 들고 와도 여기서 걸린다</li>
+ *   <li>{@code nonce} - 이 브라우저가 방금 시작한 로그인의 결과인가</li>
+ *   <li>{@code exp} - 아직 살아 있나</li>
+ * </ul>
+ *
+ * <b>서명은 확인하지 않는다.</b> 이 id_token 은 브라우저가 토큰 엔드포인트에 직접 물어 받은 응답
+ * 본문이라, 중간에 바꿔치기할 자리가 없다. 명세도 이 경우 서명 대신 TLS 서버 검증에 기댈 수 있다고
+ * 한다. 로컬은 http 라 그 전제가 없지만, 운영은 https 다. 주소창이나 다른 경로로 받은 id_token 이면
+ * 서명 확인이 필수다.
+ */
+function idTokenProblem(idToken, nonce) {
+    const claims = decode(idToken)?.payload;
+    if (!claims) return 'id_token 이 없다';
+    if (claims.iss !== `${endpoints().auth}/realms/${REALM}`) return `다른 발급자 (${claims.iss})`;
+    const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    if (!audiences.includes(CLIENT_ID)) return `다른 앱에게 발급됨 (${claims.aud})`;
+    if (!nonce || claims.nonce !== nonce) return '이 브라우저가 시작한 로그인이 아니다 (nonce)';
+    if (!claims.exp || claims.exp * 1000 < Date.now()) return '만료됨';
+    return null;
 }
 
 /**
@@ -160,6 +202,8 @@ function toTokens(data) {
         tokenType: data.token_type,
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
+        // 코드 교환에서만 온다. 재발급 응답에는 없다.
+        idToken: data.id_token,
     };
 }
 

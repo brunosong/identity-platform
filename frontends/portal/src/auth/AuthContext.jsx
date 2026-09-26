@@ -70,7 +70,9 @@ export function AuthProvider({ children }) {
             refreshing.current = refreshTokens(tokensRef.current?.refreshToken)
                 .then((result) => {
                     refreshing.current = null;
-                    if (result.ok) setTokens(result.tokens);
+                    // 재발급 응답에는 id_token 이 없다. 로그인이 새로 일어난 것이 아니라서다.
+                    // 누가 로그인했는지는 처음 받은 id_token 이 계속 말한다.
+                    if (result.ok) setTokens({ ...result.tokens, idToken: tokensRef.current?.idToken });
                     return result;
                 });
         }
@@ -103,17 +105,22 @@ export function AuthProvider({ children }) {
         setTokens(null);
     }, [setTokens]);
 
-    const decoded = useMemo(() => decode(tokens?.accessToken), [tokens]);
+    /**
+     * 누가 로그인했나. <b>access 토큰이 아니라 id_token 에서 읽는다.</b>
+     *
+     * access 토큰은 API 에게 보내는 값이다. 앱이 열어 볼 대상이 아니고, 형식도 약속되어 있지 않다.
+     * id_token 은 이 앱에게 보내는 값이라 {@code aud} 가 이 앱이고, 받을 때 확인도 마쳤다(authorize.js).
+     */
+    const identity = useMemo(() => decode(tokens?.idToken), [tokens]);
 
     const value = useMemo(() => ({
         tokens,
-        decoded,
-        claims: decoded?.payload ?? null,
+        claims: identity?.payload ?? null,
         isLoggedIn: Boolean(tokens?.accessToken),
         loginWithCode,
         logout,
         refresh,
-    }), [tokens, decoded, loginWithCode, logout, refresh]);
+    }), [tokens, identity, loginWithCode, logout, refresh]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

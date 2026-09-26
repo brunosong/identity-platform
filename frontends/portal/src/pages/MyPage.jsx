@@ -161,7 +161,7 @@ export default function MyPage() {
                     <>
                         <div className="kv">
                             <span>customerId</span><code>{profile.customerId}</code>
-                            <span>토큰 sub</span><code>{claims.sub}</code>
+                            <span>id_token sub</span><code>{claims.sub}</code>
                         </div>
                         <p className={`field-hint ${profile.customerId === claims.sub ? 'ok-text' : 'warn'}`}>
                             {profile.customerId === claims.sub
@@ -183,7 +183,9 @@ export default function MyPage() {
                     <button onClick={onLoadJwks}>JWKS 보기</button>
                 </div>
 
-                <TokenInspector label="access 토큰" token={tokens?.accessToken} kind="access" />
+                <TokenInspector label="id_token (누가 로그인했나. 이 앱이 읽는 것)" token={tokens?.idToken} kind="id" />
+
+                <TokenInspector label="access 토큰 (API 에 보내는 것)" token={tokens?.accessToken} kind="access" />
 
                 <TokenInspector label="refresh 토큰" token={tokens?.refreshToken} kind="refresh" />
 
