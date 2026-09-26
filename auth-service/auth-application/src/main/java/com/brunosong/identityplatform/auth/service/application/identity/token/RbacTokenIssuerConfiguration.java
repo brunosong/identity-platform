@@ -1,10 +1,8 @@
 package com.brunosong.identityplatform.auth.service.application.identity.token;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SessionRegistryPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -72,13 +70,12 @@ public class RbacTokenIssuerConfiguration {
 
     @Bean
     public TokenIssuerPort rbacJwtTokenIssuer(
-            ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
             RealmSigningKeys signingKeys,
             RealmIssuers issuers,
             RealmSystems systems,
             TokenProperties properties) {
         return new RbacJwtTokenIssuer(
-                sessionRegistryProvider, signingKeys, issuers, systems,
+                signingKeys, issuers, systems,
                 properties.getAccessExpiration(), properties.getRefreshExpiration());
     }
 }

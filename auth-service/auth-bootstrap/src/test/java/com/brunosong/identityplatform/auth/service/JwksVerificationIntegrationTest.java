@@ -326,9 +326,19 @@ class JwksVerificationIntegrationTest {
     @DisplayName("realm 이 붙지 않은 옛 경로는 없다")
     void realmLessEndpointsAreGone() {
         assertThat(statusOf("/api/auth/my-permissions")).isEqualTo(404);
-        assertThat(postStatusOf("/api/auth/logout", null)).isEqualTo(404);
         assertThat(postJson("/api/auth/customer/register", selfRegisterBody(), null)).isEqualTo(404);
         assertThat(postJson("/api/auth/employee/register", adminUserBody(), null)).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("앱이 부르는 로그인과 로그아웃 API 는 없다. 표준 엔드포인트만 있다")
+    void appFacingLoginApisAreGone() {
+        // 토큰은 로그인 화면을 거친 code 교환에서만 나간다. 로그아웃은 end_session_endpoint 다.
+        assertThat(postJson("/api/auth/realms/portal/login", Map.of("loginId", "a", "password", "b"), null))
+                .isEqualTo(404);
+        assertThat(postJson("/api/auth/realms/portal/login/social", Map.of(), null)).isEqualTo(404);
+        assertThat(postJson("/api/auth/realms/admin/login/email-otp", Map.of(), null)).isEqualTo(404);
+        assertThat(postStatusOf("/api/auth/realms/portal/logout", null)).isEqualTo(404);
     }
 
     @Test
@@ -369,19 +379,6 @@ class JwksVerificationIntegrationTest {
         Map<String, Object> spoofed = getWithToken("/api/auth/realms/admin/my-permissions", portalToken);
         assertThat(spoofed.get("realm")).isNull();
         assertThat((List<?>) spoofed.get("permissions")).isEmpty();
-    }
-
-    @Test
-    @DisplayName("로그아웃도 realm 경로 위에 있고, 남의 realm 토큰은 통하지 않는다")
-    void logoutIsRealmScoped() {
-        String email = "logout-" + UUID.randomUUID() + "@example.com";
-        registerCustomer(email);
-        String portalToken = login(email);
-
-        assertThat(postStatusOf("/api/auth/realms/portal/logout", portalToken)).isEqualTo(204);
-        assertThat(postStatusOf("/api/auth/realms/admin/logout", portalToken)).isEqualTo(401);
-        assertThat(postStatusOf("/api/auth/realms/portal/logout", null)).isEqualTo(401);
-        assertThat(postStatusOf("/api/auth/realms/martian/logout", portalToken)).isEqualTo(404);
     }
 
     private int postJson(String path, Map<String, Object> body, String bearerToken) {

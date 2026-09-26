@@ -37,9 +37,6 @@ authorization:
     cache-ttl-seconds: 60
     # 어떤 경로가 보호 대상인지 — ADMIN realm 은 여기 걸린 경로를 화이트리스트로 막는다.
     protected-path-prefixes: /page/,/api/
-  single-session:
-    # "한 곳에서 한 명". 켜면 토큰에 sid 가 실리고 재발급 때 현재성을 대조한다.
-    enabled: false
 
 token:
   # 토큰의 iss 가 되는 기준 주소. realm 이 뒤에 붙는다 — .../realms/portal
