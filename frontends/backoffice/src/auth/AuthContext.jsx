@@ -81,15 +81,16 @@ export function AuthProvider({ children }) {
         return result;
     }, [tokens, setTokens]);
 
-    const logout = useCallback(async () => {
-        const result = tokens?.accessToken
-            ? await authApi.logout(tokens.accessToken)
-            : { ok: true, status: 0 };
-        // 서버 응답과 무관하게 버린다. 단일 세션을 켜지 않았다면 서버는 이 토큰을 막을 방법이 없고,
-        // 폐기는 우리 몫이다.
+    /**
+     * 이 앱이 든 토큰을 버린다. 서버에 알리지 않는다.
+     *
+     * access 토큰은 서명만 맞으면 통하는 값이라 서버가 막을 방법이 없다. 그래서 짧게 두고,
+     * 버리는 것은 들고 있는 쪽의 몫이다. auth 의 로그인 세션까지 끊으려면 부르는 쪽이 이어서
+     * 브라우저를 end_session_endpoint 로 보낸다(logoutUrl).
+     */
+    const logout = useCallback(() => {
         setTokens(null);
-        return result;
-    }, [tokens, setTokens]);
+    }, [setTokens]);
 
     const decoded = useMemo(() => decode(tokens?.accessToken), [tokens]);
     const claims = decoded?.payload ?? null;

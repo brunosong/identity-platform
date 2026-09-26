@@ -51,16 +51,6 @@ export function registerWithEmail({ email, name, phoneNumber, verificationCode }
     });
 }
 
-/**
- * 로그아웃. 무효화 대상은 토큰에서, realm 은 경로에서 온다.
- *
- * 단일 세션을 켜지 않았다면 이 호출 뒤에도 access 토큰은 만료까지 서버에서 유효하다 —
- * 그래서 클라이언트가 직접 버려야 한다. 무상태 JWT 의 성질이다.
- */
-export function logout(accessToken) {
-    return request(authUrl(), 'POST', `/api/auth/realms/${REALM}/logout`, { token: accessToken });
-}
-
 export function myPermissions(accessToken) {
     return request(authUrl(), 'GET', `/api/auth/realms/${REALM}/my-permissions`, { token: accessToken });
 }

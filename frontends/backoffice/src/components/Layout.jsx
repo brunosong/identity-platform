@@ -19,8 +19,8 @@ export default function Layout({ children }) {
      * 앱에서 토큰만 버리면 같은 realm 의 다른 앱에서는 여전히 로그인 상태다. 브라우저를 auth 로
      * 보내야 세션 쿠키가 지워진다.
      */
-    async function onLogout() {
-        await logout();
+    function onLogout() {
+        logout();
         window.location.href = logoutUrl();
     }
 
