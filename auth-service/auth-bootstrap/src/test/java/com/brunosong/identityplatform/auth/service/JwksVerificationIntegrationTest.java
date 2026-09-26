@@ -30,7 +30,6 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,12 +79,14 @@ class JwksVerificationIntegrationTest {
     private static String cachedAdminToken;
 
     private RestClient http;
+    private CodeFlowLogin codeFlow;
     /** 소비 서비스가 갖게 될 검증기. auth 의 내부 빈이 아니라 JWKS 주소만 알고 있다. */
     private AuthTokenVerifier verifier;
 
     @BeforeEach
     void setUp() {
         http = RestClient.create("http://localhost:" + port);
+        codeFlow = new CodeFlowLogin(port);
         verifier = new AuthTokenVerifier(portalKeys(), PORTAL_ISSUER);
     }
 
@@ -159,8 +160,7 @@ class JwksVerificationIntegrationTest {
         String email = "refresh-" + UUID.randomUUID() + "@example.com";
         registerCustomer(email);
 
-        Map<?, ?> tokens = (Map<?, ?>) loginResponse(email).get("tokens");
-        String refreshToken = (String) tokens.get("refreshToken");
+        String refreshToken = codeFlow.portalWithPassword(email, "pw12345678").refreshToken();
 
         // 같은 키로 서명돼 있어 서명 검증은 통과한다. type 클레임이 그 둘을 가른다.
         assertThat(verifier.verify(refreshToken)).isEmpty();
@@ -261,8 +261,7 @@ class JwksVerificationIntegrationTest {
     void standardResourceServerRejectsRefreshToken() {
         String email = "typecheck-" + UUID.randomUUID() + "@example.com";
         registerCustomer(email);
-        Map<?, ?> tokens = (Map<?, ?>) loginResponse(email).get("tokens");
-        String refreshToken = (String) tokens.get("refreshToken");
+        String refreshToken = codeFlow.portalWithPassword(email, "pw12345678").refreshToken();
 
         // 같은 키, 같은 발급자, 아직 만료 전 — 서명·exp·iss 만 보는 기본 검증은 통과한다.
         // 둘을 가르는 것은 type 클레임뿐이고, 그것은 표준 검증에 없다.
@@ -478,29 +477,16 @@ class JwksVerificationIntegrationTest {
     }
 
     /**
-     * 어드민 realm 토큰을 얻는다. 직원은 비밀번호 계정이 없어 이메일 OTP 로 로그인하고,
-     * local 프로파일은 메일을 보내지 않고 고정코드를 쓴다. 계정은 시드가 심어둔 부트스트랩 관리자다.
+     * 어드민 realm 토큰을 얻는다. 계정은 시드가 심어둔 부트스트랩 관리자다.
      *
-     * <p><b>한 번만 로그인하고 재사용한다.</b> OTP 발송에는 재발송 쿨다운이 있어
+     * <p><b>한 번만 로그인하고 재사용한다.</b> 인증번호 발송에는 재발송 쿨다운이 있어
      * ({@code RequestEmailOtpService.RESEND_COOLDOWN_SECONDS}) 짧은 간격의 두 번째 요청은 조용히
-     * 무시된다 — 첫 챌린지는 이미 소비됐으므로 그 다음 검증은 401 이 된다. 실제 사용자에게는 이것이
-     * 올바른 동작(무차별 발송 방지)이라, 테스트 쪽이 맞춰야 한다.
+     * 무시된다. 실제 사용자에게는 이것이 올바른 동작(무차별 발송 방지)이라, 테스트 쪽이 맞춰야 한다.
      */
     private String loginAsAdmin() {
-        if (cachedAdminToken != null) {
-            return cachedAdminToken;
+        if (cachedAdminToken == null) {
+            cachedAdminToken = codeFlow.adminWithOtp("admin@example.com").accessToken();
         }
-        http.post().uri("/api/auth/realms/admin/login/email-otp/send-code")
-                .header("Content-Type", "application/json")
-                .body(Map.of("email", "admin@example.com"))
-                .retrieve().toBodilessEntity();
-
-        Map<?, ?> response = http.post().uri("/api/auth/realms/admin/login/email-otp")
-                .header("Content-Type", "application/json")
-                .body(Map.of("email", "admin@example.com", "verificationCode", "123456"))
-                .retrieve().body(Map.class);
-
-        cachedAdminToken = (String) ((Map<?, ?>) response.get("tokens")).get("accessToken");
         return cachedAdminToken;
     }
 
@@ -511,17 +497,6 @@ class JwksVerificationIntegrationTest {
     }
 
     private String login(String email) {
-        Map<?, ?> tokens = (Map<?, ?>) loginResponse(email).get("tokens");
-        return (String) tokens.get("accessToken");
-    }
-
-    private Map<?, ?> loginResponse(String email) {
-        return Optional.ofNullable(http.post()
-                        .uri("/api/auth/realms/portal/login")
-                        .header("Content-Type", "application/json")
-                        .body(Map.of("loginId", email, "password", "pw12345678"))
-                        .retrieve()
-                        .body(Map.class))
-                .orElseThrow(() -> new IllegalStateException("로그인 응답이 비어 있다"));
+        return codeFlow.portalWithPassword(email, "pw12345678").accessToken();
     }
 }

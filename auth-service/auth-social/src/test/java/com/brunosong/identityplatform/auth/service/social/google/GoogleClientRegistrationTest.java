@@ -19,10 +19,10 @@ class GoogleClientRegistrationTest {
     void buildsRedirectUriFromIssuer() {
         GoogleClientRegistration registration = GoogleClientRegistration.of(
                 "1234.apps.googleusercontent.com", "GOCSPX-secret",
-                "http://localhost:8080/realms/portal", "http://localhost:5173/callback");
+                "http://localhost:8080/realms/portal");
 
         // 구글 콘솔의 Authorized redirect URIs 에 등록한 값과 글자 그대로 같아야 한다.
-        assertThat(registration.brokerRedirectUri())
+        assertThat(registration.redirectUri())
                 .isEqualTo("http://localhost:8080/realms/portal/broker/google/endpoint");
     }
 
@@ -32,9 +32,9 @@ class GoogleClientRegistrationTest {
         // 포트를 옮겼는데 콜백 주소가 그대로면 구글이 거절한다. 한 곳에서만 나오게 해둔 이유다.
         GoogleClientRegistration registration = GoogleClientRegistration.of(
                 "1234.apps.googleusercontent.com", "GOCSPX-secret",
-                "http://localhost:8090/realms/portal", "http://localhost:5173/callback");
+                "http://localhost:8090/realms/portal");
 
-        assertThat(registration.brokerRedirectUri())
+        assertThat(registration.redirectUri())
                 .isEqualTo("http://localhost:8090/realms/portal/broker/google/endpoint");
     }
 
@@ -44,7 +44,7 @@ class GoogleClientRegistrationTest {
         // 없어도 구글로 보내는 것까지는 된다. 실패는 사용자가 구글에서 돌아온 뒤 교환 단계에서
         // 나타나므로, 그때까지 기다리지 않고 뜰 때 막는다.
         assertThatThrownBy(() -> GoogleClientRegistration.of(
-                "1234.apps.googleusercontent.com", "  ", "http://localhost:8080/realms/portal", null))
+                "1234.apps.googleusercontent.com", "  ", "http://localhost:8080/realms/portal"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("social.google.client-secret");
     }

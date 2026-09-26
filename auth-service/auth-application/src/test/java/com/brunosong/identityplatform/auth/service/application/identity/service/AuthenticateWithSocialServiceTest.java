@@ -1,9 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.SocialAuthCommand;
-import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialIdentityVerifierPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.VerifiedSocialIdentity;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
@@ -15,13 +13,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.tokenIssuance;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalProfileRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeSocialAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingSubjectRegisteredPublisher;
-import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeTokenIssuer;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingEventPublisher;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.provider;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,18 +55,17 @@ class AuthenticateWithSocialServiceTest {
         return new AuthenticateWithSocialService(
                 provider(verifier), socialRepo, principalRepo, profileRepo, emailAccountRepo,
                 registeredPublisher,
-                new AuthenticationCompletion(principalRepo, eventPublisher,
-                        tokenIssuance(new FakeTokenIssuer())));
+                new AuthenticationCompletion(principalRepo, eventPublisher));
     }
 
     private SocialAuthCommand command() {
-        return new SocialAuthCommand(Realm.PORTAL, SocialProvider.GOOGLE, "auth-code", SocialCallback.BROKER);
+        return new SocialAuthCommand(Realm.PORTAL, SocialProvider.GOOGLE, "auth-code");
     }
 
     @Test
     @DisplayName("처음 소셜로 들어오면 주체 등록을 알리고 소셜 계정을 연결한다")
     void firstLoginProvisionsAndLinks() {
-        AuthenticationResult result = service().authenticate(command());
+        AuthenticatedSubject result = service().withSocial(command());
 
         assertThat(registeredPublisher.published).hasSize(1);
         assertThat(socialRepo.saved).hasSize(1);
@@ -79,30 +74,12 @@ class AuthenticateWithSocialServiceTest {
     }
 
     @Test
-    @DisplayName("브로커 경로는 인증까지만 하고 토큰은 내주지 않는다. 연결은 같은 규칙을 따른다")
-    void withSocialEstablishesWithoutTokens() {
-        FakeTokenIssuer tokenIssuer = new FakeTokenIssuer();
-        AuthenticateWithSocialService service = new AuthenticateWithSocialService(
-                provider(verifier), socialRepo, principalRepo, profileRepo, emailAccountRepo,
-                registeredPublisher,
-                new AuthenticationCompletion(principalRepo, eventPublisher, tokenIssuance(tokenIssuer)));
-
-        AuthenticatedSubject subject = service.withSocial(command());
-
-        assertThat(subject.realm()).isEqualTo(Realm.PORTAL);
-        assertThat(socialRepo.saved).hasSize(1);
-        // 사람이 로그인한 사건은 남는다. 토큰은 나중에 code 교환에서 나간다.
-        assertThat(eventPublisher.published).hasSize(1);
-        assertThat(tokenIssuer.issuedRealm).isNull();
-    }
-
-    @Test
-    @DisplayName("이미 연결된 소셜이면 계정을 다시 만들지 않고 그 Principal 로 발급한다")
+    @DisplayName("이미 연결된 소셜이면 계정을 다시 만들지 않고 그 Principal 로 로그인한다")
     void secondLoginReusesLink() {
         AuthenticateWithSocialService service = service();
-        AuthenticationResult first = service.authenticate(command());
+        AuthenticatedSubject first = service.withSocial(command());
 
-        AuthenticationResult second = service.authenticate(command());
+        AuthenticatedSubject second = service.withSocial(command());
 
         assertThat(second.principalId()).isEqualTo(first.principalId());
         assertThat(socialRepo.saved).hasSize(1);
@@ -116,7 +93,7 @@ class AuthenticateWithSocialServiceTest {
         emailAccountRepo.save(EmailAccount.verified(
                 existing.getPrincipalId(), Realm.PORTAL, EMAIL));
 
-        AuthenticationResult result = service().authenticate(command());
+        AuthenticatedSubject result = service().withSocial(command());
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
         assertThat(principalRepo.byId).hasSize(1);
@@ -129,7 +106,7 @@ class AuthenticateWithSocialServiceTest {
     void withoutVerifiedEmailRefusesToLink() {
         verifier = new StubVerifier(new VerifiedSocialIdentity(PROVIDER_UID, null, "홍길동"));
 
-        assertThatThrownBy(() -> service().authenticate(command()))
+        assertThatThrownBy(() -> service().withSocial(command()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("확인된 이메일");
         assertThat(socialRepo.saved).isEmpty();
@@ -141,18 +118,16 @@ class AuthenticateWithSocialServiceTest {
         AuthenticateWithSocialService noVerifier = new AuthenticateWithSocialService(
                 provider((SocialIdentityVerifierPort) null), socialRepo, principalRepo, profileRepo, emailAccountRepo,
                 registeredPublisher,
-                new AuthenticationCompletion(principalRepo, eventPublisher,
-                        tokenIssuance(new FakeTokenIssuer())));
+                new AuthenticationCompletion(principalRepo, eventPublisher));
 
-        assertThatThrownBy(() -> noVerifier.authenticate(command()))
+        assertThatThrownBy(() -> noVerifier.withSocial(command()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SocialIdentityVerifierPort");
     }
 
     private record StubVerifier(VerifiedSocialIdentity identity) implements SocialIdentityVerifierPort {
         @Override
-        public VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode,
-                                            SocialCallback callback) {
+        public VerifiedSocialIdentity verify(SocialProvider provider, String authorizationCode) {
             return identity;
         }
     }
@@ -165,7 +140,7 @@ class AuthenticateWithSocialServiceTest {
         emailAccountRepo.save(EmailAccount.unverified(
                 planted.getPrincipalId(), Realm.PORTAL, EMAIL));
 
-        assertThatThrownBy(() -> service().authenticate(command()))
+        assertThatThrownBy(() -> service().withSocial(command()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("다른 방법으로 가입");
 

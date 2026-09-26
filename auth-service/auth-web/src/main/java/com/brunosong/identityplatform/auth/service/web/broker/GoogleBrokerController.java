@@ -9,7 +9,6 @@ import com.brunosong.identityplatform.auth.service.application.oauth.exception.I
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
-import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
@@ -183,8 +182,8 @@ public class GoogleBrokerController {
 
         AuthenticatedSubject subject;
         try {
-            subject = establishSocialAuthentication.withSocial(new SocialAuthCommand(
-                    resolved, SocialProvider.GOOGLE, code, SocialCallback.BROKER));
+            subject = establishSocialAuthentication.withSocial(
+                    new SocialAuthCommand(resolved, SocialProvider.GOOGLE, code));
         } catch (AuthenticationFailedException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return errorScreen(e.getMessage());

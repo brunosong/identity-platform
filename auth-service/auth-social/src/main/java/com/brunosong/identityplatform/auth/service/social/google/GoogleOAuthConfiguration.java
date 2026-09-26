@@ -41,8 +41,7 @@ public class GoogleOAuthConfiguration {
     public GoogleClientRegistration googleClientRegistration(GoogleOAuthProperties properties,
                                                              RealmIssuers issuers) {
         return GoogleClientRegistration.of(
-                properties.getClientId(), properties.getClientSecret(), issuers.of(Realm.PORTAL),
-                properties.getAppRedirectUri());
+                properties.getClientId(), properties.getClientSecret(), issuers.of(Realm.PORTAL));
     }
 
     /**
@@ -57,11 +56,7 @@ public class GoogleOAuthConfiguration {
     }
 
     /**
-     * 돌아온 code 를 신원으로 바꾸는 어댑터.
-     *
-     * <p>이 빈이 생기는 순간 기존 {@code POST /api/auth/realms/portal/login/social} 도 함께 살아난다.
-     * 그 경로는 어댑터가 없어 500 이던 자리였다({@code AuthenticateWithSocialService} 가 선택 조회로
-     * 들고 있었다).
+     * 돌아온 code 를 신원으로 바꾸는 어댑터. 브로커가 구글에서 돌아온 브라우저를 받을 때 쓴다.
      *
      * <p>{@code RestClient} 를 여기서 만든다. 구글 두 곳(토큰 엔드포인트, 뒤에 JWKS)만 부르는
      * 클라이언트라 공용 빈으로 둘 이유가 없다.

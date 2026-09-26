@@ -2,7 +2,6 @@ package com.brunosong.identityplatform.auth.service.application.identity.service
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.PasswordAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
@@ -11,11 +10,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.tokenIssuance;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordEncoder;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
-import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeTokenIssuer;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingEventPublisher;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.provider;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,32 +49,11 @@ class AuthenticateWithPasswordServiceTest {
         service = new AuthenticateWithPasswordService(
                 principalRepo,
                 new PasswordCredentialVerifier(accountRepo, encoder),
-                new AuthenticationCompletion(principalRepo, eventPublisher,
-                        tokenIssuance(new FakeTokenIssuer())));
+                new AuthenticationCompletion(principalRepo, eventPublisher));
     }
 
     @Test
-    @DisplayName("비밀번호가 맞으면 토큰이 발급되고 인증 이벤트가 나간다")
-    void authenticateIssuesTokenAndPublishesEvent() {
-        AuthenticationResult result = service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
-
-        assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
-        assertThat(result.realm()).isEqualTo(Realm.PORTAL);
-        assertThat(result.tokens().accessToken()).isEqualTo("access:PORTAL:customer-uuid-1");
-        assertThat(eventPublisher.published).hasSize(1);
-        assertThat(eventPublisher.published.get(0).subjectId()).isEqualTo("customer-uuid-1");
-    }
-
-    @Test
-    @DisplayName("로그인 성공은 Principal 의 최종 인증 시각을 남긴다")
-    void authenticateMarksPrincipal() {
-        service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
-
-        assertThat(principal.getLastAuthenticatedAt()).isNotNull();
-    }
-
-    @Test
-    @DisplayName("인증만 하는 경로는 토큰 없이 누구인지만 돌려준다")
+    @DisplayName("비밀번호가 맞으면 누가 로그인했는지 돌려준다. 토큰은 나가지 않는다")
     void establishStopsBeforeTokens() {
         // 로그인 화면의 폼이 밟는 길. 토큰은 나중에 인가 코드를 바꾸러 온 앱에게 나간다.
         AuthenticatedSubject subject = service.withPassword(
@@ -89,57 +65,34 @@ class AuthenticateWithPasswordServiceTest {
     }
 
     @Test
-    @DisplayName("인증만 해도 인증 시각과 이벤트는 남는다")
+    @DisplayName("로그인하면 인증 시각과 인증 이벤트가 남는다")
     void establishStillRecordsAuthentication() {
         // 사람이 우리 앞에서 로그인한 사건은 토큰이 나가는 것과 별개다.
         service.withPassword(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         assertThat(principal.getLastAuthenticatedAt()).isNotNull();
         assertThat(eventPublisher.published).hasSize(1);
-    }
-
-    @Test
-    @DisplayName("인증만 하는 경로도 비밀번호가 틀리면 같은 메시지로 실패한다")
-    void establishFailsTheSameWay() {
-        assertThatThrownBy(() -> service.withPassword(
-                new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
-                .isInstanceOf(AuthenticationFailedException.class)
-                .hasMessage(GENERIC_FAIL);
+        assertThat(eventPublisher.published.get(0).subjectId()).isEqualTo("customer-uuid-1");
     }
 
     @Test
     @DisplayName("없는 아이디와 틀린 비밀번호는 같은 메시지로 실패한다(계정 열거 방지)")
     void unknownIdAndWrongPasswordShareMessage() {
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, "nobody", PASSWORD)))
+        assertThatThrownBy(() -> service.withPassword(new PasswordAuthCommand(Realm.PORTAL, "nobody", PASSWORD)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAIL);
 
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
+        assertThatThrownBy(() -> service.withPassword(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAIL);
-    }
-
-    @Test
-    @DisplayName("토큰은 인증된 주체의 realm 으로 발급된다")
-    void tokenIsIssuedForTheAuthenticatedRealm() {
-        FakeTokenIssuer issuer = new FakeTokenIssuer();
-        AuthenticateWithPasswordService svc = new AuthenticateWithPasswordService(
-                principalRepo,
-                new PasswordCredentialVerifier(accountRepo, new FakePasswordEncoder()),
-                new AuthenticationCompletion(principalRepo, eventPublisher, tokenIssuance(issuer)));
-
-        svc.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
-
-        // 한 프로세스가 두 realm 의 키를 모두 쥐므로, 발급 realm 이 어긋나면 상대 realm 토큰이 나간다.
-        assertThat(issuer.issuedRealm).isEqualTo(Realm.PORTAL);
     }
 
     @Test
     @DisplayName("같은 아이디·비밀번호라도 다른 realm 으로는 로그인되지 않는다")
     void credentialsDoNotCrossRealms() {
         // 자격증명은 정확하지만 직원 realm 에는 이 계정이 없다. 조회가 유형으로 좁혀지지 않으면
-        // 고객 자격증명으로 직원 토큰이 발급된다 — 그것을 막는 것이 이 검증의 목적이다.
-        assertThatThrownBy(() -> service.authenticate(
+        // 고객 자격증명으로 직원 신원이 로그인된다 — 그것을 막는 것이 이 검증의 목적이다.
+        assertThatThrownBy(() -> service.withPassword(
                 new PasswordAuthCommand(Realm.ADMIN, LOGIN_ID, PASSWORD)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAIL);
@@ -152,7 +105,7 @@ class AuthenticateWithPasswordServiceTest {
         accountRepo.save(PasswordAccount.create(employee.getPrincipalId(), Realm.ADMIN,
                 LOGIN_ID, new FakePasswordEncoder().encode("other-pw")));
 
-        AuthenticationResult customer = service.authenticate(
+        AuthenticatedSubject customer = service.withPassword(
                 new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         // 나중에 저장한 직원 계정이 고객 계정을 덮어쓰지 않았다 — 서로 다른 신원이다.
@@ -163,7 +116,7 @@ class AuthenticateWithPasswordServiceTest {
     @Test
     @DisplayName("비밀번호가 틀리면 실패 상태가 저장된다(인증 트랜잭션과 별개로 남아야 함)")
     void wrongPasswordPersistsFailure() {
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
+        assertThatThrownBy(() -> service.withPassword(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
                 .isInstanceOf(AuthenticationFailedException.class);
 
         assertThat(accountRepo.loginStateUpdates).isEqualTo(1);
@@ -174,11 +127,11 @@ class AuthenticateWithPasswordServiceTest {
     @DisplayName("연속 5회 실패하면 계정이 잠기고 이후엔 올바른 비밀번호도 거부된다")
     void locksAfterFiveFailures() {
         for (int i = 0; i < 5; i++) {
-            assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
+            assertThatThrownBy(() -> service.withPassword(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
                     .isInstanceOf(AuthenticationFailedException.class);
         }
 
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD)))
+        assertThatThrownBy(() -> service.withPassword(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("일시적으로 잠겼습니다");
     }
@@ -186,10 +139,10 @@ class AuthenticateWithPasswordServiceTest {
     @Test
     @DisplayName("실패가 쌓여 있어도 성공하면 실패 상태가 초기화된다")
     void successResetsFailureState() {
-        assertThatThrownBy(() -> service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
+        assertThatThrownBy(() -> service.withPassword(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, "wrong")))
                 .isInstanceOf(AuthenticationFailedException.class);
 
-        service.authenticate(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
+        service.withPassword(new PasswordAuthCommand(Realm.PORTAL, LOGIN_ID, PASSWORD));
 
         PasswordAccount account = accountRepo.findByLoginId(Realm.PORTAL, LOGIN_ID).orElseThrow();
         assertThat(account.getFailedAttempts()).isZero();

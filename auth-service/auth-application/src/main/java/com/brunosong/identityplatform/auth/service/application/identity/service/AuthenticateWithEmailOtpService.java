@@ -1,10 +1,8 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.AuthenticateWithEmailOtpUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishEmailOtpAuthenticationUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.EmailOtpAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailAccountRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.EmailOtpStore;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
@@ -34,19 +32,12 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
-public class AuthenticateWithEmailOtpService implements AuthenticateWithEmailOtpUseCase, EstablishEmailOtpAuthenticationUseCase {
+public class AuthenticateWithEmailOtpService implements EstablishEmailOtpAuthenticationUseCase {
 
     private final EmailAccountRepository emailAccountRepository;
     private final PrincipalRepository principalRepository;
     private final EmailOtpVerifier otpVerifier;
     private final AuthenticationCompletion authenticationCompletion;
-
-    @Override
-    @Transactional
-    public AuthenticationResult authenticate(EmailOtpAuthCommand command) {
-        Principal principal = authenticated(command);
-        return authenticationCompletion.complete(principal);
-    }
 
     @Transactional
     @Override

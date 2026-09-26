@@ -2,7 +2,7 @@ package com.brunosong.identityplatform.auth.service.application.identity.service
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.EmailOtpAuthCommand;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailAccount;
 import com.brunosong.identityplatform.auth.service.domain.identity.EmailOtpChallenge;
@@ -14,12 +14,10 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.Instant;
 
-import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.tokenIssuance;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailOtpStore;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordEncoder;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
-import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeTokenIssuer;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingEventPublisher;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.provider;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,8 +53,7 @@ class AuthenticateWithEmailOtpServiceTest {
 
         service = new AuthenticateWithEmailOtpService(
                 emailAccountRepo, principalRepo, new EmailOtpVerifier(otpStore, encoder),
-                new AuthenticationCompletion(principalRepo, eventPublisher,
-                        tokenIssuance(new FakeTokenIssuer())));
+                new AuthenticationCompletion(principalRepo, eventPublisher));
     }
 
     private EmailOtpChallenge issueOtp() {
@@ -69,7 +66,7 @@ class AuthenticateWithEmailOtpServiceTest {
     void validCodeAuthenticates() {
         EmailOtpChallenge otp = issueOtp();
 
-        AuthenticationResult result = service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE));
+        AuthenticatedSubject result = service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE));
 
         assertThat(result.subjectId()).isEqualTo("esntl-1");
         assertThat(otp.isUsed()).isTrue();
@@ -80,9 +77,9 @@ class AuthenticateWithEmailOtpServiceTest {
     @DisplayName("한 번 쓴 인증번호로는 다시 로그인할 수 없다")
     void usedCodeCannotBeReplayed() {
         issueOtp();
-        service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE));
+        service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE));
 
-        assertThatThrownBy(() -> service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE)))
+        assertThatThrownBy(() -> service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("유효하지 않습니다");
     }
@@ -93,7 +90,7 @@ class AuthenticateWithEmailOtpServiceTest {
         Instant past = Instant.now().minus(Duration.ofMinutes(10));
         otpStore.save(EmailOtpChallenge.issue(EMAIL, encoder.encode(CODE), past, past.plus(Duration.ofMinutes(5))));
 
-        assertThatThrownBy(() -> service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE)))
+        assertThatThrownBy(() -> service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("만료");
     }
@@ -103,7 +100,7 @@ class AuthenticateWithEmailOtpServiceTest {
     void wrongCodeRecordsAttempt() {
         EmailOtpChallenge otp = issueOtp();
 
-        assertThatThrownBy(() -> service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, "000000")))
+        assertThatThrownBy(() -> service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, "000000")))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("일치하지 않습니다");
 
@@ -116,11 +113,11 @@ class AuthenticateWithEmailOtpServiceTest {
     void blockedAfterFiveAttempts() {
         issueOtp();
         for (int i = 0; i < 5; i++) {
-            assertThatThrownBy(() -> service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, "000000")))
+            assertThatThrownBy(() -> service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, "000000")))
                     .isInstanceOf(AuthenticationFailedException.class);
         }
 
-        assertThatThrownBy(() -> service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE)))
+        assertThatThrownBy(() -> service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("시도 횟수를 초과");
     }
@@ -128,7 +125,7 @@ class AuthenticateWithEmailOtpServiceTest {
     @Test
     @DisplayName("등록되지 않은 이메일은 인증번호 유무와 무관하게 같은 실패로 끝난다(열거 방지)")
     void unknownEmailFails() {
-        assertThatThrownBy(() -> service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, "nobody@example.com", CODE)))
+        assertThatThrownBy(() -> service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, "nobody@example.com", CODE)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage("인증에 실패했습니다.");
     }
@@ -136,7 +133,7 @@ class AuthenticateWithEmailOtpServiceTest {
     @Test
     @DisplayName("발급된 인증번호가 없으면 재요청을 안내한다")
     void noChallengeFails() {
-        assertThatThrownBy(() -> service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE)))
+        assertThatThrownBy(() -> service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE)))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("다시 요청");
     }
@@ -148,7 +145,7 @@ class AuthenticateWithEmailOtpServiceTest {
         // 올리면 증가분도 함께 사라져 잠금이 영원히 걸리지 않는다 — 무제한 대입이 가능해진다.
         issueOtp();
 
-        assertThatThrownBy(() -> service.authenticate(
+        assertThatThrownBy(() -> service.withEmailOtp(
                 new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, "000000")))
                 .isInstanceOf(AuthenticationFailedException.class);
 
@@ -163,7 +160,7 @@ class AuthenticateWithEmailOtpServiceTest {
                 .get().returns(false, EmailAccount::isVerified);
 
         issueOtp();
-        service.authenticate(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE));
+        service.withEmailOtp(new EmailOtpAuthCommand(Realm.ADMIN, EMAIL, CODE));
 
         // 코드를 받아냈다는 것이 곧 그 주소의 주인이라는 증거다.
         assertThat(emailAccountRepo.findByEmail(Realm.ADMIN, EMAIL))

@@ -1,10 +1,8 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.AuthenticateWithSocialUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishSocialAuthenticationUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.SocialAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
-import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalProfileRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialAccountRepository;
@@ -35,8 +33,7 @@ import java.util.Optional;
  * 들어와도 새 Principal 이 생기지 않고 기존 Principal 에 수단만 추가된다(계정 자동 연결, verified email 한정).
  */
 @Service
-public class AuthenticateWithSocialService implements AuthenticateWithSocialUseCase,
-        EstablishSocialAuthenticationUseCase {
+public class AuthenticateWithSocialService implements EstablishSocialAuthenticationUseCase {
 
     /**
      * provider 검증 어댑터. 아직 이 서비스에 구현이 없어 선택 조회로 둔다 — 어댑터가 들어오면
@@ -66,12 +63,6 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
         this.authenticationCompletion = authenticationCompletion;
     }
 
-    @Override
-    @Transactional
-    public AuthenticationResult authenticate(SocialAuthCommand command) {
-        return authenticationCompletion.complete(resolve(command));
-    }
-
     /** 인증까지만 한다. 토큰은 code 교환에서 나간다. */
     @Override
     @Transactional
@@ -87,8 +78,7 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
         if (verifier == null) {
             throw new IllegalStateException("소셜 검증 어댑터가 설정되지 않았습니다(SocialIdentityVerifierPort).");
         }
-        VerifiedSocialIdentity id = verifier.verify(
-                command.provider(), command.authorizationCode(), command.callback());
+        VerifiedSocialIdentity id = verifier.verify(command.provider(), command.authorizationCode());
 
         // 이미 연결된 소셜이면 그 Principal, 아니면 verified email 로 주체 resolve 후 링크/생성
         return socialAccountRepository

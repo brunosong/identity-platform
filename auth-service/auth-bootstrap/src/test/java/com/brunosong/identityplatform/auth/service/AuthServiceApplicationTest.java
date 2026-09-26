@@ -3,9 +3,6 @@ package com.brunosong.identityplatform.auth.service;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
 import com.brunosong.identityplatform.auth.service.application.identity.token.RealmSigningKeys;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import com.brunosong.identityplatform.auth.service.web.client.identity.AuthLoginApiController;
-import com.brunosong.identityplatform.auth.service.web.client.identity.AuthSocialLoginApiController;
-import com.brunosong.identityplatform.auth.service.web.client.identity.EmailOtpLoginApiController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,15 +73,5 @@ class AuthServiceApplicationTest {
     @DisplayName("토큰 발급기는 선택 빈이 아니다")
     void tokenIssuerIsRequired() {
         assertThat(context.getBean(TokenIssuerPort.class)).isNotNull();
-    }
-
-    @Test
-    @DisplayName("로그인 컨트롤러 셋이 모두 뜬다 — realm 프로퍼티로 끄지 않는다")
-    void allLoginControllersAreLoaded() {
-        // 전에는 realm 프로퍼티로 소셜 컨트롤러를 껐다. 한 프로세스가 두 realm 을 담당하면
-        // 그렇게 가를 수 없어 요청 시점 검사로 옮겼고, 빈은 언제나 떠 있어야 한다.
-        assertThat(context.getBean(AuthLoginApiController.class)).isNotNull();
-        assertThat(context.getBean(EmailOtpLoginApiController.class)).isNotNull();
-        assertThat(context.getBean(AuthSocialLoginApiController.class)).isNotNull();
     }
 }

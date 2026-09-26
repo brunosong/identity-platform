@@ -86,8 +86,6 @@ social:
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
     client-secret: ${GOOGLE_CLIENT_SECRET:}
-    # 앱이 구글 콜백을 직접 받는 방식을 쓸 때의 주소. 비우면 그 방식이 꺼진다.
-    app-redirect-uri: ${GOOGLE_APP_REDIRECT_URI:}
 
 logging:
   level:

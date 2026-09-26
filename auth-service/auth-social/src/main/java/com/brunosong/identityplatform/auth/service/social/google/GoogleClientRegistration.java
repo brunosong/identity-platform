@@ -1,6 +1,5 @@
 package com.brunosong.identityplatform.auth.service.social.google;
 
-import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
 import org.springframework.util.StringUtils;
 
 /**
@@ -12,19 +11,14 @@ import org.springframework.util.StringUtils;
  * <ul>
  *   <li>{@code clientId} - 묻는 게 누구인지. 공개값이다</li>
  *   <li>{@code clientSecret} - 진짜 그 앱인지. code 를 토큰으로 바꿀 때만 쓰고 브라우저에 나가지 않는다</li>
- *   <li>{@code brokerRedirectUri} - 구글이 auth 로 돌려보낼 주소</li>
- *   <li>{@code appRedirectUri} - 구글이 앱으로 돌려보낼 주소. 그 방식을 쓸 때만 있다</li>
+ *   <li>{@code redirectUri} - 구글이 auth 로 돌려보낼 주소. 앱이 몇 개든 이 하나다</li>
  * </ul>
- *
- * <p>주소가 둘인 것은 두 방식을 함께 열어 뒀기 때문이다. 구글 콘솔에도 둘 다 등록돼 있어야 하고,
- * 교환할 때는 <b>브라우저가 실제로 돌아온 쪽</b>을 보내야 한다({@link SocialCallback}).
  *
  * <p>시크릿을 쥘 수 있는 것은 우리가 서버이기 때문이다. 브라우저에서 도는 앱은 이걸 못 해서
  * PKCE 를 대신 쓴다 - 우리가 발급자로서 {@code portal} 에게 요구하게 될 것이 그것이다.
  * 같은 흐름인데 어느 쪽에 서 있느냐에 따라 장치가 갈린다.
  */
-public record GoogleClientRegistration(String clientId, String clientSecret,
-                                       String brokerRedirectUri, String appRedirectUri) {
+public record GoogleClientRegistration(String clientId, String clientSecret, String redirectUri) {
 
     /** 구글 콘솔의 Authorized redirect URIs 에 등록해 둔 경로. realm 발급자 주소 뒤에 붙는다. */
     private static final String CALLBACK_PATH = "/broker/google/endpoint";
@@ -34,33 +28,13 @@ public record GoogleClientRegistration(String clientId, String clientSecret,
      *                    돌아올 주소를 여기서 유도한다 - 발급자 주소가 곧 이 서비스의 바깥에서
      *                    보이는 주소라, 포트를 옮기면 콜백 주소도 따라 움직여야 맞다.
      */
-    public static GoogleClientRegistration of(String clientId, String clientSecret,
-                                              String realmIssuer, String appRedirectUri) {
+    public static GoogleClientRegistration of(String clientId, String clientSecret, String realmIssuer) {
         // clientId 가 있는데 시크릿이 없으면 교환 요청이 구글에서 거절된다. 그 실패는 사용자가
         // 구글까지 다녀온 다음에야 나타나므로, 부팅에서 미리 죽는 편이 낫다.
         if (!StringUtils.hasText(clientSecret)) {
             throw new IllegalStateException(
                     "구글 클라이언트 시크릿이 없습니다: social.google.client-secret");
         }
-        return new GoogleClientRegistration(clientId, clientSecret,
-                realmIssuer + CALLBACK_PATH, appRedirectUri);
-    }
-
-    /**
-     * 교환 요청에 실을 주소. 브라우저가 돌아온 쪽과 같아야 구글이 받아준다.
-     *
-     * <p>앱 주소가 설정돼 있지 않은데 앱 방식으로 들어오면 여기서 막는다. 그대로 두면 브로커
-     * 주소로 교환을 시도하게 되고, 구글이 {@code redirect_uri_mismatch} 를 돌려줘서 원인이
-     * 설정 누락이라는 것이 드러나지 않는다.
-     */
-    public String redirectUriFor(SocialCallback callback) {
-        if (callback == SocialCallback.APP) {
-            if (!StringUtils.hasText(appRedirectUri)) {
-                throw new IllegalStateException(
-                        "앱 콜백 주소가 없습니다: social.google.app-redirect-uri");
-            }
-            return appRedirectUri;
-        }
-        return brokerRedirectUri;
+        return new GoogleClientRegistration(clientId, clientSecret, realmIssuer + CALLBACK_PATH);
     }
 }

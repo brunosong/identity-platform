@@ -85,7 +85,7 @@ class GoogleBrokerIntegrationTest {
     @DisplayName("구글에 다녀오면 원래 인가 요청으로 되돌아가 code 가 나오고, 그 code 로 id_token 까지 받는다")
     void googleLoginEndsInOurCode() {
         String email = "google-" + UUID.randomUUID() + "@example.com";
-        given(verifier.verify(any(), eq("google-code"), any()))
+        given(verifier.verify(any(), eq("google-code")))
                 .willReturn(new VerifiedSocialIdentity("uid-" + UUID.randomUUID(), email, "구글 사용자"));
 
         // 1. 로그인 화면의 구글 버튼. 구글로 보내면서 쿠키 둘을 심는다.
