@@ -331,7 +331,7 @@ class JwksVerificationIntegrationTest {
     }
 
     @Test
-    @DisplayName("앱이 부르는 로그인과 로그아웃 API 는 없다. 표준 엔드포인트만 있다")
+    @DisplayName("앱이 부르는 로그인, 로그아웃, 가입 API 는 없다. 표준 엔드포인트와 화면만 있다")
     void appFacingLoginApisAreGone() {
         // 토큰은 로그인 화면을 거친 code 교환에서만 나간다. 로그아웃은 end_session_endpoint 다.
         assertThat(postJson("/api/auth/realms/portal/login", Map.of("loginId", "a", "password", "b"), null))
@@ -339,17 +339,8 @@ class JwksVerificationIntegrationTest {
         assertThat(postJson("/api/auth/realms/portal/login/social", Map.of(), null)).isEqualTo(404);
         assertThat(postJson("/api/auth/realms/admin/login/email-otp", Map.of(), null)).isEqualTo(404);
         assertThat(postStatusOf("/api/auth/realms/portal/logout", null)).isEqualTo(404);
-    }
-
-    @Test
-    @DisplayName("셀프 가입은 realm 이 여는 realm 에서만 열린다")
-    void selfRegistrationIsARealmSetting() {
-        assertThat(postJson("/api/auth/realms/portal/register", selfRegisterBody(), null)).isEqualTo(201);
-
-        // 어드민에서 가입이 열리면 아무나 자기 자신을 직원으로 만든다. 403 이 아니라 404 인 이유는
-        // "여기에도 가입 API 가 있긴 한데 막혀 있다" 를 알려줄 이유가 없기 때문이다.
-        assertThat(postJson("/api/auth/realms/admin/register", selfRegisterBody(), null)).isEqualTo(404);
-        assertThat(postJson("/api/auth/realms/martian/register", selfRegisterBody(), null)).isEqualTo(404);
+        // 가입도 auth 의 화면에서 한다(/realms/{realm}/auth/register, prompt=create).
+        assertThat(postJson("/api/auth/realms/portal/register", selfRegisterBody(), null)).isEqualTo(404);
     }
 
     @Test
