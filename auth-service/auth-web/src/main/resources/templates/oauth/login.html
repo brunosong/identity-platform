@@ -87,6 +87,20 @@
         <button type="submit">비밀번호로 로그인</button>
     </form>
 
+    <!--
+      구글로 들어오는 길. 브로커가 인가 요청을 들고 구글에 다녀온 뒤 이 요청으로 되돌아온다.
+      포털에만 있다. 소셜 로그인은 처음 온 사람에게 신원을 만들어 주므로 직원 realm 에는 열지 않는다.
+    -->
+    <th:block th:if="${realm == 'portal'}">
+        <div class="divider"><span>또는</span></div>
+
+        <form th:action="@{|/realms/${realm}/broker/google/login|}" method="get">
+            <div th:replace="~{:: hiddenRequest}"></div>
+
+            <button type="submit" class="secondary">구글로 로그인</button>
+        </form>
+    </th:block>
+
     <p class="foot">
         이 화면은 <b>BrunoSong 인증 서버</b>가 그립니다. 비밀번호는 앱을 거치지 않습니다.
     </p>

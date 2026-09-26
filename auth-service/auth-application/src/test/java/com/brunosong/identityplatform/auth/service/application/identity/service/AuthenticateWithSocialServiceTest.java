@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.auth.service.application.identity.service
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.SocialAuthCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialCallback;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialIdentityVerifierPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.dto.VerifiedSocialIdentity;
@@ -75,6 +76,24 @@ class AuthenticateWithSocialServiceTest {
         assertThat(socialRepo.saved).hasSize(1);
         assertThat(result.realm()).isEqualTo(Realm.PORTAL);
         assertThat(eventPublisher.published).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("브로커 경로는 인증까지만 하고 토큰은 내주지 않는다. 연결은 같은 규칙을 따른다")
+    void withSocialEstablishesWithoutTokens() {
+        FakeTokenIssuer tokenIssuer = new FakeTokenIssuer();
+        AuthenticateWithSocialService service = new AuthenticateWithSocialService(
+                provider(verifier), socialRepo, principalRepo, profileRepo, emailAccountRepo,
+                registeredPublisher,
+                new AuthenticationCompletion(principalRepo, eventPublisher, tokenIssuance(tokenIssuer)));
+
+        AuthenticatedSubject subject = service.withSocial(command());
+
+        assertThat(subject.realm()).isEqualTo(Realm.PORTAL);
+        assertThat(socialRepo.saved).hasSize(1);
+        // 사람이 로그인한 사건은 남는다. 토큰은 나중에 code 교환에서 나간다.
+        assertThat(eventPublisher.published).hasSize(1);
+        assertThat(tokenIssuer.issuedRealm).isNull();
     }
 
     @Test

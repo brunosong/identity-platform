@@ -1,7 +1,9 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.AuthenticateWithSocialUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishSocialAuthenticationUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.SocialAuthCommand;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalProfileRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
@@ -33,7 +35,8 @@ import java.util.Optional;
  * 들어와도 새 Principal 이 생기지 않고 기존 Principal 에 수단만 추가된다(계정 자동 연결, verified email 한정).
  */
 @Service
-public class AuthenticateWithSocialService implements AuthenticateWithSocialUseCase {
+public class AuthenticateWithSocialService implements AuthenticateWithSocialUseCase,
+        EstablishSocialAuthenticationUseCase {
 
     /**
      * provider 검증 어댑터. 아직 이 서비스에 구현이 없어 선택 조회로 둔다 — 어댑터가 들어오면
@@ -66,6 +69,20 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
     @Override
     @Transactional
     public AuthenticationResult authenticate(SocialAuthCommand command) {
+        return authenticationCompletion.complete(resolve(command));
+    }
+
+    /** 인증까지만 한다. 토큰은 code 교환에서 나간다. */
+    @Override
+    @Transactional
+    public AuthenticatedSubject withSocial(SocialAuthCommand command) {
+        Principal principal = authenticationCompletion.establish(resolve(command));
+        return new AuthenticatedSubject(principal.getPrincipalId(),
+                principal.getSubjectId().value(), principal.getRealm());
+    }
+
+    /** provider 에 신원을 묻고, 그 신원에 해당하는 우리 Principal 을 찾거나 만든다. */
+    private Principal resolve(SocialAuthCommand command) {
         SocialIdentityVerifierPort verifier = socialVerifierProvider.getIfAvailable();
         if (verifier == null) {
             throw new IllegalStateException("소셜 검증 어댑터가 설정되지 않았습니다(SocialIdentityVerifierPort).");
@@ -74,14 +91,12 @@ public class AuthenticateWithSocialService implements AuthenticateWithSocialUseC
                 command.provider(), command.authorizationCode(), command.callback());
 
         // 이미 연결된 소셜이면 그 Principal, 아니면 verified email 로 주체 resolve 후 링크/생성
-        Principal principal = socialAccountRepository
+        return socialAccountRepository
                 .findByProvider(command.realm(), command.provider(), id.providerUid())
                 .map(sa -> principalRepository.findById(sa.getPrincipalId())
                         .orElseThrow(() -> new IllegalStateException(
                                 "Principal not found for socialAccount=" + sa.getSocialAccountId())))
                 .orElseGet(() -> linkOrCreate(command.realm(), command.provider(), id));
-
-        return authenticationCompletion.complete(principal);
     }
 
     /**

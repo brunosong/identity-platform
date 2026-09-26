@@ -14,11 +14,11 @@ import java.time.Instant;
 
 @Component
 @RequiredArgsConstructor
-class LoginSessionStarter {
+public class LoginSessionStarter {
 
     private final StartLoginSessionUseCase startLoginSession;
 
-    void start(AuthenticatedSubject subject, HttpServletRequest httpRequest, HttpServletResponse response) {
+    public void start(AuthenticatedSubject subject, HttpServletRequest httpRequest, HttpServletResponse response) {
 
         // 이 브라우저가 로그인했다는 사실을 남긴다. 다음 앱은 이 쿠키로 화면을 건너뛴다.
         LoginSession session = startLoginSession.start(subject.realm(), subject.principalId());
