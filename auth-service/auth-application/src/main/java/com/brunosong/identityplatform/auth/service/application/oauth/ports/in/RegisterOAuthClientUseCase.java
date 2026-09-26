@@ -1,9 +1,9 @@
 package com.brunosong.identityplatform.auth.service.application.oauth.ports.in;
 
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.RegisterOAuthClientCommand;
-import com.brunosong.identityplatform.auth.service.domain.oauth.OAuthClient;
+import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.result.RegisteredOAuthClient;
 
 public interface RegisterOAuthClientUseCase {
 
-    OAuthClient register(RegisterOAuthClientCommand command);
+    RegisteredOAuthClient register(RegisterOAuthClientCommand command);
 }

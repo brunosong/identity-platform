@@ -4,6 +4,7 @@ import com.brunosong.identityplatform.auth.service.application.oauth.exception.O
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.FindOAuthClientsUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.RegisterOAuthClientUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.RegisterOAuthClientCommand;
+import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.result.RegisteredOAuthClient;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -57,15 +58,21 @@ public class OAuthClientConsoleController {
      *
      * <p>실패는 예외를 그대로 올리지 않고 화면의 문구로 돌려준다. 주소를 잘못 적는 것은 사고가
      * 아니라 흔한 일이고, 쓰던 값이 사라진 오류 화면보다 목록 위의 한 줄이 고치기 쉽다.
+     *
+     * <p>시크릿 원문은 flash 로 한 번만 넘긴다. 목록을 새로고침하면 사라지고 다시 볼 방법이 없다.
+     * 저장소에 해시만 남기 때문이다.
      */
     @PostMapping
     public String register(@RequestParam String clientId,
                            @RequestParam Realm realm,
                            @RequestParam String redirectUris,
+                           @RequestParam(defaultValue = "false") boolean confidential,
                            RedirectAttributes attributes) {
         try {
-            registerClient.register(new RegisterOAuthClientCommand(clientId, realm, lines(redirectUris)));
+            RegisteredOAuthClient registered = registerClient.register(
+                    new RegisterOAuthClientCommand(clientId, realm, lines(redirectUris), confidential));
             attributes.addFlashAttribute("message", clientId + " 을(를) 등록했다.");
+            attributes.addFlashAttribute("secret", registered.secret());
         } catch (OAuthClientAlreadyExistsException | IllegalArgumentException e) {
             attributes.addFlashAttribute("error", e.getMessage());
         }

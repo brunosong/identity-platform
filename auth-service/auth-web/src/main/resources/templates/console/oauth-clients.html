@@ -22,6 +22,9 @@
         .notice { padding: 10px 14px; border-left: 3px solid #333; background: #f6f6f6; }
         .notice.bad { border-color: #b00020; }
         .empty { color: #777; padding: 20px 0; }
+        label.check { font-weight: 400; }
+        label.check input { margin-right: 6px; }
+        .secret code { display: block; margin: 6px 0; font-size: 15px; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -31,6 +34,11 @@
 
 <div class="notice" th:if="${message}" th:text="${message}"></div>
 <div class="notice bad" th:if="${error}" th:text="${error}"></div>
+<div class="notice secret" th:if="${secret}">
+    client_secret
+    <code th:text="${secret}"></code>
+    지금 한 번만 보인다. 저장하지 않고 넘어가면 다시 볼 수 없다.
+</div>
 
 <form method="post">
     <label>
@@ -53,6 +61,11 @@
         <textarea name="redirectUris" required spellcheck="false"></textarea>
     </label>
 
+    <label class="check">
+        <input type="checkbox" name="confidential" value="true">시크릿 발급
+        <span>서버에서 도는 앱만 켠다. 브라우저 앱은 시크릿을 지킬 수 없다.</span>
+    </label>
+
     <button type="submit">등록</button>
 </form>
 
@@ -62,6 +75,7 @@
         <th style="width: 22%">client_id</th>
         <th style="width: 14%">realm</th>
         <th style="width: 10%">상태</th>
+        <th style="width: 12%">시크릿</th>
         <th>돌아갈 주소</th>
     </tr>
     </thead>
@@ -70,6 +84,7 @@
         <td th:text="${client.clientId}"></td>
         <td th:text="${client.realm}"></td>
         <td th:text="${client.enabled} ? '사용' : '중지'" th:classappend="${client.enabled} ? '' : 'off'"></td>
+        <td th:text="${client.confidential} ? '있음' : '없음'"></td>
         <td class="uris">
             <div th:each="uri : ${client.redirectUris}" th:text="${uri}"></div>
         </td>

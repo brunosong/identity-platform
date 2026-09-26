@@ -8,6 +8,7 @@ import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.St
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ValidateRedirectUriUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.RegisterOAuthClientCommand;
+import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.result.RegisteredOAuthClient;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.out.OAuthClientRepository;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.oauth.OAuthClient;
@@ -16,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -30,17 +33,35 @@ import java.util.List;
 public class OAuthClientService implements RegisterOAuthClientUseCase, FindOAuthClientsUseCase,
         StartAuthorizationUseCase, ValidateRedirectUriUseCase {
 
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     private final OAuthClientRepository clientRepository;
 
+    /**
+     * 등록한다. confidential 이면 시크릿을 뽑아 붙이고 원문을 한 번 돌려준다.
+     *
+     * <p>시크릿은 32바이트 난수다. 사람이 고른 값을 받지 않는다. 그래야 해시 한 번으로 저장해도
+     * 되돌릴 수 없다는 판단({@link OAuthClient})이 성립한다.
+     */
     @Override
     @Transactional
-    public OAuthClient register(RegisterOAuthClientCommand command) {
+    public RegisteredOAuthClient register(RegisterOAuthClientCommand command) {
         OAuthClient client = OAuthClient.register(command.clientId(), command.realm(),
                 command.redirectUris());
         if (clientRepository.exists(client.getClientId())) {
             throw new OAuthClientAlreadyExistsException(client.getClientId());
         }
-        return clientRepository.save(client);
+        String secret = command.confidential() ? randomSecret() : null;
+        if (secret != null) {
+            client = client.withSecret(secret);
+        }
+        return new RegisteredOAuthClient(clientRepository.save(client), secret);
+    }
+
+    private static String randomSecret() {
+        byte[] bytes = new byte[32];
+        RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     @Override
