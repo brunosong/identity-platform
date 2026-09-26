@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.application.identity.ports.in;
 
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
 
 /**
@@ -8,6 +9,10 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
  */
 public interface RegisterWithPasswordUseCase {
 
-    /** 가입 후 principalId 반환. 중복 loginId 면 IllegalArgumentException. */
-    String register(RegisterWithPasswordCommand command);
+    /**
+     * 가입하고 그 사람으로 로그인까지 확정한다. 가입 화면에서 곧장 앱으로 돌아가기 때문이다.
+     *
+     * <p>이미 쓰이는 아이디나 이미 가입된 이메일이면 IllegalArgumentException.
+     */
+    AuthenticatedSubject register(RegisterWithPasswordCommand command);
 }

@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingEventPublisher;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeEmailOtpStore;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordEncoder;
@@ -56,7 +57,7 @@ class RegisterWithEmailServiceTest {
         service = new RegisterWithEmailService(
                 principals, profiles, emailAccounts,
                 new EmailOtpVerifier(otpStore, new FakePasswordEncoder()),
-                registeredPublisher);
+                registeredPublisher, new AuthenticationCompletion(principals, new RecordingEventPublisher()));
     }
 
     /** 발송 단계를 거친 것과 같은 상태를 만든다. */
@@ -87,7 +88,7 @@ class RegisterWithEmailServiceTest {
     void createsPrincipalAndEmailAccount() {
         issueCode(EMAIL, CODE);
 
-        String principalId = service.register(command());
+        String principalId = service.register(command()).principalId().value();
 
         assertThat(principalId).isNotBlank();
         assertThat(principals.byId).containsKey(principalId);
@@ -174,7 +175,7 @@ class RegisterWithEmailServiceTest {
         emailAccounts.save(EmailAccount.verified(existing.getPrincipalId(), Realm.PORTAL, EMAIL));
         issueCode(EMAIL, CODE);
 
-        String principalId = service.register(command());
+        String principalId = service.register(command()).principalId().value();
 
         assertThat(principalId).isEqualTo(existing.getPrincipalId().value());
         assertThat(principals.byId).hasSize(1);
@@ -201,7 +202,7 @@ class RegisterWithEmailServiceTest {
     void savesPrincipalProfile() {
         issueCode(EMAIL, CODE);
 
-        String principalId = service.register(command());
+        String principalId = service.register(command()).principalId().value();
 
         assertThat(profiles.byPrincipalId).containsKey(principalId);
         assertThat(profiles.byPrincipalId.get(principalId).getName()).isEqualTo("홍길동");

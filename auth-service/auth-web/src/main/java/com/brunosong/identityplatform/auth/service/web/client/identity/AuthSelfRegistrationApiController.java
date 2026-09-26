@@ -79,7 +79,7 @@ public class AuthSelfRegistrationApiController {
 
         String principalId = registerWithPassword.register(new RegisterWithPasswordCommand(
                 resolved, request.email(), request.name(), request.phoneNumber(),
-                request.email(), request.password()));
+                request.email(), request.password())).principalId().value();
         return new RegisterResponse(principalId);
     }
 
@@ -106,7 +106,7 @@ public class AuthSelfRegistrationApiController {
 
         String principalId = registerWithEmail.register(new RegisterWithEmailCommand(
                 resolved, request.email(), request.name(), request.phoneNumber(),
-                request.verificationCode()));
+                request.verificationCode())).principalId().value();
         return new RegisterResponse(principalId);
     }
 

@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.event.SubjectRegisteredEvent;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RegisterWithEmailUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithEmailCommand;
@@ -47,10 +48,11 @@ public class RegisterWithEmailService implements RegisterWithEmailUseCase {
     private final EmailAccountRepository emailAccountRepository;
     private final EmailOtpVerifier otpVerifier;
     private final SubjectRegisteredEventPublisher subjectRegisteredEventPublisher;
+    private final AuthenticationCompletion authenticationCompletion;
 
     @Override
     @Transactional
-    public String register(RegisterWithEmailCommand command) {
+    public AuthenticatedSubject register(RegisterWithEmailCommand command) {
         // 먼저 코드를 확인한다. 통과하지 못하면 아래로 내려가지 않으므로, 이 주소가 이미 가입돼
         // 있는지 여부가 응답에 드러나지 않는다 — 가입용 코드는 미등록 주소로만 나가기 때문에
         // 등록된 주소로는 애초에 유효한 코드가 존재하지 않는다.
@@ -59,10 +61,14 @@ public class RegisterWithEmailService implements RegisterWithEmailUseCase {
         // 여기 도달했는데 이미 신원이 있다면, 코드를 받은 뒤 사이에 만들어졌거나 로그인용 코드를
         // 들고 온 경우다. 새로 만들면 이메일 유일 제약에 걸리므로 있는 것을 그대로 돌려준다 —
         // 그 주소의 주인임은 방금 증명했으니 새로 알려주는 것도 없다.
-        return emailAccountRepository.findByEmail(command.realm(), command.email())
+        Principal principal = emailAccountRepository.findByEmail(command.realm(), command.email())
                 .flatMap(account -> principalRepository.findById(account.getPrincipalId()))
-                .orElseGet(() -> createPrincipal(command))
-                .getPrincipalId().value();
+                .orElseGet(() -> createPrincipal(command));
+
+        // 인증번호를 받아낸 사람이 곧 이 주소의 주인이다. 가입과 함께 로그인까지 확정한다.
+        Principal established = authenticationCompletion.establish(principal);
+        return new AuthenticatedSubject(established.getPrincipalId(),
+                established.getSubjectId().value(), established.getRealm());
     }
 
     /** 신규 신원: subjectId 채번 → 등록 알림 → Principal 과 이메일 계정 저장. */

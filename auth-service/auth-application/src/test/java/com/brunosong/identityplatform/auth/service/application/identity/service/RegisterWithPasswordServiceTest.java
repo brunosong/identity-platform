@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.RecordingEventPublisher;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordAccountRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePasswordEncoder;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalProfileRepository;
@@ -29,6 +30,7 @@ class RegisterWithPasswordServiceTest {
     private FakePasswordAccountRepository accountRepo;
     private FakeEmailAccountRepository emailAccountRepo;
     private RecordingSubjectRegisteredPublisher registeredPublisher;
+    private RecordingEventPublisher authenticatedPublisher;
     private RegisterWithPasswordService service;
 
     @BeforeEach
@@ -38,9 +40,10 @@ class RegisterWithPasswordServiceTest {
         emailAccountRepo = new FakeEmailAccountRepository();
         registeredPublisher = new RecordingSubjectRegisteredPublisher();
         profileRepo = new FakePrincipalProfileRepository();
+        authenticatedPublisher = new RecordingEventPublisher();
         service = new RegisterWithPasswordService(
                 principalRepo, profileRepo, accountRepo, emailAccountRepo, new FakePasswordEncoder(),
-                registeredPublisher);
+                registeredPublisher, new AuthenticationCompletion(principalRepo, authenticatedPublisher));
     }
 
     private RegisterWithPasswordCommand command(String loginId, String email) {
@@ -51,7 +54,7 @@ class RegisterWithPasswordServiceTest {
     @Test
     @DisplayName("신규 가입은 주체 등록을 알리고 Principal 과 비밀번호 계정을 남긴다")
     void registerPublishesSubjectRegistered() {
-        String principalId = service.register(command("gildong", "gildong@example.com"));
+        String principalId = service.register(command("gildong", "gildong@example.com")).principalId().value();
 
         assertThat(registeredPublisher.published).hasSize(1);
         assertThat(principalRepo.byId).containsKey(principalId);
@@ -61,7 +64,7 @@ class RegisterWithPasswordServiceTest {
     @Test
     @DisplayName("subjectId 는 auth 가 채번해서 이벤트에 실어 보낸다")
     void authMintsSubjectId() {
-        String principalId = service.register(command("gildong", "gildong@example.com"));
+        String principalId = service.register(command("gildong", "gildong@example.com")).principalId().value();
 
         assertThat(principalRepo.byId.get(principalId).getSubjectId().value())
                 .isEqualTo(registeredPublisher.published.get(0).subjectId());
@@ -100,24 +103,23 @@ class RegisterWithPasswordServiceTest {
     }
 
     @Test
-    @DisplayName("같은 이메일의 주체가 이미 있으면 Principal 을 새로 만들지 않고 수단만 더한다")
-    void existingSubjectReusesPrincipal() {
-        String first = service.register(command("gildong", "same@example.com"));
+    @DisplayName("이미 가입된 이메일로는 비밀번호 가입을 받지 않는다(계정 탈취 방지)")
+    void existingEmailIsRefused() {
+        // 받아 주면 그 신원에 비밀번호가 붙는다. 이 폼은 이메일 소유를 확인하지 않으므로, 남의 이메일을
+        // 적은 사람이 자기 비밀번호로 그 사람의 계정에 들어가게 된다.
+        service.register(command("gildong", "same@example.com"));
 
-        String second = service.register(command("gildong2", "same@example.com"));
-
-        assertThat(second).isEqualTo(first);
+        assertThatThrownBy(() -> service.register(command("gildong2", "same@example.com")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("이미 가입된 이메일");
         assertThat(principalRepo.byId).hasSize(1);
-        assertThat(registeredPublisher.published).hasSize(1);
-        // 저장소 내부 키가 아니라 포트로 확인한다 — 아이디는 유형 안에서만 유일하다.
-        assertThat(accountRepo.findByLoginId(Realm.PORTAL, "gildong")).isPresent();
-        assertThat(accountRepo.findByLoginId(Realm.PORTAL, "gildong2")).isPresent();
+        assertThat(accountRepo.findByLoginId(Realm.PORTAL, "gildong2")).isEmpty();
     }
 
     @Test
     @DisplayName("가입하면 이메일로 신원을 되찾을 수 있게 이메일 계정을 남긴다")
     void emailAccountIsCreated() {
-        String principalId = service.register(command("gildong", "gildong@example.com"));
+        String principalId = service.register(command("gildong", "gildong@example.com")).principalId().value();
 
         assertThat(emailAccountRepo.findByEmail(Realm.PORTAL, "gildong@example.com"))
                 .get()
@@ -134,18 +136,20 @@ class RegisterWithPasswordServiceTest {
     }
 
     @Test
-    @DisplayName("가입 자체는 인증이 아니라서 Principal 의 최종 인증 시각을 남기지 않는다")
-    void registerDoesNotAuthenticate() {
-        String principalId = service.register(command("gildong", "gildong@example.com"));
+    @DisplayName("가입하면 그 사람으로 로그인까지 된다. 인증 시각과 인증 이벤트가 남는다")
+    void registerAlsoAuthenticates() {
+        // 가입 화면은 곧장 앱으로 돌아간다. 가입한 사람에게 로그인을 한 번 더 시키지 않는다.
+        String principalId = service.register(command("gildong", "gildong@example.com")).principalId().value();
 
         Principal principal = principalRepo.byId.get(principalId);
-        assertThat(principal.getLastAuthenticatedAt()).isNull();
+        assertThat(principal.getLastAuthenticatedAt()).isNotNull();
+        assertThat(authenticatedPublisher.published).hasSize(1);
     }
 
     @Test
     @DisplayName("가입 폼의 이름·전화번호를 신원 프로필로 저장한다")
     void savesPrincipalProfile() {
-        String principalId = service.register(command("hong", "hong@example.com"));
+        String principalId = service.register(command("hong", "hong@example.com")).principalId().value();
 
         assertThat(profileRepo.byPrincipalId).containsKey(principalId);
         var profile = profileRepo.byPrincipalId.get(principalId);

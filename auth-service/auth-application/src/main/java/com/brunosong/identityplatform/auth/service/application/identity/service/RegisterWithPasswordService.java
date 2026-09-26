@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RegisterWithPasswordUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PasswordAccountRepository;
@@ -42,34 +43,41 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
     private final EmailAccountRepository emailAccountRepository;
     private final PasswordEncoderPort passwordEncoder;
     private final SubjectRegisteredEventPublisher subjectRegisteredEventPublisher;
+    private final AuthenticationCompletion authenticationCompletion;
 
     public RegisterWithPasswordService(PrincipalRepository principalRepository,
                                        PrincipalProfileRepository principalProfileRepository,
                                        PasswordAccountRepository passwordAccountRepository,
                                        EmailAccountRepository emailAccountRepository,
                                        PasswordEncoderPort passwordEncoder,
-                                       SubjectRegisteredEventPublisher subjectRegisteredEventPublisher) {
+                                       SubjectRegisteredEventPublisher subjectRegisteredEventPublisher,
+                                       AuthenticationCompletion authenticationCompletion) {
         this.principalRepository = principalRepository;
         this.principalProfileRepository = principalProfileRepository;
         this.passwordAccountRepository = passwordAccountRepository;
         this.emailAccountRepository = emailAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.subjectRegisteredEventPublisher = subjectRegisteredEventPublisher;
+        this.authenticationCompletion = authenticationCompletion;
     }
 
     @Override
     @Transactional
-    public String register(RegisterWithPasswordCommand command) {
+    public AuthenticatedSubject register(RegisterWithPasswordCommand command) {
         // 아이디 중복은 같은 realm 안에서만 따진다 — 직원 "hong" 과 고객 "hong" 은 다른 계정이다.
         if (passwordAccountRepository.existsByLoginId(command.realm(), command.loginId())) {
             throw new IllegalArgumentException("이미 존재하는 아이디입니다: " + command.loginId());
         }
 
-        // 같은 이메일로 이미 신원이 있으면 수단(아이디/비번)만 더한다. 없으면 auth 가 채번해서
-        // "생겼다"만 알린다 — 누가 받아 프로필을 만드는지는 모른다.
-        Principal principal = emailAccountRepository.findByEmail(command.realm(), command.email())
-                .flatMap(account -> principalRepository.findById(account.getPrincipalId()))
-                .orElseGet(() -> createPrincipal(command));
+        // 이미 가입된 이메일이면 받지 않는다. 그 신원에 비밀번호를 붙여 주면, 남의 이메일을 적은
+        // 사람이 자기 비밀번호로 그 사람의 계정에 들어간다. 이 폼은 이메일 소유를 확인하지 않는다.
+        // 기존 신원에 비밀번호를 더하는 일은 그 신원으로 로그인한 뒤에 해야 한다.
+        if (emailAccountRepository.findByEmail(command.realm(), command.email()).isPresent()) {
+            throw new IllegalArgumentException("이미 가입된 이메일입니다. 그 계정으로 로그인하세요.");
+        }
+
+        // auth 가 채번해서 "생겼다"만 알린다 — 누가 받아 프로필을 만드는지는 모른다.
+        Principal principal = createPrincipal(command);
 
         passwordAccountRepository.save(PasswordAccount.create(
                 principal.getPrincipalId(), command.realm(), command.loginId(),
@@ -77,7 +85,11 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
 
         // 인가 역할(authz)은 등록 이벤트를 받은 realm 별 리스너가 authz_subject_role 에 부여한다.
         // 신원(Principal)은 역할을 소유하지 않는다.
-        return principal.getPrincipalId().value();
+
+        // 방금 정한 비밀번호를 적은 사람이 곧 이 사람이다. 가입 화면에서 곧장 앱으로 돌아간다.
+        Principal established = authenticationCompletion.establish(principal);
+        return new AuthenticatedSubject(established.getPrincipalId(),
+                established.getSubjectId().value(), established.getRealm());
     }
 
     /** 신규 신원: subjectId 채번 → 등록 알림 → Principal 과 이메일 계정 저장. */
