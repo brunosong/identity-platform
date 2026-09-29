@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>역할</title>
+    <style>
+        body { font: 14px/1.6 system-ui, sans-serif; color: #1b1b1b; max-width: 860px; margin: 40px auto; padding: 0 20px; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        p.lead { color: #555; margin-top: 0; }
+        nav.realms a { margin-right: 12px; }
+        nav.realms a.on { font-weight: 700; color: #1b1b1b; text-decoration: none; }
+        form { border: 1px solid #ddd; padding: 16px 20px; margin: 24px 0; }
+        label { display: block; margin-top: 12px; font-weight: 600; }
+        label span { display: block; font-weight: 400; color: #666; font-size: 13px; }
+        input[type=text] { width: 100%; padding: 6px 8px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
+        button { margin-top: 16px; padding: 7px 18px; font: inherit; border: 1px solid #333; background: #333; color: #fff; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+        th { background: #fafafa; font-size: 13px; }
+        td.code { font-family: ui-monospace, monospace; font-size: 13px; }
+        .off { color: #999; }
+        .notice { padding: 10px 14px; border-left: 3px solid #333; background: #f6f6f6; }
+        .notice.bad { border-color: #b00020; }
+        .empty { color: #777; padding: 20px 0; }
+    </style>
+</head>
+<body>
+
+<h1>역할</h1>
+<p class="lead">사람에게 붙는 역할. 어떤 일을 할 수 있는지는 역할에 묶인 권한이 정한다.</p>
+
+<nav class="realms">
+    <a th:each="r : ${realms}" th:href="@{/page/roles(realm=${r})}" th:text="${r}"
+       th:classappend="${r == realm} ? 'on' : ''"></a>
+</nav>
+
+<div class="notice" th:if="${message}" th:text="${message}"></div>
+<div class="notice bad" th:if="${error}" th:text="${error}"></div>
+
+<form method="post" th:action="@{/page/roles}">
+    <input type="hidden" name="realm" th:value="${realm}">
+
+    <label>
+        코드
+        <span th:text="${realm} + ' 안에서 하나뿐이어야 한다. 만든 뒤에는 바꿀 수 없다.'"></span>
+        <input type="text" name="roleCode" required maxlength="50" autocomplete="off">
+    </label>
+
+    <label>
+        이름
+        <span>사람이 알아보는 이름.</span>
+        <input type="text" name="roleName" required maxlength="100" autocomplete="off">
+    </label>
+
+    <label>
+        설명
+        <input type="text" name="description" maxlength="500" autocomplete="off">
+    </label>
+
+    <button type="submit">만들기</button>
+</form>
+
+<table th:if="${!roles.isEmpty()}">
+    <thead>
+    <tr>
+        <th style="width: 8%">ID</th>
+        <th style="width: 22%">코드</th>
+        <th style="width: 22%">이름</th>
+        <th style="width: 10%">상태</th>
+        <th style="width: 10%">권한 수</th>
+        <th>설명</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="role : ${roles}">
+        <td th:text="${role.roleId}"></td>
+        <td class="code" th:text="${role.roleCode}"></td>
+        <td th:text="${role.roleName}"></td>
+        <td th:text="${role.active} ? '사용' : '중지'" th:classappend="${role.active} ? '' : 'off'"></td>
+        <td th:text="${role.permissionIds.size()}"></td>
+        <td th:text="${role.description}"></td>
+    </tr>
+    </tbody>
+</table>
+
+<p class="empty" th:if="${roles.isEmpty()}">이 realm 에는 아직 역할이 없다.</p>
+
+</body>
+</html>
