@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.authorization.service;
 
 import com.brunosong.identityplatform.auth.service.application.authorization.exception.AuthorizationNotFoundException;
+import com.brunosong.identityplatform.auth.service.application.authorization.exception.RoleAlreadyExistsException;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.CreateRoleUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.DeleteRoleUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.FindRolesUseCase;
@@ -47,6 +48,9 @@ public class RoleService implements CreateRoleUseCase, RenameRoleUseCase, Delete
     @Transactional
     public RoleView create(CreateRoleCommand command) {
         Role role = Role.create(command.realm(), command.roleCode(), command.roleName(), command.description());
+        if (roleRepository.findByCode(role.getRealm(), role.getRoleCode()).isPresent()) {
+            throw new RoleAlreadyExistsException(role.getRealm(), role.getRoleCode());
+        }
         return RoleView.from(roleRepository.save(role));
     }
 
