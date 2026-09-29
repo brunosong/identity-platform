@@ -42,9 +42,15 @@ class RealmTest {
     }
 
     @Test
-    @DisplayName("영역은 둘뿐이다")
-    void onlyTwoRealms() {
+    @DisplayName("MASTER 는 스스로 가입할 수 없다. 최초 관리자는 데이터로 심는다")
+    void masterIsClosed() {
+        assertThat(Realm.MASTER.allowsSelfRegistration()).isFalse();
+    }
+
+    @Test
+    @DisplayName("영역은 셋뿐이다")
+    void onlyThreeRealms() {
         // 영역이 늘면 기본 결정을 반드시 정해야 한다. 여기서 걸려 잊지 않게 한다.
-        assertThat(Realm.values()).containsExactly(Realm.ADMIN, Realm.PORTAL);
+        assertThat(Realm.values()).containsExactly(Realm.MASTER, Realm.ADMIN, Realm.PORTAL);
     }
 }

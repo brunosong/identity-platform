@@ -51,6 +51,12 @@ token:
   # 겹치면 상대 realm 키로 검증이 통과한다(부팅에서 막는다).
   # 키는 base64(DER): private=PKCS#8, public=X.509 SubjectPublicKeyInfo.
   realms:
+    MASTER:
+      kid: ${MASTER_KID:master-1}
+      privateKey: ${MASTER_PRIVATE_KEY:}
+      publicKey: ${MASTER_PUBLIC_KEY:}
+      # 이 realm 관리자가 쓰는 것은 auth 의 운영 화면 하나다.
+      system: auth-console
     ADMIN:
       kid: ${ADMIN_KID:admin-1}
       privateKey: ${ADMIN_PRIVATE_KEY:}

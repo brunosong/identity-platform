@@ -6,6 +6,7 @@ import java.util.Set;
  * 인가 영역(realm). 한 저장소를 두 realm 이 공유하되, 행은 realm 으로 분리된다.
  *
  * <ul>
+ *   <li>{@link #MASTER}: 관리 영역. auth 를 운영하는 관리자가 산다. Keycloak 의 master realm 이다.</li>
  *   <li>{@link #ADMIN} — 어드민 영역. 직원이 산다. 식별자는 사번 성격의 값이다.</li>
  *   <li>{@link #PORTAL} — 포털 영역. 고객이 산다. 식별자는 채번한 UUID 다.</li>
  * </ul>
@@ -50,6 +51,16 @@ import java.util.Set;
  * 필드로 남기지 않았다 — {@code AccessControlService} 가 한 가지 규칙만 시행한다.
  */
 public enum Realm {
+
+    /**
+     * 관리 영역. Keycloak 의 master realm 과 같은 자리다.
+     *
+     * <p>여기 사는 사람은 업무 시스템을 쓰지 않고 auth 자체를 운영한다. 다른 realm 의 역할과 앱을
+     * 관리하는 것이 이 realm 관리자의 일이라 직원(ADMIN)과 따로 둔다.
+     *
+     * <p><b>셀프 가입이 닫혀 있다.</b> 최초 관리자는 데이터로 심는다.
+     */
+    MASTER(Set.of()),
 
     /**
      * 어드민 영역.

@@ -58,15 +58,16 @@ class AuthServiceApplicationTest {
     }
 
     @Test
-    @DisplayName("두 realm 의 서명 키를 모두 쥔다")
-    void bothRealmKeysAreLoaded() {
-        // 한 프로세스가 두 realm 을 담당한다는 것이 구조의 전제다. 한쪽 키만 있으면 그 realm 은
+    @DisplayName("모든 realm 의 서명 키를 쥔다")
+    void allRealmKeysAreLoaded() {
+        // 한 프로세스가 모든 realm 을 담당한다는 것이 구조의 전제다. 한쪽 키만 있으면 그 realm 은
         // 로그인 자체가 되지 않는데, 그 사실이 첫 로그인 요청에서야 드러나면 늦다.
+        assertThat(signingKeys.of(Realm.MASTER).kid()).isEqualTo("master-local");
         assertThat(signingKeys.of(Realm.ADMIN).kid()).isEqualTo("admin-local");
         assertThat(signingKeys.of(Realm.PORTAL).kid()).isEqualTo("portal-local");
 
         // kid 가 겹치면 상대 realm 키로 검증이 통과한다. 서로 달라야 한다.
-        assertThat(signingKeys.verifyKeys()).hasSize(2);
+        assertThat(signingKeys.verifyKeys()).hasSize(3);
     }
 
     @Test
