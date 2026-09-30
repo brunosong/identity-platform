@@ -67,6 +67,13 @@ class TokenIssuance {
         return resultWith(realm, principal, rotated);
     }
 
+    /** 그 토큰의 계보를 끊는다. 남의 계보를 지목했으면 건드리지 않는다. 끊으면 남의 로그인을 끊는 길이 된다. */
+    void revoke(Realm realm, RefreshedToken presented) {
+        refreshChains.findById(presented.familyId())
+                .filter(found -> found.belongsTo(realm, presented.subjectId()))
+                .ifPresent(chain -> refreshChains.revoke(chain.getFamilyId()));
+    }
+
     /** refresh 토큰에서 주체와 계보를 읽는다. 검증은 키를 쥔 발급기가 한다. */
     RefreshedToken readRefreshToken(Realm realm, String refreshToken) {
         return tokenIssuer.readRefreshToken(realm, refreshToken);

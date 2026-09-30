@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RefreshTokenUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RevokeRefreshTokenUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.TokenIssuerPort;
@@ -21,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
-public class RefreshTokenService implements RefreshTokenUseCase {
+public class RefreshTokenService implements RefreshTokenUseCase, RevokeRefreshTokenUseCase {
 
     private final PrincipalRepository principalRepository;
     private final TokenIssuance tokenIssuance;
@@ -41,5 +42,18 @@ public class RefreshTokenService implements RefreshTokenUseCase {
         //
         // 낸 토큰이 계보의 현재 것인지는 여기서 갈린다. 이미 쓴 토큰이면 계보가 통째로 끊긴다.
         return tokenIssuance.rotatedResultFor(realm, principal, presented);
+    }
+
+    @Override
+    @Transactional
+    public void revoke(Realm realm, String refreshToken) {
+        RefreshedToken presented;
+        try {
+            presented = tokenIssuance.readRefreshToken(realm, refreshToken);
+        } catch (AuthenticationFailedException e) {
+            // 서명이 틀렸거나 만료됐거나 refresh 가 아니다. 끊을 것이 없다.
+            return;
+        }
+        tokenIssuance.revoke(realm, presented);
     }
 }

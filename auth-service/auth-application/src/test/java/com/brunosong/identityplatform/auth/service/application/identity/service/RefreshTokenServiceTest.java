@@ -106,6 +106,30 @@ class RefreshTokenServiceTest {
                 .hasMessageContaining("유효하지 않습니다");
     }
 
+    @Test
+    @DisplayName("로그아웃이 토큰을 내면 그 계보를 끊고, 그 뒤로는 재발급되지 않는다")
+    void revokeEndsTheChain() {
+        RefreshChain opened = openChain("customer-uuid-1");
+        present(opened, "customer-uuid-1");
+
+        service.revoke(Realm.PORTAL, "refresh:customer-uuid-1");
+
+        assertThat(chains.byFamilyId).doesNotContainKey(opened.getFamilyId());
+        assertThatThrownBy(() -> service.refresh(Realm.PORTAL, "refresh:customer-uuid-1"))
+                .isInstanceOf(AuthenticationFailedException.class);
+    }
+
+    @Test
+    @DisplayName("남의 계보를 지목한 토큰으로는 끊지 않는다")
+    void revokeLeavesAnotherSubjectsChain() {
+        RefreshChain someoneElse = openChain("customer-uuid-2");
+        present(someoneElse, "customer-uuid-1");
+
+        service.revoke(Realm.PORTAL, "refresh:customer-uuid-1");
+
+        assertThat(chains.byFamilyId).containsKey(someoneElse.getFamilyId());
+    }
+
     /** 로그인해서 계보가 하나 열린 상태를 만든다. */
     private RefreshChain openChain(String subjectId) {
         RefreshChain chain = RefreshChain.start(Realm.PORTAL, subjectId, Instant.now(), Duration.ofDays(1));
