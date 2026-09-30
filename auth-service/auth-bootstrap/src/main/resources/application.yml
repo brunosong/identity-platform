@@ -18,6 +18,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      # 운영 화면의 세션은 쿠키로만 잇는다. 기본값은 쿠키가 없을 때 주소에 ;jsessionid= 를 붙이는데,
+      # 그러면 관리자 세션 id 가 주소창과 로그, Referer 로 샌다.
+      tracking-modes: cookie
 
 # 이 서비스가 자기 관리 API 에서 요구하는 대상(aud). auth 도 자기 API 에 대해서는
 # 리소스 서버라, 자기 시스템으로 발급된 토큰만 받아야 한다.
