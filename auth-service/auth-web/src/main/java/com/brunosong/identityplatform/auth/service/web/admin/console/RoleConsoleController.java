@@ -19,8 +19,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 /**
  * 역할을 보고 새로 만드는 운영 화면.
  *
- * <p>로컬에서만 뜨는 이유는 {@link OAuthClientConsoleController} 와 같다. 화면 요청을 막을 로그인
- * 세션이 아직 없다.
+ * <p>로컬에서만 뜨는 이유는 {@link OAuthClientConsoleController} 와 같다. 로그인은 보지만 권한은
+ * 아직 보지 않는다.
  *
  * <p>한 번에 한 realm 만 보여 준다. 역할은 realm 으로 스코프되고 코드도 realm 안에서만 유일해서,
  * 두 realm 을 한 표에 섞으면 같은 코드가 두 줄 나와도 이상한 줄 모른다.

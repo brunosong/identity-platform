@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.auth.service.web.admin.console;
 
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -25,9 +26,9 @@ public class ConsoleLoginController {
     @GetMapping(ConsoleLogin.CALLBACK_PATH)
     public ModelAndView callback(@RequestParam(required = false) String code,
                                  @RequestParam(required = false) String state,
-                                 HttpServletRequest request) {
+                                 HttpServletRequest request, HttpServletResponse response) {
         try {
-            return new ModelAndView("redirect:" + consoleLogin.finish(request, code, state));
+            return new ModelAndView("redirect:" + consoleLogin.finish(request, response, code, state));
         } catch (ConsoleLogin.ConsoleLoginException | InvalidGrantException e) {
             ModelAndView error = new ModelAndView("oauth/error");
             error.addObject("reason", e.getMessage());

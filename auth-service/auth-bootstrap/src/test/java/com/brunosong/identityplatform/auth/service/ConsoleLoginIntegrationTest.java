@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 운영 화면이 MASTER 로그인을 거쳐야 열리는지 본다.
  *
  * <p>브라우저가 하는 일을 손으로 밟는다. 화면을 열면 로그인으로 보내지고, 로그인 폼을 내면 code 가
- * 콜백으로 오고, 콜백이 세션을 만든 뒤 원래 화면으로 돌려보낸다. 리다이렉트를 따라가지 않는 클라이언트를
+ * 콜백으로 오고, 콜백이 토큰을 쿠키로 심은 뒤 원래 화면으로 돌려보낸다. 리다이렉트를 따라가지 않는 클라이언트를
  * 쓰는 이유는 매 걸음의 {@code Location} 을 보기 위해서다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -73,36 +73,63 @@ class ConsoleLoginIntegrationTest {
     }
 
     @Test
-    @DisplayName("MASTER 관리자로 로그인하면 가려던 화면으로 돌아가고 그 화면이 열린다")
+    @DisplayName("MASTER 관리자로 로그인하면 토큰이 쿠키로 내려오고, 그 쿠키로 가려던 화면이 열린다")
     void loginThenOpen() {
         ResponseEntity<Void> start = get("/page/roles?realm=PORTAL", null);
-        String before = sessionCookie(start);
+        String loginCookie = cookie(start, "CONSOLE_LOGIN");
+        assertThat(setCookie(start, "CONSOLE_LOGIN")).contains("HttpOnly", "Path=/page/login/callback");
         Map<String, String> query = queryOf(start.getHeaders().getLocation());
 
         URI callback = login(query).getHeaders().getLocation();
-        ResponseEntity<Void> finished = get(callback.getRawPath() + "?" + callback.getRawQuery(), before);
+        ResponseEntity<Void> finished = get(callback.getRawPath() + "?" + callback.getRawQuery(), loginCookie);
 
         assertThat(finished.getStatusCode().value()).isEqualTo(302);
         assertThat(finished.getHeaders().getLocation().toString()).endsWith("/page/roles?realm=PORTAL");
-        String after = sessionCookie(finished);
-        assertThat(after).isNotEqualTo(before);
+        assertThat(setCookie(finished, "CONSOLE_ACCESS")).contains("HttpOnly", "Path=/page;");
+        assertThat(setCookie(finished, "CONSOLE_REFRESH")).contains("HttpOnly", "Path=/page;");
+        // 로그인 쿠키는 한 번 쓰고 지운다.
+        assertThat(setCookie(finished, "CONSOLE_LOGIN")).contains("Max-Age=0");
 
-        assertThat(get("/page/roles?realm=PORTAL", after).getStatusCode().value()).isEqualTo(200);
+        assertThat(get("/page/roles?realm=PORTAL", cookie(finished, "CONSOLE_ACCESS")).getStatusCode().value())
+                .isEqualTo(200);
     }
 
     @Test
-    @DisplayName("state 가 다르면 교환하지 않고, 그 세션으로는 화면이 열리지 않는다")
+    @DisplayName("state 가 다르면 교환하지 않고 토큰 쿠키도 내려주지 않는다")
     void rejectsForeignState() {
         ResponseEntity<Void> start = get("/page/roles", null);
-        String session = sessionCookie(start);
+        String loginCookie = cookie(start, "CONSOLE_LOGIN");
         Map<String, String> query = queryOf(start.getHeaders().getLocation());
 
         URI callback = login(query).getHeaders().getLocation();
         String code = queryOf(callback).get("code");
-        ResponseEntity<Void> finished = get("/page/login/callback?code=" + code + "&state=someone-else", session);
+        ResponseEntity<Void> finished = get("/page/login/callback?code=" + code + "&state=someone-else", loginCookie);
 
         assertThat(finished.getStatusCode().value()).isEqualTo(400);
-        assertThat(get("/page/roles", session).getStatusCode().value()).isEqualTo(302);
+        assertThat(finished.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE))
+                .noneMatch(cookie -> cookie.startsWith("CONSOLE_ACCESS="));
+    }
+
+    @Test
+    @DisplayName("refresh 토큰을 access 쿠키 자리에 넣으면 화면을 열지 않는다")
+    void rejectsRefreshAsAccess() {
+        ResponseEntity<Void> start = get("/page/roles", null);
+        Map<String, String> query = queryOf(start.getHeaders().getLocation());
+        URI callback = login(query).getHeaders().getLocation();
+        ResponseEntity<Void> finished = get(callback.getRawPath() + "?" + callback.getRawQuery(),
+                cookie(start, "CONSOLE_LOGIN"));
+        String refresh = cookie(finished, "CONSOLE_REFRESH").substring("CONSOLE_REFRESH=".length());
+
+        assertThat(get("/page/roles", "CONSOLE_ACCESS=" + refresh).getStatusCode().value()).isEqualTo(302);
+    }
+
+    @Test
+    @DisplayName("쿠키의 토큰이 위조됐으면 화면을 열지 않는다")
+    void rejectsForgedAccessCookie() {
+        ResponseEntity<Void> response = get("/page/roles", "CONSOLE_ACCESS=eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4In0.");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(302);
+        assertThat(response.getHeaders().getLocation().getPath()).isEqualTo("/realms/master/auth");
     }
 
     /** 로그인 화면의 폼이 보내는 값 그대로. 인가 요청의 값을 숨은 칸으로 들고 간다. */
@@ -118,20 +145,26 @@ class ConsoleLoginIntegrationTest {
                 .retrieve().toBodilessEntity();
     }
 
-    private ResponseEntity<Void> get(String path, String sessionCookie) {
+    private ResponseEntity<Void> get(String path, String cookie) {
         var request = http.get().uri(URI.create("http://localhost:" + port + path));
-        if (sessionCookie != null) {
-            request = request.header(HttpHeaders.COOKIE, sessionCookie);
+        if (cookie != null) {
+            request = request.header(HttpHeaders.COOKIE, cookie);
         }
         return request.retrieve().toBodilessEntity();
     }
 
-    private static String sessionCookie(ResponseEntity<Void> response) {
+    /** 응답이 심은 쿠키 한 줄 전체. 속성까지 본다. */
+    private static String setCookie(ResponseEntity<Void> response, String name) {
         return response.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream()
-                .filter(cookie -> cookie.startsWith("JSESSIONID="))
-                .map(cookie -> cookie.substring(0, cookie.indexOf(';')))
+                .filter(cookie -> cookie.startsWith(name + "="))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("세션 쿠키가 없다"));
+                .orElseThrow(() -> new IllegalStateException(name + " 쿠키가 없다"));
+    }
+
+    /** 다음 요청의 Cookie 헤더에 실을 "이름=값". */
+    private static String cookie(ResponseEntity<Void> response, String name) {
+        String line = setCookie(response, name);
+        return line.substring(0, line.indexOf(';'));
     }
 
     private static Map<String, String> queryOf(URI uri) {

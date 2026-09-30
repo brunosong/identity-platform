@@ -32,7 +32,7 @@ public class ConsoleWebConfiguration implements WebMvcConfigurer {
                         if (consoleLogin.loggedIn(request)) {
                             return true;
                         }
-                        response.sendRedirect(consoleLogin.start(request));
+                        response.sendRedirect(consoleLogin.start(request, response));
                         return false;
                     }
                 })
