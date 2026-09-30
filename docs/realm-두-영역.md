@@ -12,6 +12,9 @@ ADMIN    직원이 산다. 식별자는 사번 성격의 값
 PORTAL   고객이 산다. 식별자는 채번한 UUID
 ```
 
+realm 이 하나 더 있다. `MASTER` 는 auth 를 운영하는 관리자가 사는 곳으로, Keycloak 의 master 와
+같은 자리다. 직원도 고객도 아니라 이 문서가 다루는 선 밖에 있다([운영 화면 로그인](운영-화면-로그인.md)).
+
 계정이 갈리는 것으로 끝이 아니다. 역할, 권한, URL 규칙, 토큰의 서명키까지 이 선을 따라 갈린다.
 
 ## 파티션 키는 이것 하나다
@@ -60,6 +63,7 @@ enum 이 값을 들고 있다. 지금은 **어떤 방식으로 스스로 가입�
 
 | | 비밀번호 가입 | 이메일 인증번호 가입 |
 |---|---|---|
+| `MASTER` | 닫힘 | 닫힘 |
 | `ADMIN` | 닫힘 | 닫힘 |
 | `PORTAL` | 열림 | 열림 |
 
@@ -94,7 +98,7 @@ realm    PORTAL     로그인 경로가 지목한다. 서명키가 가른다 (is
 | realm 별 서명키 | `auth-application/.../identity/token/RealmSigningKeys.java` |
 | realm 별 발급자 이름 | `auth-application/.../identity/token/RealmIssuers.java` |
 | 토큰 검증(키를 realm 으로 고른다) | `auth-web/.../web/support/AccessTokenReader.java` |
-| 제약 | 모든 표의 `realm` 컬럼과 `CHECK` (V1, V2) |
+| 제약 | 모든 표의 `realm` 컬럼과 `CHECK` (V1 에서 만들고 V9 에서 MASTER 를 더했다) |
 
 ## 아직 없는 것
 
