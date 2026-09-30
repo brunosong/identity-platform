@@ -23,7 +23,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *   <li>{@code /api/**}: 앱이 Bearer 헤더로 부르는 API. 각자 토큰을 검사해 401 을 준다.
  *       로그인 화면으로 302 를 보내면 JSON 을 기다리던 앱이 깨진다</li>
  *   <li>{@code /.well-known/**}: 누구나 읽는 공개 문서의 자리다. 없는 문서는 로그인이 아니라 404 여야 한다</li>
- *   <li>로그인이 돌아오는 콜백과 오류 화면</li>
+ *   <li>로그인이 돌아오는 콜백, 로그아웃, 오류 화면. 로그아웃은 access 가 만료된 뒤에 눌러도
+ *       끝까지 가야 한다. 막으면 로그인으로 보내져 로그아웃이 안 된다</li>
  * </ul>
  *
  * <p>로그인으로 보내는 것은 화면을 달라는 요청뿐이다. 브라우저는 페이지를 열면서 {@code /favicon.ico}
@@ -63,7 +64,7 @@ public class ConsoleWebConfiguration implements WebMvcConfigurer {
                     }
                 })
                 .addPathPatterns("/**")
-                .excludePathPatterns("/realms/**", "/api/**", "/.well-known/**", ConsoleLogin.CALLBACK_PATH, "/error");
+                .excludePathPatterns("/realms/**", "/api/**", "/.well-known/**", ConsoleLogin.CALLBACK_PATH, ConsoleLogin.LOGOUT_PATH, "/error");
     }
 
     /** 사람이 화면을 여는 요청인가. 주소창 이동과 폼 제출은 HTML 을 달라고 한다. */

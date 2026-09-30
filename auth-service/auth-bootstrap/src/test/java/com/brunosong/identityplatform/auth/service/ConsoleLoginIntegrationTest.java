@@ -160,6 +160,47 @@ class ConsoleLoginIntegrationTest {
         assertThat(response.getHeaders().getLocation().getPath()).isEqualTo("/realms/master/auth");
     }
 
+    @Test
+    @DisplayName("로그아웃하면 토큰 쿠키, refresh 계보, SSO 세션이 모두 끊겨 다음엔 로그인 화면이 뜬다")
+    void logoutEndsEverything() {
+        ResponseEntity<Void> start = get("/page/roles", null);
+        ResponseEntity<Void> loggedIn = login(queryOf(start.getHeaders().getLocation()));
+        String authSession = cookie(loggedIn, "AUTH_SESSION");
+        URI callback = loggedIn.getHeaders().getLocation();
+        ResponseEntity<Void> finished = get(callback.getRawPath() + "?" + callback.getRawQuery(),
+                cookie(start, "CONSOLE_LOGIN"));
+        String access = cookie(finished, "CONSOLE_ACCESS");
+        String refresh = cookie(finished, "CONSOLE_REFRESH");
+
+        // 1. 운영 화면이 자기 것을 치우고 로그인 서버의 로그아웃으로 보낸다.
+        ResponseEntity<Void> logout = http.post().uri("/page/logout")
+                .header(HttpHeaders.COOKIE, access + "; " + refresh)
+                .retrieve().toBodilessEntity();
+        assertThat(logout.getStatusCode().value()).isEqualTo(302);
+        assertThat(setCookie(logout, "CONSOLE_ACCESS")).contains("Max-Age=0");
+        assertThat(setCookie(logout, "CONSOLE_REFRESH")).contains("Max-Age=0");
+        URI endSession = logout.getHeaders().getLocation();
+        assertThat(endSession.getPath()).isEqualTo("/realms/master/logout");
+
+        // 2. 로그인 서버가 SSO 세션을 끊고 루트로 돌려보낸다.
+        ResponseEntity<Void> ended = get(endSession.getRawPath() + "?" + endSession.getRawQuery(), authSession);
+        assertThat(ended.getStatusCode().value()).isEqualTo(303);
+        assertThat(ended.getHeaders().getLocation().getPath()).isEqualTo("/");
+        assertThat(setCookie(ended, "AUTH_SESSION")).contains("Max-Age=0");
+
+        // 3. refresh 는 계보가 끊겨 재발급되지 않는다.
+        ResponseEntity<Void> reissue = http.post().uri("/realms/master/token")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body("grant_type=refresh_token&refresh_token=" + refresh.substring("CONSOLE_REFRESH=".length()))
+                .retrieve().toBodilessEntity();
+        assertThat(reissue.getStatusCode().is2xxSuccessful()).isFalse();
+
+        // 4. 옛 SSO 쿠키를 들고 가도 로그인 화면이 뜬다. 화면 없이 code 가 나오지 않는다.
+        URI again = get("/page/roles", null).getHeaders().getLocation();
+        ResponseEntity<Void> authorize = get(again.getRawPath() + "?" + again.getRawQuery(), authSession);
+        assertThat(authorize.getStatusCode().value()).isEqualTo(200);
+    }
+
     /** 로그인 화면의 폼이 보내는 값 그대로. 인가 요청의 값을 숨은 칸으로 들고 간다. */
     private ResponseEntity<Void> login(Map<String, String> query) {
         return http.post().uri("/realms/master/auth/login")

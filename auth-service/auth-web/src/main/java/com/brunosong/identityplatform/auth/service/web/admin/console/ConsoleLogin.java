@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.web.admin.console;
 
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RevokeRefreshTokenUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.token.TokenProperties;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ExchangeAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
@@ -51,6 +52,7 @@ public class ConsoleLogin {
     /** V9003 시드의 앱. Keycloak 의 security-admin-console 자리다. */
     static final String CLIENT_ID = "auth-console";
     static final String CALLBACK_PATH = "/page/login/callback";
+    static final String LOGOUT_PATH = "/page/logout";
 
     /** 로그인 도중의 값. 콜백 한 곳에서만 읽으므로 경로를 거기로 좁힌다. */
     static final String LOGIN_COOKIE = "CONSOLE_LOGIN";
@@ -73,13 +75,16 @@ public class ConsoleLogin {
 
     private final AccessTokenReader accessTokenReader;
     private final ExchangeAuthorizationCodeUseCase exchangeAuthorizationCode;
+    private final RevokeRefreshTokenUseCase revokeRefreshToken;
     private final TokenProperties tokenProperties;
 
     public ConsoleLogin(AccessTokenReader accessTokenReader,
                         ExchangeAuthorizationCodeUseCase exchangeAuthorizationCode,
+                        RevokeRefreshTokenUseCase revokeRefreshToken,
                         TokenProperties tokenProperties) {
         this.accessTokenReader = accessTokenReader;
         this.exchangeAuthorizationCode = exchangeAuthorizationCode;
+        this.revokeRefreshToken = revokeRefreshToken;
         this.tokenProperties = tokenProperties;
     }
 
@@ -159,6 +164,30 @@ public class ConsoleLogin {
         // 돌아갈 주소는 쿠키에서 왔다. 이 서버 밖으로 내보내는 데 쓰이지 않게 한다. "//" 로 시작하면
         // 브라우저는 다른 호스트로 읽는다.
         return returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : DEFAULT_PAGE;
+    }
+
+    /**
+     * 운영 화면 쪽 로그아웃. 자기가 쥔 것을 치우고, SSO 세션을 끊을 로그인 서버의 주소를 돌려준다.
+     *
+     * <p>refresh 계보를 여기서 끊는다. 로그인 서버의 로그아웃은 앱이 든 refresh 토큰을 받지 않는다.
+     * 쿠키만 지우면 그 값을 복사해 둔 쪽이 수명 동안 새 access 를 받아 간다.
+     *
+     * <p>SSO 세션({@code AUTH_SESSION})은 여기서 못 지운다. 그 쿠키는 {@code /realms/master} 요청에만
+     * 실린다. 그래서 브라우저를 로그인 서버의 로그아웃으로 보내 거기서 끝내게 한다. 끝나면 루트로
+     * 돌아오고, 루트는 토큰이 없으니 로그인 화면으로 간다.
+     */
+    String logout(HttpServletRequest request, HttpServletResponse response) {
+        cookie(request, REFRESH_COOKIE).ifPresent(token -> revokeRefreshToken.revoke(Realm.MASTER, token));
+        addCookie(response, ACCESS_COOKIE, "", TOKEN_COOKIE_PATH, Duration.ZERO, request.isSecure());
+        addCookie(response, REFRESH_COOKIE, "", TOKEN_COOKIE_PATH, Duration.ZERO, request.isSecure());
+
+        return UriComponentsBuilder.fromUriString(tokenProperties.getIssuer())
+                .path("/realms/master/logout")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("post_logout_redirect_uri", tokenProperties.getIssuer() + "/")
+                .encode()
+                .build()
+                .toUriString();
     }
 
     /** 돌아갈 주소는 설정의 발급자 주소에서 만든다. 두 군데 적으면 포트를 옮길 때 한쪽만 고친다. */
