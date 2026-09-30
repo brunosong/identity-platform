@@ -73,6 +73,34 @@ class ConsoleLoginIntegrationTest {
     }
 
     @Test
+    @DisplayName("운영 화면 밖의 주소도, 루트도 로그인 없이는 로그인으로 보낸다")
+    void guardsWholeServer() {
+        assertThat(get("/", null).getHeaders().getLocation().getPath()).isEqualTo("/realms/master/auth");
+        assertThat(get("/anything", null).getHeaders().getLocation().getPath()).isEqualTo("/realms/master/auth");
+    }
+
+    @Test
+    @DisplayName("화면이 아닌 요청은 로그인을 시작하지 않는다. 로그인 쿠키를 덮으면 진행 중인 로그인이 깨진다")
+    void nonPageRequestDoesNotStartLogin() {
+        ResponseEntity<Void> response = http.get().uri("/favicon.ico")
+                .header(HttpHeaders.ACCEPT, "image/avif,image/webp,*/*")
+                .retrieve().toBodilessEntity();
+
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+        assertThat(response.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE))
+                .noneMatch(cookie -> cookie.startsWith("CONSOLE_LOGIN="));
+    }
+
+    @Test
+    @DisplayName("로그인과 API 는 막지 않는다. 막으면 로그인하러 간 곳이 다시 로그인으로 보낸다")
+    void leavesLoginAndApiOpen() {
+        assertThat(get("/realms/master/.well-known/openid-configuration", null).getStatusCode().value())
+                .isEqualTo(200);
+        // API 는 자기 검사로 401 을 준다. 로그인 화면으로 302 를 보내지 않는다.
+        assertThat(get("/api/admin/rbac/roles?realm=ADMIN", null).getStatusCode().value()).isEqualTo(401);
+    }
+
+    @Test
     @DisplayName("MASTER 관리자로 로그인하면 토큰이 쿠키로 내려오고, 그 쿠키로 가려던 화면이 열린다")
     void loginThenOpen() {
         ResponseEntity<Void> start = get("/page/roles?realm=PORTAL", null);
@@ -85,8 +113,8 @@ class ConsoleLoginIntegrationTest {
 
         assertThat(finished.getStatusCode().value()).isEqualTo(302);
         assertThat(finished.getHeaders().getLocation().toString()).endsWith("/page/roles?realm=PORTAL");
-        assertThat(setCookie(finished, "CONSOLE_ACCESS")).contains("HttpOnly", "Path=/page;");
-        assertThat(setCookie(finished, "CONSOLE_REFRESH")).contains("HttpOnly", "Path=/page;");
+        assertThat(setCookie(finished, "CONSOLE_ACCESS")).contains("HttpOnly", "Path=/;");
+        assertThat(setCookie(finished, "CONSOLE_REFRESH")).contains("HttpOnly", "Path=/;");
         // 로그인 쿠키는 한 번 쓰고 지운다.
         assertThat(setCookie(finished, "CONSOLE_LOGIN")).contains("Max-Age=0");
 
@@ -146,7 +174,9 @@ class ConsoleLoginIntegrationTest {
     }
 
     private ResponseEntity<Void> get(String path, String cookie) {
-        var request = http.get().uri(URI.create("http://localhost:" + port + path));
+        // 주소창 이동처럼 HTML 을 달라고 한다. 로그인으로 보내는 것은 화면 요청뿐이다.
+        var request = http.get().uri(URI.create("http://localhost:" + port + path))
+                .header(HttpHeaders.ACCEPT, "text/html,application/xhtml+xml,*/*;q=0.8");
         if (cookie != null) {
             request = request.header(HttpHeaders.COOKIE, cookie);
         }

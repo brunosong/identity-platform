@@ -57,8 +57,12 @@ public class ConsoleLogin {
     static final String ACCESS_COOKIE = "CONSOLE_ACCESS";
     static final String REFRESH_COOKIE = "CONSOLE_REFRESH";
 
-    private static final String PAGE_PATH = "/page";
-    private static final String DEFAULT_PAGE = "/page/oauth-clients";
+    /**
+     * 토큰 쿠키의 경로. 로그인이 지키는 범위가 8080 전체라 쿠키도 전체에 실린다
+     * ({@link ConsoleWebConfiguration}). {@code /api/**} 에도 실려 가지만 그쪽은 Bearer 헤더만 읽는다.
+     */
+    private static final String TOKEN_COOKIE_PATH = "/";
+    static final String DEFAULT_PAGE = "/page/oauth-clients";
 
     /** 로그인 화면에 머무를 수 있는 시간. 이 안에 돌아오지 않으면 처음부터 다시 한다. */
     private static final Duration LOGIN_TTL = Duration.ofMinutes(10);
@@ -147,13 +151,14 @@ public class ConsoleLogin {
         TokenPair tokens = exchangeAuthorizationCode.exchange(new ExchangeAuthorizationCodeCommand(
                 Realm.MASTER, code, CLIENT_ID, redirectUri(), verifier, null)).authentication().tokens();
 
-        addCookie(response, ACCESS_COOKIE, tokens.accessToken(), PAGE_PATH,
+        addCookie(response, ACCESS_COOKIE, tokens.accessToken(), TOKEN_COOKIE_PATH,
                 Duration.ofMillis(tokenProperties.getAccessExpiration()), request.isSecure());
-        addCookie(response, REFRESH_COOKIE, tokens.refreshToken(), PAGE_PATH,
+        addCookie(response, REFRESH_COOKIE, tokens.refreshToken(), TOKEN_COOKIE_PATH,
                 Duration.ofMillis(tokenProperties.getRefreshExpiration()), request.isSecure());
 
-        // 돌아갈 주소는 쿠키에서 왔다. 운영 화면 밖으로 내보내는 데 쓰이지 않게 한다.
-        return returnTo.startsWith(PAGE_PATH + "/") ? returnTo : DEFAULT_PAGE;
+        // 돌아갈 주소는 쿠키에서 왔다. 이 서버 밖으로 내보내는 데 쓰이지 않게 한다. "//" 로 시작하면
+        // 브라우저는 다른 호스트로 읽는다.
+        return returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : DEFAULT_PAGE;
     }
 
     /** 돌아갈 주소는 설정의 발급자 주소에서 만든다. 두 군데 적으면 포트를 옮길 때 한쪽만 고친다. */
