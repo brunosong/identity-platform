@@ -12,6 +12,7 @@ import com.brunosong.identityplatform.auth.service.domain.oauth.Pkce;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.admin.console.login.ConsoleCookies.LoginInProgress;
 import com.brunosong.identityplatform.auth.service.web.support.AccessTokenReader;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -97,9 +98,20 @@ public class ConsoleLogin {
      * 그러면 24시간짜리 refresh 를 access 자리에 넣어 1분 수명을 건너뛸 수 있다.
      */
     private Optional<String> subjectOfAccess(Optional<String> token) {
-        return token.flatMap(value -> accessTokenReader.read(Realm.MASTER, value))
-                .filter(claims -> "access".equals(claims.get("type", String.class)))
-                .map(claims -> claims.getSubject());
+        if (token.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Optional<Claims> claims = accessTokenReader.read(Realm.MASTER, token.get());
+        if (claims.isEmpty()) {
+            return Optional.empty();
+        }
+
+        boolean isAccessToken = "access".equals(claims.get().get("type", String.class));
+        if (!isAccessToken) {
+            return Optional.empty();
+        }
+        return Optional.of(claims.get().getSubject());
     }
 
     /**

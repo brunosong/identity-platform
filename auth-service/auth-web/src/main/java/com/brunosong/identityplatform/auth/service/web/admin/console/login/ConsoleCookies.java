@@ -75,11 +75,17 @@ class ConsoleCookies {
     Optional<LoginInProgress> takeLogin(HttpServletRequest request, HttpServletResponse response) {
         Optional<String> value = read(request, LOGIN);
         add(request, response, LOGIN, "", LOGIN_PATH, Duration.ZERO);
+        if (value.isEmpty()) {
+            return Optional.empty();
+        }
 
-        return value.map(v -> v.split(":", -1))
-                .filter(parts -> parts.length == 3)
-                .map(parts -> new LoginInProgress(parts[0], parts[1],
-                        new String(Base64.getUrlDecoder().decode(parts[2]), StandardCharsets.UTF_8)));
+        // state:verifier:base64url(돌아갈 주소). 칸이 셋이 아니면 우리가 심은 값이 아니다.
+        String[] parts = value.get().split(":", -1);
+        if (parts.length != 3) {
+            return Optional.empty();
+        }
+        String returnTo = new String(Base64.getUrlDecoder().decode(parts[2]), StandardCharsets.UTF_8);
+        return Optional.of(new LoginInProgress(parts[0], parts[1], returnTo));
     }
 
     void putTokens(HttpServletRequest request, HttpServletResponse response, TokenPair tokens) {

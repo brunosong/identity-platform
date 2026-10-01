@@ -37,7 +37,9 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 
 import java.io.IOException;
 import java.security.interfaces.RSAPublicKey;
@@ -86,21 +88,11 @@ public class SecurityConfiguration {
         return http.securityMatcher("/api/admin/**")
                 .authorizeHttpRequests(a -> a.anyRequest().hasAuthority(managePermission))
                 .oauth2ResourceServer(o -> o
-                        .jwt(j -> j.decoder(masterJwtDecoder)
-                                // 토큰에는 권한이 없다. 그 사람의 권한을 DB 에서 읽어 authorities 로 채운다.
-                                // 권한을 회수하면 다음 요청부터 바로 막힌다.
-                                .jwtAuthenticationConverter(jwt -> new JwtAuthenticationToken(jwt,
-                                        subjectPermissions.of(Realm.MASTER, jwt.getSubject()).stream()
-                                                .map(SimpleGrantedAuthority::new).toList(),
-                                        jwt.getSubject())))
-                        .authenticationEntryPoint((request, response, e) -> {
-                            new BearerTokenAuthenticationEntryPoint().commence(request, response, e);
-                            writeError(response, objectMapper, "로그인이 필요합니다.");
-                        })
-                        .accessDeniedHandler((request, response, e) -> {
-                            new BearerTokenAccessDeniedHandler().handle(request, response, e);
-                            writeError(response, objectMapper, "이 작업에 필요한 권한이 없습니다: " + managePermission);
-                        }))
+                        .jwt(j -> j
+                                .decoder(masterJwtDecoder)
+                                .jwtAuthenticationConverter(jwt -> withMasterPermissions(jwt, subjectPermissions)))
+                        .authenticationEntryPoint(loginRequired(objectMapper))
+                        .accessDeniedHandler(permissionDenied(objectMapper, managePermission)))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -117,8 +109,8 @@ public class SecurityConfiguration {
         // aud 를 비워 두는 것은 고객 시스템(shop) 앞으로 나간 토큰으로도 자기 정보는 볼 수 있어야 해서다.
         Map<Realm, AuthenticationManager> managers = new EnumMap<>(Realm.class);
         for (Realm realm : Realm.values()) {
-            managers.put(realm, new ProviderManager(
-                    new JwtAuthenticationProvider(accessTokenDecoder(signingKeys, issuers, realm, null))));
+            JwtDecoder decoder = accessTokenDecoder(signingKeys, issuers, realm, null);
+            managers.put(realm, new ProviderManager(new JwtAuthenticationProvider(decoder)));
         }
         AuthenticationManager unknownRealm = authentication -> {
             throw new InvalidBearerTokenException("모르는 realm 입니다.");
@@ -210,6 +202,33 @@ public class SecurityConfiguration {
         } catch (IllegalArgumentException e) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * 토큰은 검증됐다. 토큰에는 권한이 없으니 그 사람의 권한을 DB 에서 읽어 authorities 로 채운다.
+     * 권한을 회수하면 다음 요청부터 바로 막힌다.
+     */
+    private static JwtAuthenticationToken withMasterPermissions(Jwt jwt, ListSubjectPermissionsUseCase subjectPermissions) {
+        List<SimpleGrantedAuthority> authorities = subjectPermissions.of(Realm.MASTER, jwt.getSubject()).stream()
+                .map(SimpleGrantedAuthority::new)
+                .toList();
+        return new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());
+    }
+
+    /** 토큰이 없거나 무효일 때의 401. 헤더는 표준대로, 본문은 관리 API 의 다른 실패와 같은 모양으로. */
+    private static AuthenticationEntryPoint loginRequired(ObjectMapper objectMapper) {
+        return (request, response, e) -> {
+            new BearerTokenAuthenticationEntryPoint().commence(request, response, e);
+            writeError(response, objectMapper, "로그인이 필요합니다.");
+        };
+    }
+
+    /** 토큰은 맞는데 권한이 없을 때의 403. */
+    private static AccessDeniedHandler permissionDenied(ObjectMapper objectMapper, String managePermission) {
+        return (request, response, e) -> {
+            new BearerTokenAccessDeniedHandler().handle(request, response, e);
+            writeError(response, objectMapper, "이 작업에 필요한 권한이 없습니다: " + managePermission);
+        };
     }
 
     /** 관리 API 의 다른 실패와 같은 모양({@code {"message": ...}})으로 본문을 쓴다. 상태와 헤더는 앞에서 정했다. */

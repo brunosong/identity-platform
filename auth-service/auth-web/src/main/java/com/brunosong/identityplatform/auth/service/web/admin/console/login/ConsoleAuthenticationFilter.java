@@ -6,11 +6,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 쿠키의 토큰으로 이 요청이 누구인지 정한다. 검증과 refresh 갱신은 {@link ConsoleLogin} 이 한다.
@@ -33,9 +35,11 @@ class ConsoleAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        consoleLogin.authenticate(request, response).ifPresent(subject ->
-                SecurityContextHolder.getContext().setAuthentication(
-                        UsernamePasswordAuthenticationToken.authenticated(subject, null, List.of())));
+        Optional<String> subject = consoleLogin.authenticate(request, response);
+        if (subject.isPresent()) {
+            Authentication loggedIn = UsernamePasswordAuthenticationToken.authenticated(subject.get(), null, List.of());
+            SecurityContextHolder.getContext().setAuthentication(loggedIn);
+        }
         chain.doFilter(request, response);
     }
 
