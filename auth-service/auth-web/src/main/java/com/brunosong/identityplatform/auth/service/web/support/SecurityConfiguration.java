@@ -107,20 +107,14 @@ public class SecurityConfiguration {
                 .build();
     }
 
-    /**
-     * userinfo. 앱이 "이 토큰 주인이 누구인가" 를 묻는 OIDC 의 자리다.
-     *
-     * <p>realm 이 경로에 있어서 검증기를 하나로 고정할 수 없다. 경로의 realm 을 읽어 그 realm 의 검증기를
-     * 고른다. {@code /realms/portal/userinfo} 면 PORTAL 공개키로만 본다. 그래서 직원 토큰을 포털 자리에
-     * 내면 서명에서 떨어진다. 토큰이 스스로 말하는 {@code iss} 나 {@code kid} 로 고르지 않는 것이 요점이다.
-     *
-     * <p>받는 쪽({@code aud})은 따지지 않는다. 고객 시스템(shop) 앞으로 나간 토큰으로도 자기 정보는 볼 수
-     * 있어야 한다. Keycloak 의 userinfo 도 그렇다. 종류({@code type=access})는 본다.
-     */
+    /** userinfo 체인. 경로의 realm 키로 토큰을 검증하고, 받는 쪽(aud)은 따지지 않는다. */
     @Bean
     @Order(2)
     SecurityFilterChain userInfo(HttpSecurity http, RealmSigningKeys signingKeys, RealmIssuers issuers)
             throws Exception {
+        // realm 마다 검증기를 하나씩 만들어 두고, 요청이 오면 경로의 realm 으로 고른다.
+        // 토큰이 스스로 말하는 iss 나 kid 로 고르지 않는다. 그러면 남의 realm 토큰도 통과한다.
+        // aud 를 비워 두는 것은 고객 시스템(shop) 앞으로 나간 토큰으로도 자기 정보는 볼 수 있어야 해서다.
         Map<Realm, AuthenticationManager> managers = new EnumMap<>(Realm.class);
         for (Realm realm : Realm.values()) {
             managers.put(realm, new ProviderManager(
@@ -187,9 +181,7 @@ public class SecurityConfiguration {
         return accessTokenDecoder(signingKeys, issuers, Realm.MASTER, systems.of(Realm.MASTER));
     }
 
-    /**
-     * 그 realm 의 access 토큰 검증기. 서명, 발급자, 만료, 종류를 보고, {@code audience} 가 있으면 받는 쪽도 본다.
-     */
+    /** 그 realm 의 access 토큰 검증기. 서명, 발급자, 만료, 종류를 보고, audience 를 주면 받는 쪽도 본다. */
     private static JwtDecoder accessTokenDecoder(RealmSigningKeys signingKeys, RealmIssuers issuers, Realm realm,
                                                  String audience) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder
@@ -207,7 +199,7 @@ public class SecurityConfiguration {
         return decoder;
     }
 
-    /** {@code /realms/{realm}/...} 의 realm. 모르는 값이면 비어 있다. */
+    /** 요청 경로 {@code /realms/{realm}/...} 에서 realm 을 꺼낸다. 모르는 값이면 비어 있다. */
     private static Optional<Realm> realmInPath(HttpServletRequest request) {
         String[] segments = request.getRequestURI().substring(request.getContextPath().length()).split("/");
         if (segments.length < 3) {

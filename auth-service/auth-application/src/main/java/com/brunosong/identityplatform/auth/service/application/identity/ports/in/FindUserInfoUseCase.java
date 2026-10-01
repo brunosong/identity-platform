@@ -12,5 +12,6 @@ import java.util.Optional;
  */
 public interface FindUserInfoUseCase {
 
+    /** 그 realm 에서 subjectId 의 이름, 이메일, 전화번호를 찾는다. 신원이 없으면 비어 있다. */
     Optional<UserInfo> of(Realm realm, String subjectId);
 }

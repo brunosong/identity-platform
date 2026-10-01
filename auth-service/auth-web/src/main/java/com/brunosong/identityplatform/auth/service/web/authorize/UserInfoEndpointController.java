@@ -35,7 +35,7 @@ public class UserInfoEndpointController {
     private final AuthenticationRealm authenticationRealm;
     private final FindUserInfoUseCase findUserInfo;
 
-    /** OIDC 가 GET 과 POST 를 둘 다 받으라고 한다. 토큰은 어느 쪽이든 Authorization 헤더로만 받는다. */
+    /** 토큰 주인의 sub, 이름, 이메일, 전화번호를 준다. OIDC 가 정한 대로 GET 과 POST 둘 다 받는다. */
     @RequestMapping(path = "/realms/{realm}/userinfo", method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity<UserInfoResponse> userinfo(@PathVariable String realm, @AuthenticationPrincipal Jwt token) {
         return findUserInfo.of(authenticationRealm.of(realm), token.getSubject())
@@ -46,11 +46,12 @@ public class UserInfoEndpointController {
                         .build());
     }
 
-    /** 이름은 OIDC 표준 claim 그대로다. 값이 없는 칸은 싣지 않는다. */
+    /** userinfo 응답. 이름은 OIDC 표준 claim 그대로이고, 값이 없는 칸은 싣지 않는다. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record UserInfoResponse(String sub, String name, String email,
                                    @JsonProperty("phone_number") String phoneNumber) {
 
+        /** 유스케이스의 결과를 응답 모양으로 옮긴다. */
         static UserInfoResponse from(UserInfo info) {
             return new UserInfoResponse(info.subjectId(), info.name(), info.email(), info.phoneNumber());
         }

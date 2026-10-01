@@ -28,6 +28,7 @@ public class FindUserInfoService implements FindUserInfoUseCase {
     private final PrincipalProfileRepository profileRepository;
     private final EmailAccountRepository emailAccountRepository;
 
+    /** 신원을 찾고, 그 신원의 프로필(이름, 전화번호)과 이메일 계정을 붙여 돌려준다. */
     @Override
     public Optional<UserInfo> of(Realm realm, String subjectId) {
         return principalRepository.findBySubjectId(realm, new SubjectId(subjectId)).map(principal -> {
