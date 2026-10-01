@@ -35,7 +35,7 @@
         <!-- 소셜 provider 어댑터 -->
         <dependency>
             <groupId>com.brunosong</groupId>
-            <artifactId>auth-social</artifactId>
+            <artifactId>auth-external</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!-- 이벤트 발행/구독 어댑터 -->

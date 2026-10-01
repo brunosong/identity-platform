@@ -9,13 +9,13 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>auth-social</artifactId>
+    <artifactId>auth-external</artifactId>
 
     <!--
-      소셜 provider 아웃바운드 어댑터.
+      외부 시스템을 부르는 아웃바운드 어댑터. 지금은 구글 하나다.
 
-      밖으로 나가는 길은 성격별로 모듈이 하나씩이다 — DB(auth-dataaccess), 이벤트(auth-messaging),
-      provider(여기). 구글과 주고받는 HTTP 와 id_token 검증이 이 안에 갇혀 있어서,
+      밖으로 나가는 길은 성격별로 모듈이 하나씩이다. DB(auth-dataaccess), 이벤트(auth-messaging),
+      외부 시스템의 API(여기). 구글과 주고받는 HTTP 와 id_token 검증이 이 안에 갇혀 있어서,
       application 은 provider 라이브러리도 주소도 모른다.
     -->
 

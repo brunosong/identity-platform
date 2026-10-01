@@ -1,4 +1,4 @@
-package com.brunosong.identityplatform.auth.service.social.google;
+package com.brunosong.identityplatform.auth.service.external.google;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialAuthorizationPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialIdentityVerifierPort;

@@ -30,7 +30,7 @@
         <module>auth-dataaccess</module>
         <module>auth-web</module>
         <module>auth-messaging</module>
-        <module>auth-social</module>
+        <module>auth-external</module>
         <module>auth-bootstrap</module>
         <module>auth-client</module>
     </modules>

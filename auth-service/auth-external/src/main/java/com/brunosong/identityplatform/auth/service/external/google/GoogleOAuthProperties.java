@@ -1,4 +1,4 @@
-package com.brunosong.identityplatform.auth.service.social.google;
+package com.brunosong.identityplatform.auth.service.external.google;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
