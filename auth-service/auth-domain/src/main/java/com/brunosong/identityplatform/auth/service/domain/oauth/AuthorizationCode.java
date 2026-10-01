@@ -4,9 +4,6 @@ import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.P
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.Getter;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -113,19 +110,7 @@ public class AuthorizationCode {
         return this.clientId.equals(clientId)
                 && this.redirectUri.equals(redirectUri)
                 && codeVerifier != null
-                && this.codeChallenge.equals(challengeOf(codeVerifier));
-    }
-
-    /** RFC 7636 의 S256: base64url(sha256(verifier)). 패딩 없이 적는다. */
-    private static String challengeOf(String codeVerifier) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(codeVerifier.getBytes(StandardCharsets.US_ASCII));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-256 은 모든 JVM 이 갖춰야 하는 알고리즘이다. 없으면 실행 환경이 깨진 것이다.
-            throw new IllegalStateException(e);
-        }
+                && this.codeChallenge.equals(Pkce.challengeOf(codeVerifier));
     }
 
     private static String randomCode() {
