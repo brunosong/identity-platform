@@ -13,6 +13,7 @@ import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.authorize.LoginSessionStarter;
 import com.brunosong.identityplatform.auth.service.web.authorize.AuthorizationErrorScreen;
 import com.brunosong.identityplatform.auth.service.web.authorize.AuthorizationParams;
+import com.brunosong.identityplatform.auth.service.web.broker.BrokerCookies.Trip;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,11 +21,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,10 +31,9 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.RedirectView;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.time.Duration;
 import java.util.Base64;
+import java.util.Optional;
 
 /**
  * 구글 브로커 - 로그인 화면의 구글 버튼이 브라우저를 여기로 보내고, 구글이 여기로 돌려보낸다.
@@ -70,26 +67,6 @@ import java.util.Base64;
 @Slf4j
 public class GoogleBrokerController {
 
-    /**
-     * 시작할 때 만든 state 를 담아 두는 쿠키.
-     *
-     * <p><b>SameSite 는 Lax 여야 한다.</b> 콜백은 구글(다른 사이트)이 브라우저를 밀어 보내는
-     * 최상위 이동이라, Strict 로 두면 쿠키가 실리지 않아 늘 대조에 실패한다. Lax 는 이런
-     * 최상위 GET 이동에는 쿠키를 보낸다.
-     */
-    private static final String STATE_COOKIE = "SOCIAL_STATE";
-
-    /**
-     * 구글에 다녀온 뒤 되돌아갈 인가 요청. 질의 문자열만 담는다.
-     *
-     * <p>주소 전체를 담지 않는다. 쿠키 값으로 주소를 정하면, 누가 그 쿠키를 심어 둘 수 있을 때
-     * 아무 데로나 보내는 길이 된다. 경로는 여기서 붙이고, 질의는 인가 요청의 입구가 다시 검증한다.
-     */
-    private static final String RESUME_COOKIE = "SOCIAL_RESUME";
-
-    /** 구글에 다녀오는 시간이면 충분하다. 길게 두면 훔쳐 쓸 창만 넓어진다. */
-    private static final Duration COOKIE_TTL = Duration.ofMinutes(5);
-
     private static final SecureRandom RANDOM = new SecureRandom();
 
     /**
@@ -102,6 +79,7 @@ public class GoogleBrokerController {
     private final StartAuthorizationUseCase startAuthorization;
     private final LoginSessionStarter loginSessionStarter;
     private final AuthenticationRealm authenticationRealm;
+    private final BrokerCookies brokerCookies;
 
     /**
      * 브라우저를 구글 로그인 화면으로 보낸다. 로그인 화면이 들고 있던 인가 요청을 그대로 받는다.
@@ -125,10 +103,7 @@ public class GoogleBrokerController {
         AuthorizationRequest request = startAuthorization.start(params.toCommand(resolved));
 
         String socialState = newState();
-        boolean secure = httpRequest.isSecure();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie(STATE_COOKIE, socialState, secure).toString());
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                cookie(RESUME_COOKIE, encode(resumeQuery(request)), secure).toString());
+        brokerCookies.put(httpRequest, response, new Trip(socialState, resumeQuery(request)));
         return redirect(authorization.authorizationUri(SocialProvider.GOOGLE, socialState).toString());
     }
 
@@ -146,22 +121,18 @@ public class GoogleBrokerController {
                                  @RequestParam(required = false) String code,
                                  @RequestParam(required = false) String state,
                                  @RequestParam(required = false) String error,
-                                 @CookieValue(name = STATE_COOKIE, required = false) String startedState,
-                                 @CookieValue(name = RESUME_COOKIE, required = false) String resume,
                                  HttpServletRequest httpRequest,
                                  HttpServletResponse response) {
         Realm resolved = authenticationRealm.requireRealm(realm, Realm.PORTAL);
         verifier();   // 소셜이 꺼져 있으면 이 경로도 없는 것으로 다룬다
 
-        // 한 번 쓰면 버린다. 남겨두면 같은 값으로 두 번째 콜백을 받아줄 수 있게 된다.
-        response.addHeader(HttpHeaders.SET_COOKIE, expired(STATE_COOKIE).toString());
-        response.addHeader(HttpHeaders.SET_COOKIE, expired(RESUME_COOKIE).toString());
-
-        if (!startedHere(state, startedState) || resume == null) {
+        // 한 번 쓰면 버린다. 꺼내면서 지운다.
+        Optional<Trip> trip = brokerCookies.take(httpRequest, response);
+        if (trip.isEmpty() || !startedHere(state, trip.get().state())) {
             return AuthorizationErrorScreen.of("이 브라우저에서 시작한 로그인이 아닙니다. 앱에서 로그인을 다시 시작하세요.",
                     HttpStatus.BAD_REQUEST);
         }
-        String authorizeUrl = authorizeUrl(realm, decode(resume));
+        String authorizeUrl = authorizeUrl(realm, trip.get().resumeQuery());
 
         if (error != null) {
             log.info("구글이 로그인을 거절했다: {}", error);
@@ -217,35 +188,6 @@ public class GoogleBrokerController {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-
-    /** 질의 문자열에는 쿠키 값에 쓸 수 없는 글자가 섞일 수 있다. base64url 로 감싼다. */
-    private static String encode(String value) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static String decode(String value) {
-        return new String(Base64.getUrlDecoder().decode(value), StandardCharsets.UTF_8);
-    }
-
-    private static ResponseCookie cookie(String name, String value, boolean secure) {
-        return baseCookie(name, value, secure).maxAge(COOKIE_TTL).build();
-    }
-
-    private static ResponseCookie expired(String name) {
-        // 지울 때도 같은 속성이어야 브라우저가 같은 쿠키로 알아본다.
-        return baseCookie(name, "", false).maxAge(0).build();
-    }
-
-    private static ResponseCookie.ResponseCookieBuilder baseCookie(String name, String value, boolean secure) {
-        return ResponseCookie.from(name, value)
-                // 스크립트가 읽을 이유가 없는 값이다.
-                .httpOnly(true)
-                // http 로 띄운 로컬에서 secure 를 켜면 브라우저가 쿠키를 아예 저장하지 않는다.
-                // 요청이 https 로 들어왔을 때만 켠다.
-                .secure(secure)
-                .path("/realms")
-                .sameSite("Lax");
     }
 
     private SocialAuthorizationPort authorization() {
