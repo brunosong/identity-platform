@@ -44,7 +44,7 @@ public class SignUpController {
                                @RequestParam(name = "client_id", required = false) String clientId,
                                @RequestParam(name = "redirect_uri", required = false) String redirectUri) {
         Realm resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
-        return signUpScreen(resolved, clientId, redirectUri);
+        return RegistrationScreen.standalone(resolved, clientId, redirectUri);
     }
 
     /** 1단계. 가입용 인증번호를 보낸다. 보냈는지 아닌지는 화면에서 가르지 않는다. */
@@ -62,11 +62,11 @@ public class SignUpController {
             registrationSteps.sendCode(resolved, email, name);
         } catch (IllegalArgumentException e) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return signUpScreen(resolved, clientId, redirectUri)
-                    .addObject("email", email).addObject("name", name).addObject("phoneNumber", phoneNumber)
-                    .addObject("error", e.getMessage());
+            return RegistrationScreen.refilled(RegistrationScreen.standalone(resolved, clientId, redirectUri),
+                    email, name, phoneNumber, e.getMessage());
         }
-        return otpScreen(resolved, clientId, redirectUri, email.trim(), name.trim(), phoneNumber, null);
+        return RegistrationScreen.codeSent(RegistrationScreen.standalone(resolved, clientId, redirectUri),
+                email.trim(), name.trim(), phoneNumber, null);
     }
 
     /** 2단계. 가입하고 완료 화면을 보여준다. 로그인은 시키지 않는다. */
@@ -87,7 +87,8 @@ public class SignUpController {
             registered = registrationSteps.register(resolved, email, name, phoneNumber, code, password);
         } catch (IllegalArgumentException | AuthenticationFailedException e) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return otpScreen(resolved, clientId, redirectUri, email, name, phoneNumber, e.getMessage());
+            return RegistrationScreen.codeSent(RegistrationScreen.standalone(resolved, clientId, redirectUri),
+                    email, name, phoneNumber, e.getMessage());
         }
 
         return new ModelAndView("oauth/registered")
@@ -98,25 +99,5 @@ public class SignUpController {
     /** 그 앱에 등록된 주소일 때만 돌려준다. 아니면 링크를 보이지 않는다. */
     private String returnUriOf(Realm realm, String clientId, String redirectUri) {
         return validateRedirectUri.isRegistered(realm, clientId, redirectUri) ? redirectUri : null;
-    }
-
-    private static ModelAndView signUpScreen(Realm realm, String clientId, String redirectUri) {
-        String lowered = realm.name().toLowerCase();
-        return new ModelAndView("oauth/register")
-                .addObject("realm", lowered)
-                .addObject("formBase", "/realms/" + lowered + "/register")
-                .addObject("clientId", clientId)
-                .addObject("redirectUri", redirectUri)
-                .addObject("passwordAllowed", realm.allowsSelfRegistrationWith(RegistrationMethod.PASSWORD));
-    }
-
-    private static ModelAndView otpScreen(Realm realm, String clientId, String redirectUri, String email,
-                                          String name, String phoneNumber, String error) {
-        return signUpScreen(realm, clientId, redirectUri)
-                .addObject("otpSent", true)
-                .addObject("email", email)
-                .addObject("name", name)
-                .addObject("phoneNumber", phoneNumber)
-                .addObject("error", error);
     }
 }

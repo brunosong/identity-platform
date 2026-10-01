@@ -84,7 +84,7 @@ public class AuthorizationEndpointController {
             if (!resolved.allowsSelfRegistration()) {
                 return AuthorizationErrorScreen.of("이 realm 은 셀프 가입을 지원하지 않습니다.", HttpStatus.BAD_REQUEST);
             }
-            return RegistrationController.registerScreen(resolved, request);
+            return RegistrationScreen.withinAuthorization(resolved, request);
         }
 
         // 이미 로그인해 있으면 묻지 않는다. 세션 확인을 요청 검증 뒤에 두는 것이 중요하다 -

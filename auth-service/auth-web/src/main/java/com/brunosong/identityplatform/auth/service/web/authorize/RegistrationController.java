@@ -58,7 +58,7 @@ public class RegistrationController {
     public ModelAndView screen(@PathVariable String realm,
                                AuthorizationParams params) {
         Realm resolved = requireAnyRegistration(realm);
-        return registerScreen(resolved, startAuthorization.start(params.toCommand(resolved)));
+        return RegistrationScreen.withinAuthorization(resolved, startAuthorization.start(params.toCommand(resolved)));
     }
 
     /**
@@ -80,11 +80,11 @@ public class RegistrationController {
             registrationSteps.sendCode(resolved, email, name);
         } catch (IllegalArgumentException e) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return registerScreen(resolved, request)
-                    .addObject("email", email).addObject("name", name).addObject("phoneNumber", phoneNumber)
-                    .addObject("error", e.getMessage());
+            return RegistrationScreen.refilled(RegistrationScreen.withinAuthorization(resolved, request),
+                    email, name, phoneNumber, e.getMessage());
         }
-        return otpScreen(resolved, request, email.trim(), name.trim(), phoneNumber, null);
+        return RegistrationScreen.codeSent(RegistrationScreen.withinAuthorization(resolved, request),
+                email.trim(), name.trim(), phoneNumber, null);
     }
 
     /**
@@ -112,7 +112,8 @@ public class RegistrationController {
             // 번호가 틀렸거나 비밀번호가 규칙에 맞지 않는다. 번호 칸이 열린 채로 다시 그린다.
             // 적어 둔 이름과 주소는 그대로 두고, 비밀번호는 다시 싣지 않는다.
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return otpScreen(resolved, request, email, name, phoneNumber, e.getMessage());
+            return RegistrationScreen.codeSent(RegistrationScreen.withinAuthorization(resolved, request),
+                    email, name, phoneNumber, e.getMessage());
         }
 
         return loggedIn(subject, request, httpRequest, response);
@@ -135,25 +136,5 @@ public class RegistrationController {
             throw new NotFoundException("이 realm 은 셀프 가입을 지원하지 않습니다: " + realm);
         }
         return resolved;
-    }
-
-    /** 화면이 어떤 폼을 보여줄지는 realm 이 여는 방식이 정한다. */
-    static ModelAndView registerScreen(Realm realm, AuthorizationRequest request) {
-        String lowered = realm.name().toLowerCase();
-        return new ModelAndView("oauth/register")
-                .addObject("realm", lowered)
-                .addObject("formBase", "/realms/" + lowered + "/auth/register")
-                .addObject("request", request)
-                .addObject("passwordAllowed", realm.allowsSelfRegistrationWith(RegistrationMethod.PASSWORD));
-    }
-
-    private static ModelAndView otpScreen(Realm realm, AuthorizationRequest request, String email,
-                                          String name, String phoneNumber, String error) {
-        return registerScreen(realm, request)
-                .addObject("otpSent", true)
-                .addObject("email", email)
-                .addObject("name", name)
-                .addObject("phoneNumber", phoneNumber)
-                .addObject("error", error);
     }
 }
