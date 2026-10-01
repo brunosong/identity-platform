@@ -4,6 +4,7 @@ import com.brunosong.identityplatform.auth.service.application.authorization.por
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.UrlAccessView;
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.UrlResourceView;
 import com.brunosong.identityplatform.auth.service.dataaccess.authorization.repository.AuthzPermissionJpaRepository;
+import com.brunosong.identityplatform.auth.service.dataaccess.authorization.entity.AuthzUrlAccessEntity;
 import com.brunosong.identityplatform.auth.service.dataaccess.authorization.repository.AuthzUrlAccessJpaRepository;
 import com.brunosong.identityplatform.auth.service.domain.authorization.UrlRule;
 import com.brunosong.identityplatform.auth.service.domain.authorization.valueobject.HttpMethodPattern;
@@ -46,9 +47,15 @@ public class UrlAccessQueryAdapter implements UrlAccessQuery {
     @Override
     @Transactional(readOnly = true)
     public Optional<UrlAccessView> findById(Long urlAccessId) {
-        return urlAccessRepository.findById(urlAccessId)
-                .map(entity -> UrlAccessViewMapper.toView(entity,
-                        UrlAccessViewMapper.categoryByPermissionCode(permissionRepository, entity.getRealm())));
+        Optional<AuthzUrlAccessEntity> found = urlAccessRepository.findById(urlAccessId);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+
+        AuthzUrlAccessEntity entity = found.get();
+        Map<String, String> categories =
+                UrlAccessViewMapper.categoryByPermissionCode(permissionRepository, entity.getRealm());
+        return Optional.of(UrlAccessViewMapper.toView(entity, categories));
     }
 
     @Override
@@ -76,8 +83,12 @@ public class UrlAccessQueryAdapter implements UrlAccessQuery {
         }
 
         List<UrlRule> rules = new ArrayList<>(resourceByKey.size());
-        resourceByKey.forEach((key, resource) -> rules.add(new UrlRule(
-                resource[0], HttpMethodPattern.of(resource[1]), Set.copyOf(codesByResource.get(key)))));
+        for (Map.Entry<String, String[]> entry : resourceByKey.entrySet()) {
+            String urlPattern = entry.getValue()[0];
+            HttpMethodPattern httpMethod = HttpMethodPattern.of(entry.getValue()[1]);
+            Set<String> permissionCodes = Set.copyOf(codesByResource.get(entry.getKey()));
+            rules.add(new UrlRule(urlPattern, httpMethod, permissionCodes));
+        }
         return rules;
     }
 }
