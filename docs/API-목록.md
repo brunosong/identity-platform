@@ -64,7 +64,7 @@ OAuth 2.0 과 OIDC 가 정한 자리다. 리소스 API 가 아니라 프로토�
 |---|---|---|---|---|
 | GET | `/roles` | `realm`, `keyword` | | 200 목록 |
 | GET | `/roles/{roleId}` | | | 200, 없으면 404 |
-| POST | `/roles` | `realm` | `roleCode`, `roleName`, `description` | 201 |
+| POST | `/roles` | `realm` | `roleCode`, `roleName`, `description` | 201, 같은 코드면 409 |
 | PUT | `/roles/{roleId}` | | `roleName`, `description` | 200 |
 | DELETE | `/roles/{roleId}` | | | 204 |
 | GET | `/roles/{roleId}/permissions` | | | 200 |
@@ -78,7 +78,7 @@ OAuth 2.0 과 OIDC 가 정한 자리다. 리소스 API 가 아니라 프로토�
 | GET | `/permissions/page` | `realm`, `keyword`, `page`, `size` | | 200 쪽 |
 | GET | `/permissions/categories` | `realm` | | 200 |
 | GET | `/permissions/{permissionId}` | | | 200, 없으면 404 |
-| POST | `/permissions` | `realm` | `permissionCode`, `permissionName`, `category`, `description` | 201 |
+| POST | `/permissions` | `realm` | `permissionCode`, `permissionName`, `category`, `description` | 201, 같은 코드면 409 |
 | PUT | `/permissions/{permissionId}` | | `permissionName`, `category`, `description` | 200 |
 | DELETE | `/permissions/{permissionId}` | | | 204 |
 | GET | `/permissions/{permissionId}/url-access` | | | 200 |
@@ -140,7 +140,9 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 - 자원이 명사 복수형이다(`roles`, `permissions`, `subjects`). 하위 자원도 경로로 잇는다(`/roles/{id}/permissions`)
 - 메서드가 뜻대로 쓰인다. 만들기는 POST 201, 바꾸기는 PUT, 지우기는 DELETE 204, 없으면 404
 - 집합을 통째로 바꾸는 자리는 PUT 이다(역할의 권한, 사람의 역할). 몇 번 보내도 결과가 같다
-- 입력 검증 실패는 400, 인증 없음 401, 권한 없음 403 으로 갈린다
+- 입력 검증 실패는 400, 인증 없음 401, 권한 없음 403, 같은 코드로 두 번 만들면 409 로 갈린다
+- 401 에는 `WWW-Authenticate: Bearer` 가 붙는다(RFC 6750 3절)
+- 토큰 엔드포인트의 응답에는 `Cache-Control: no-store` 가 붙는다(RFC 6749 5.1절)
 
 **어긋난 것**
 
@@ -149,12 +151,9 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 | `POST /matrix/toggle` | 동사다. 같은 요청을 두 번 보내면 결과가 뒤집힌다 | `PUT`, `DELETE /roles/{roleId}/permissions/{permissionId}` |
 | `POST /revision/bump`, `POST /reload-url-rules` | 동사 경로(RPC) | 관리 동작이라 남겨도 된다. 남길 거면 이름을 `/actions/...` 처럼 한곳에 모은다 |
 | `GET /permissions/page`, `GET /registered-urls` | 같은 집합을 두 경로로 준다 | `GET /permissions?page=&size=` 하나로. 쪽 질의가 없으면 전체 |
-| 같은 이름으로 두 번 만들기 | 역할은 `RoleAlreadyExistsException`, 권한은 DB 유일 제약으로 끝나는데 둘 다 **500** 이 나간다 | 409 Conflict 로 매핑한다 |
 | realm 표기 | 경로는 `/realms/admin`, 질의는 `?realm=ADMIN`. 대소문자가 다르다 | 한쪽으로 맞춘다. 질의도 소문자를 받게 하는 쪽이 쉽다 |
 | realm 을 받는 자리 | `DELETE /url-access/{id}` 는 `realm` 을 받고 `DELETE /roles/{id}` 는 안 받는다 | id 로 찾는 자원은 realm 을 받지 않게 맞춘다 |
 | `POST /subjects/roles` | 조회인데 POST 다 | id 목록이 길 수 있어 흔히 쓰는 예외다. 남긴다면 이유를 컨트롤러에 적는다 |
-| 401 응답 | `WWW-Authenticate: Bearer` 헤더가 없다(RFC 6750 3절) | 401 을 만드는 처리기에서 헤더를 붙인다 |
-| 토큰 응답 | `Cache-Control: no-store` 가 없다(RFC 6749 5.1절, 명세상 필수) | 토큰 엔드포인트 응답에 붙인다 |
 | 버전 | 경로에 버전이 없다 | 밖에 공개할 API 가 생기면 그때 `/v1` 을 붙인다. 지금은 우리 앱만 부른다 |
 
 ## 어디에 있나

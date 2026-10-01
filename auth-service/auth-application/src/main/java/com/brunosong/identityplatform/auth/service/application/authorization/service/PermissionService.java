@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.application.authorization.service;
 
 import com.brunosong.identityplatform.auth.service.application.authorization.exception.AuthorizationNotFoundException;
+import com.brunosong.identityplatform.auth.service.application.authorization.exception.PermissionAlreadyExistsException;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.CreatePermissionUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.DeletePermissionUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.FindPermissionsUseCase;
@@ -47,6 +48,9 @@ public class PermissionService implements CreatePermissionUseCase, RenamePermiss
     public PermissionView create(CreatePermissionCommand command) {
         Permission permission = Permission.create(command.realm(), command.permissionCode(),
                 command.permissionName(), command.category(), command.description());
+        if (permissionRepository.exists(permission.getRealm(), permission.getServiceId(), permission.getPermissionCode())) {
+            throw new PermissionAlreadyExistsException(permission.getRealm(), permission.getPermissionCode());
+        }
         return PermissionView.from(permissionRepository.save(permission));
     }
 

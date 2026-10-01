@@ -13,12 +13,15 @@ import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRea
 import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -70,6 +73,17 @@ public class TokenEndpointController {
     private final AuthenticationRealm authenticationRealm;
     private final ExchangeAuthorizationCodeUseCase exchangeAuthorizationCode;
     private final RefreshTokenUseCase refreshToken;
+
+    /**
+     * 토큰이 실린 응답은 어디에도 남지 않아야 한다(RFC 6749 5.1절, 명세상 필수). 중간의 프록시나 브라우저
+     * 캐시에 토큰이 남으면 같은 기기를 쓰는 다른 사람이 꺼내 쓸 수 있다. 오류 응답도 같이 막는다.
+     * 이 컨트롤러의 모든 요청 앞에서 돈다.
+     */
+    @ModelAttribute
+    void noStore(HttpServletResponse response) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        response.setHeader(HttpHeaders.PRAGMA, "no-cache");
+    }
 
     /**
      * 코드를 토큰으로 바꾼다. PKCE 원본은 모든 앱이 내고, 시크릿이 있는 앱은 {@code client_secret} 도

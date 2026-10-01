@@ -1,8 +1,11 @@
 package com.brunosong.identityplatform.auth.service.web.support;
 
 import com.brunosong.identityplatform.auth.service.application.authorization.exception.AuthorizationNotFoundException;
+import com.brunosong.identityplatform.auth.service.application.authorization.exception.PermissionAlreadyExistsException;
+import com.brunosong.identityplatform.auth.service.application.authorization.exception.RoleAlreadyExistsException;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -30,9 +33,21 @@ public class AuthApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError(e.getMessage()));
     }
 
+    /**
+     * 토큰이 없거나 무효. 어떤 방식으로 다시 와야 하는지 {@code WWW-Authenticate} 로 알린다(RFC 6750 3절).
+     * 이 헤더가 없는 401 은 명세상 401 이 아니다.
+     */
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiError> onUnauthorized(UnauthorizedException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(new ApiError(e.getMessage()));
+    }
+
+    /** 같은 코드가 이미 있다. 요청이 틀린 게 아니라 지금 상태와 부딪힌 것이라 400 이 아니라 409 다. */
+    @ExceptionHandler({RoleAlreadyExistsException.class, PermissionAlreadyExistsException.class})
+    public ResponseEntity<ApiError> onConflict(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(e.getMessage()));
     }
 
     @ExceptionHandler(ForbiddenException.class)

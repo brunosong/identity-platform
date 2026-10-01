@@ -14,6 +14,10 @@ public interface AuthzPermissionJpaRepository extends JpaRepository<AuthzPermiss
 
     Optional<AuthzPermissionEntity> findByRealmAndPermissionCode(Realm realm, String permissionCode);
 
+    boolean existsByRealmAndServiceIdAndPermissionCode(Realm realm, String serviceId, String permissionCode);
+
+    boolean existsByRealmAndServiceIdIsNullAndPermissionCode(Realm realm, String permissionCode);
+
     List<AuthzPermissionEntity> findByRealmAndActiveIsTrueOrderByCategoryAscPermissionCodeAsc(Realm realm);
 
     /**

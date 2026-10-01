@@ -5,6 +5,7 @@ import com.brunosong.identityplatform.auth.service.application.authorization.por
 import com.brunosong.identityplatform.auth.service.dataaccess.authorization.entity.AuthzPermissionEntity;
 import com.brunosong.identityplatform.auth.service.dataaccess.authorization.repository.AuthzPermissionJpaRepository;
 import com.brunosong.identityplatform.auth.service.domain.authorization.Permission;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,15 @@ public class PermissionRepositoryAdapter implements PermissionRepository {
     @Transactional(readOnly = true)
     public Optional<Permission> findById(Long permissionId) {
         return permissionRepository.findById(permissionId).map(PermissionRepositoryAdapter::toDomain);
+    }
+
+    /** 유일 제약이 서비스가 있을 때와 없을 때 둘로 나뉘어 있다(PostgreSQL 은 NULL 끼리 같다고 보지 않는다). */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean exists(Realm realm, String serviceId, String permissionCode) {
+        return serviceId == null
+                ? permissionRepository.existsByRealmAndServiceIdIsNullAndPermissionCode(realm, permissionCode)
+                : permissionRepository.existsByRealmAndServiceIdAndPermissionCode(realm, serviceId, permissionCode);
     }
 
     @Override
