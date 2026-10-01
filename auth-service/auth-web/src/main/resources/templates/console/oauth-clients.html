@@ -25,15 +25,11 @@
         label.check { font-weight: 400; }
         label.check input { margin-right: 6px; }
         .secret code { display: block; margin: 6px 0; font-size: 15px; word-break: break-all; }
-        form.logout { float: right; border: 0; padding: 0; margin: 0; }
-        form.logout button { margin-top: 0; padding: 4px 12px; background: #fff; color: #333; }
     </style>
 </head>
 <body>
 
-<form class="logout" method="post" th:action="@{/page/logout}">
-    <button type="submit">로그아웃</button>
-</form>
+<div th:replace="~{console/fragments :: menu('clients')}"></div>
 
 <h1>등록된 앱</h1>
 <p class="lead">여기 등록된 앱만 로그인을 시작할 수 있다. 로그인이 끝나면 아래 적힌 주소로만 돌려보낸다.</p>

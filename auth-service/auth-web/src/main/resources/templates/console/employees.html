@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>직원 등록</title>
+    <style>
+        body { font: 14px/1.6 system-ui, sans-serif; color: #1b1b1b; max-width: 860px; margin: 40px auto; padding: 0 20px; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        p.lead { color: #555; margin-top: 0; }
+        form.register { border: 1px solid #ddd; padding: 16px 20px; margin: 24px 0; }
+        label { display: block; margin-top: 12px; font-weight: 600; }
+        label span { display: block; font-weight: 400; color: #666; font-size: 13px; }
+        label.check { font-weight: 400; margin-top: 6px; }
+        label.check input { margin-right: 6px; }
+        input[type=text], input[type=email] { width: 100%; padding: 6px 8px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
+        button.submit { margin-top: 16px; padding: 7px 18px; font: inherit; border: 1px solid #333; background: #333; color: #fff; cursor: pointer; }
+        code { font-family: ui-monospace, monospace; font-size: 13px; }
+        .notice { padding: 10px 14px; border-left: 3px solid #333; background: #f6f6f6; }
+        .notice.bad { border-color: #b00020; }
+        .hint { color: #777; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{console/fragments :: menu('employees')}"></div>
+
+<h1>직원 등록</h1>
+<p class="lead">직원 realm 의 계정을 만든다. 직원은 비밀번호 없이 이메일 인증번호로 로그인한다.</p>
+
+<div class="notice" th:if="${message}">
+    <span th:text="${message}"></span>
+    <span class="hint">subject: <code th:text="${subjectId}"></code></span>
+</div>
+<div class="notice bad" th:if="${error}" th:text="${error}"></div>
+
+<form class="register" method="post" th:action="@{/page/employees}">
+    <label>
+        사번
+        <input type="text" name="employeeId" required maxlength="50" autocomplete="off">
+    </label>
+
+    <label>
+        이름
+        <input type="text" name="name" required maxlength="100" autocomplete="off">
+    </label>
+
+    <label>
+        이메일
+        <span>로그인 식별자가 된다. 관리자가 대신 적은 주소라 처음 로그인할 때 확인된다.</span>
+        <input type="email" name="email" required maxlength="200" autocomplete="off">
+    </label>
+
+    <label>
+        휴대전화
+        <input type="text" name="mobile" maxlength="30" autocomplete="off">
+    </label>
+
+    <label>
+        역할
+        <span>고르지 않으면 계정은 생기지만 로그인해도 할 수 있는 일이 없다.</span>
+    </label>
+    <label class="check" th:each="role : ${roles}">
+        <input type="checkbox" name="roleIds" th:value="${role.roleId}">
+        <code th:text="${role.roleCode}"></code> <span th:text="${role.roleName}"></span>
+    </label>
+    <p class="hint" th:if="${roles.isEmpty()}">직원 realm 에 역할이 없다. 역할 화면에서 먼저 만든다.</p>
+
+    <button class="submit" type="submit">등록</button>
+</form>
+
+</body>
+</html>

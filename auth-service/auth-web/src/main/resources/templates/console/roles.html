@@ -22,15 +22,11 @@
         .notice { padding: 10px 14px; border-left: 3px solid #333; background: #f6f6f6; }
         .notice.bad { border-color: #b00020; }
         .empty { color: #777; padding: 20px 0; }
-        form.logout { float: right; border: 0; padding: 0; margin: 0; }
-        form.logout button { margin-top: 0; padding: 4px 12px; background: #fff; color: #333; }
     </style>
 </head>
 <body>
 
-<form class="logout" method="post" th:action="@{/page/logout}">
-    <button type="submit">로그아웃</button>
-</form>
+<div th:replace="~{console/fragments :: menu('roles')}"></div>
 
 <h1>역할</h1>
 <p class="lead">사람에게 붙는 역할. 어떤 일을 할 수 있는지는 역할에 묶인 권한이 정한다.</p>

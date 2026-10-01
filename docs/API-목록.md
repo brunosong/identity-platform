@@ -129,6 +129,9 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 | GET | `/` | `/page/oauth-clients` 로 이동 |
 | GET, POST | `/page/oauth-clients` | 등록된 앱 목록과 등록 |
 | GET, POST | `/page/roles` | 역할 목록(`?realm=`)과 추가 |
+| GET | `/page/permissions` | 권한 목록(`?realm=`). 보기만 한다 |
+| GET | `/page/employees/new` | 직원 등록 화면. 직원 realm 의 역할을 함께 고른다 |
+| POST | `/page/employees` | 직원 계정을 만들고 역할을 준다 |
 | GET | `/page/login/callback` | 로그인이 돌아오는 자리 |
 | POST | `/page/logout` | 로그아웃 |
 

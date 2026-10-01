@@ -230,6 +230,31 @@ class ConsoleLoginIntegrationTest {
         assertThat(setCookie(again, "CONSOLE_REFRESH")).contains("Max-Age=0");
     }
 
+    @Test
+    @DisplayName("로그인하면 권한 화면과 직원 등록 화면이 열린다")
+    void managementScreensOpen() {
+        String access = cookie(loggedIn(), "CONSOLE_ACCESS");
+
+        assertThat(get("/page/permissions?realm=MASTER", access).getStatusCode().value()).isEqualTo(200);
+        assertThat(get("/page/employees/new", access).getStatusCode().value()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("운영 화면에서 등록한 직원은 바로 인증번호로 로그인한다")
+    void registeredEmployeeCanLogIn() {
+        String access = cookie(loggedIn(), "CONSOLE_ACCESS");
+
+        ResponseEntity<Void> registered = http.post().uri("/page/employees")
+                .header(HttpHeaders.COOKIE, access)
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body("employeeId=E-CONSOLE&name=" + encode("콘솔 직원") + "&email=" + encode("console@example.com"))
+                .retrieve().toBodilessEntity();
+
+        assertThat(registered.getStatusCode().value()).isEqualTo(302);
+        assertThat(registered.getHeaders().getLocation().getPath()).isEqualTo("/page/employees/new");
+        assertThat(new CodeFlowLogin(port).adminWithOtp("console@example.com").accessToken()).isNotBlank();
+    }
+
     /** MASTER 관리자로 로그인을 끝까지 밟고, 토큰 쿠키가 실린 콜백 응답을 돌려준다. */
     private ResponseEntity<Void> loggedIn() {
         ResponseEntity<Void> start = get("/page/roles", null);
