@@ -29,7 +29,7 @@ import java.util.Optional;
  * </table>
  *
  * <p>토큰 쿠키의 경로가 {@code /} 인 것은 로그인이 지키는 범위가 8080 전체라서다
- * ({@link ConsoleWebConfiguration}). {@code /api/**} 에도 실려 가지만 그쪽은 Bearer 헤더만 읽는다.
+ * ({@link ConsoleSecurityConfiguration}). {@code /api/**} 에도 실려 가지만 그쪽은 Bearer 헤더만 읽는다.
  *
  * <p>속성은 모두 같다.
  * <ul>

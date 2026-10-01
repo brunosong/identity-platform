@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.auth.service.web.admin.console.login;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RefreshTokenUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RevokeRefreshTokenUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.token.TokenProperties;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.ExchangeAuthorizationCodeUseCase;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.ExchangeAuthorizationCodeCommand;
@@ -59,7 +60,8 @@ public class ConsoleLogin {
     private final ConsoleCookies cookies;
 
     /**
-     * 이 요청을 들여보내도 되나. access 가 살아 있으면 그대로, 끝났으면 refresh 로 새로 받아 쿠키를 갈아끼운다.
+     * 이 요청을 들여보내도 되나. 되면 로그인한 사람(MASTER 의 {@code sub})을 돌려준다.
+     * access 가 살아 있으면 그대로, 끝났으면 refresh 로 새로 받아 쿠키를 갈아끼운다.
      *
      * <p>access 쿠키는 토큰과 같이 1분 뒤 브라우저에서 사라지고, refresh 쿠키는 남는다. 그 사이에 오는
      * 요청이 여기서 재발급을 받는다. 그래서 로그인 서버를 한 바퀴 돌지 않고, 폼을 내던 중이어도 입력이
@@ -69,20 +71,22 @@ public class ConsoleLogin {
      * 계보가 끊겼거나, 이미 쓴 토큰이거나, 수명이 끝났다) 토큰 쿠키를 지운다. 남겨 두면 요청마다 같은
      * 실패를 되풀이한다.
      */
-    boolean authenticate(HttpServletRequest request, HttpServletResponse response) {
-        if (validAccess(cookies.accessToken(request))) {
-            return true;
+    Optional<String> authenticate(HttpServletRequest request, HttpServletResponse response) {
+        Optional<String> subject = subjectOfAccess(cookies.accessToken(request));
+        if (subject.isPresent()) {
+            return subject;
         }
         Optional<String> refresh = cookies.refreshToken(request);
         if (refresh.isEmpty()) {
-            return false;
+            return Optional.empty();
         }
         try {
-            cookies.putTokens(request, response, refreshToken.refresh(Realm.MASTER, refresh.get()).tokens());
-            return true;
+            AuthenticationResult renewed = refreshToken.refresh(Realm.MASTER, refresh.get());
+            cookies.putTokens(request, response, renewed.tokens());
+            return Optional.of(renewed.subjectId());
         } catch (AuthenticationFailedException e) {
             cookies.clearTokens(request, response);
-            return false;
+            return Optional.empty();
         }
     }
 
@@ -92,10 +96,10 @@ public class ConsoleLogin {
      * <p>{@code type} 까지 본다. refresh 토큰도 같은 키로 서명돼 있어 서명과 발급자만 보면 통과한다.
      * 그러면 24시간짜리 refresh 를 access 자리에 넣어 1분 수명을 건너뛸 수 있다.
      */
-    private boolean validAccess(Optional<String> token) {
+    private Optional<String> subjectOfAccess(Optional<String> token) {
         return token.flatMap(value -> accessTokenReader.read(Realm.MASTER, value))
                 .filter(claims -> "access".equals(claims.get("type", String.class)))
-                .isPresent();
+                .map(claims -> claims.getSubject());
     }
 
     /**

@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
@@ -37,9 +38,15 @@ import java.util.List;
  * auth 가 받는 토큰을 어디서 어떻게 검증하나. 경로마다 필터 체인이 하나씩 있다.
  *
  * <pre>
- * /api/admin/**   관리 API.  ADMIN 키로 검증하고 AUTHZ_MANAGE 가 있어야 들여보낸다
- * 나머지 전부      아직 각자 막는다. 운영 화면은 인터셉터, 로그인 서버와 공개 문서는 열려 있다
+ * 1  /api/admin/**                      관리 API. ADMIN 키로 검증하고 AUTHZ_MANAGE 가 있어야 들여보낸다
+ * 2  /realms/**, /api/**, /.well-known/**, /error
+ *                                       공개. 로그인 서버, 토큰 발급, 공개 문서, 사용자 API 는 각자 알아서 한다
+ * 3  나머지 전부 (local)                 운영 화면. MASTER 로그인 쿠키 ({@code ConsoleSecurityConfiguration})
+ * 3  나머지 전부 (local 이 아닐 때)       그냥 통과. 운영 화면이 없다
  * </pre>
+ *
+ * <p>위에서부터 처음 맞는 체인 하나만 돈다. 그래서 2번에 넣지 않은 경로는 local 에서 모두 MASTER 로그인
+ * 뒤로 들어간다.
  *
  * <p>체인이 realm 을 정한다. 관리 API 체인의 검증기는 ADMIN 공개키 하나만 안다. 그래서 포털이나 MASTER
  * 토큰은 서명에서 떨어진다. 전에는 컨트롤러 메서드마다 {@code access.require(request)} 를 불러 같은
@@ -49,6 +56,9 @@ import java.util.List;
  */
 @Configuration
 public class SecurityConfiguration {
+
+    /** 운영 화면 체인의 자리. 공개 체인 뒤, 그냥 통과 체인 앞이다. */
+    public static final int CONSOLE_ORDER = 3;
 
     /** 관리 API. 브라우저 쿠키가 아니라 Bearer 헤더로만 오므로 세션도 CSRF 도 필요 없다. */
     @Bean
@@ -83,12 +93,31 @@ public class SecurityConfiguration {
     }
 
     /**
-     * 나머지 전부. 스프링 시큐리티의 기본값(전부 막고 폼 로그인)을 끄고 지금까지처럼 통과시킨다.
+     * 공개 경로. 토큰 없이 열려야 이 서비스가 돈다. 막히면 로그인하러 간 곳에서 다시 로그인으로 보내진다.
+     * 사용자 API({@code /api/auth/**})는 자기 컨트롤러가 토큰을 본다.
      *
-     * <p>CSRF 를 끄는 것은 원래 상태 그대로다. 로그인 폼과 운영 화면의 폼에는 CSRF 토큰이 없고,
-     * {@code SameSite=Lax} 쿠키에 기대고 있다.
+     * <p>CSRF 를 끄는 것은 원래 상태 그대로다. 로그인 폼에는 CSRF 토큰이 없고 {@code SameSite=Lax} 쿠키에
+     * 기대고 있다.
      */
     @Bean
+    @Order(2)
+    SecurityFilterChain publicPaths(HttpSecurity http) throws Exception {
+        return http.securityMatcher("/realms/**", "/api/**", "/.well-known/**", "/error")
+                .authorizeHttpRequests(a -> a.anyRequest().permitAll())
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
+                .build();
+    }
+
+    /**
+     * 나머지 전부, local 이 아닐 때. 운영 화면이 없어서 남는 경로는 404 다. 스프링 시큐리티의 기본값
+     * (전부 막고 폼 로그인)만 꺼 둔다.
+     *
+     * <p>local 에서는 운영 화면 체인이 이 자리를 맡는다. 모든 요청을 받는 체인은 하나만 둘 수 있어서
+     * 프로파일로 갈랐다. 둘이면 스프링 시큐리티가 뒤의 것은 영영 안 돈다며 시작을 거부한다.
+     */
+    @Bean
+    @Profile("!local")
     @Order(Ordered.LOWEST_PRECEDENCE)
     SecurityFilterChain everythingElse(HttpSecurity http) throws Exception {
         return http.authorizeHttpRequests(a -> a.anyRequest().permitAll())
