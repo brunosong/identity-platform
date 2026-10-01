@@ -4,16 +4,13 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.StartLoginSessionUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.PasswordAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
-import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidAuthorizationRequestException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
-import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.LoginSession;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.brunosong.identityplatform.auth.service.web.support.LoginSessionCookie;
-import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -63,26 +60,12 @@ public class LoginSubmissionController {
 
     @PostMapping("/realms/{realm}/auth/login")
     public ModelAndView login(@PathVariable String realm,
-                              @RequestParam(name = "client_id", required = false) String clientId,
-                              @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                              @RequestParam(required = false) String scope,
-                              @RequestParam(required = false) String state,
-                              @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-                              @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-                              @RequestParam(required = false) String nonce,
+                              AuthorizationParams params,
                               @RequestParam(required = false) String loginId,
                               @RequestParam(required = false) String password,
                               HttpServletRequest httpRequest, HttpServletResponse response) {
-        AuthorizationRequest request;
-        try {
-            request = startAuthorization.start(new AuthorizationRequestCommand(
-                    authenticationRealm.of(realm), "code", clientId, redirectUri, scope, state,
-                    codeChallenge, codeChallengeMethod, nonce));
-        } catch (NotFoundException | InvalidAuthorizationRequestException | IllegalArgumentException e) {
-            // 돌아갈 주소를 믿을 수 없는 상태다. 적혀 온 주소로 보내지 않고 우리 화면에서 끝낸다.
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return new ModelAndView("oauth/error").addObject("reason", e.getMessage());
-        }
+        // 화면의 숨은 칸으로 온 값이라 다시 검증한다. 받아줄 수 없으면 AuthorizationErrorScreen 이 끝낸다.
+        AuthorizationRequest request = startAuthorization.start(params.toCommand(authenticationRealm.of(realm)));
 
         AuthenticatedSubject subject;
         try {

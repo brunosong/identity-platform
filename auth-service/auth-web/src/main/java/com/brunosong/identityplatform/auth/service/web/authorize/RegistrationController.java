@@ -2,9 +2,7 @@ package com.brunosong.identityplatform.auth.service.web.authorize;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.EstablishRegisteredAuthenticationUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
-import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidAuthorizationRequestException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
-import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
@@ -58,26 +56,9 @@ public class RegistrationController {
     /** 가입 화면을 그린다. 로그인 화면의 "회원가입" 이 인가 요청을 그대로 들고 온다. */
     @GetMapping("/realms/{realm}/auth/register")
     public ModelAndView screen(@PathVariable String realm,
-                               @RequestParam(name = "client_id", required = false) String clientId,
-                               @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                               @RequestParam(required = false) String scope,
-                               @RequestParam(required = false) String state,
-                               @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-                               @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-                               @RequestParam(required = false) String nonce,
-                               HttpServletResponse response) {
-        try {
-            Realm resolved = requireAnyRegistration(realm);
-            AuthorizationRequest request = startAuthorization.start(new AuthorizationRequestCommand(
-                    resolved, "code", clientId, redirectUri, scope, state, codeChallenge, codeChallengeMethod, nonce));
-            return registerScreen(resolved, request);
-        } catch (NotFoundException e) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return errorScreen(e.getMessage());
-        } catch (InvalidAuthorizationRequestException | IllegalArgumentException e) {
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return errorScreen(e.getMessage());
-        }
+                               AuthorizationParams params) {
+        Realm resolved = requireAnyRegistration(realm);
+        return registerScreen(resolved, startAuthorization.start(params.toCommand(resolved)));
     }
 
     /**
@@ -87,30 +68,13 @@ public class RegistrationController {
      */
     @PostMapping("/realms/{realm}/auth/register/send-code")
     public ModelAndView sendCode(@PathVariable String realm,
-                                 @RequestParam(name = "client_id", required = false) String clientId,
-                                 @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                                 @RequestParam(required = false) String scope,
-                                 @RequestParam(required = false) String state,
-                                 @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-                                 @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-                                 @RequestParam(required = false) String nonce,
+                                 AuthorizationParams params,
                                  @RequestParam(required = false) String email,
                                  @RequestParam(required = false) String name,
                                  @RequestParam(required = false) String phoneNumber,
                                  HttpServletResponse response) {
-        Realm resolved;
-        AuthorizationRequest request;
-        try {
-            resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
-            request = startAuthorization.start(new AuthorizationRequestCommand(
-                    resolved, "code", clientId, redirectUri, scope, state, codeChallenge, codeChallengeMethod, nonce));
-        } catch (NotFoundException e) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return errorScreen(e.getMessage());
-        } catch (InvalidAuthorizationRequestException | IllegalArgumentException e) {
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return errorScreen(e.getMessage());
-        }
+        Realm resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
+        AuthorizationRequest request = startAuthorization.start(params.toCommand(resolved));
 
         try {
             registrationSteps.sendCode(resolved, email, name);
@@ -131,32 +95,15 @@ public class RegistrationController {
      */
     @PostMapping("/realms/{realm}/auth/register")
     public ModelAndView register(@PathVariable String realm,
-                                 @RequestParam(name = "client_id", required = false) String clientId,
-                                 @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                                 @RequestParam(required = false) String scope,
-                                 @RequestParam(required = false) String state,
-                                 @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-                                 @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-                                 @RequestParam(required = false) String nonce,
+                                 AuthorizationParams params,
                                  @RequestParam(required = false) String email,
                                  @RequestParam(required = false) String name,
                                  @RequestParam(required = false) String phoneNumber,
                                  @RequestParam(required = false) String code,
                                  @RequestParam(required = false) String password,
                                  HttpServletRequest httpRequest, HttpServletResponse response) {
-        Realm resolved;
-        AuthorizationRequest request;
-        try {
-            resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
-            request = startAuthorization.start(new AuthorizationRequestCommand(
-                    resolved, "code", clientId, redirectUri, scope, state, codeChallenge, codeChallengeMethod, nonce));
-        } catch (NotFoundException e) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return errorScreen(e.getMessage());
-        } catch (InvalidAuthorizationRequestException | IllegalArgumentException e) {
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return errorScreen(e.getMessage());
-        }
+        Realm resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
+        AuthorizationRequest request = startAuthorization.start(params.toCommand(resolved));
 
         AuthenticatedSubject subject;
         try {
@@ -208,9 +155,5 @@ public class RegistrationController {
                 .addObject("name", name)
                 .addObject("phoneNumber", phoneNumber)
                 .addObject("error", error);
-    }
-
-    private static ModelAndView errorScreen(String reason) {
-        return new ModelAndView("oauth/error").addObject("reason", reason);
     }
 }

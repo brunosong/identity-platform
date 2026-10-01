@@ -6,7 +6,6 @@ import com.brunosong.identityplatform.auth.service.domain.identity.Authenticatio
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.domain.shared.RegistrationMethod;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
-import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -43,15 +42,8 @@ public class SignUpController {
     @GetMapping("/realms/{realm}/register")
     public ModelAndView screen(@PathVariable String realm,
                                @RequestParam(name = "client_id", required = false) String clientId,
-                               @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                               HttpServletResponse response) {
-        Realm resolved;
-        try {
-            resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
-        } catch (NotFoundException e) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return errorScreen(e.getMessage());
-        }
+                               @RequestParam(name = "redirect_uri", required = false) String redirectUri) {
+        Realm resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
         return signUpScreen(resolved, clientId, redirectUri);
     }
 
@@ -64,13 +56,7 @@ public class SignUpController {
                                  @RequestParam(required = false) String name,
                                  @RequestParam(required = false) String phoneNumber,
                                  HttpServletResponse response) {
-        Realm resolved;
-        try {
-            resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
-        } catch (NotFoundException e) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return errorScreen(e.getMessage());
-        }
+        Realm resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
 
         try {
             registrationSteps.sendCode(resolved, email, name);
@@ -94,13 +80,7 @@ public class SignUpController {
                                  @RequestParam(required = false) String code,
                                  @RequestParam(required = false) String password,
                                  HttpServletResponse response) {
-        Realm resolved;
-        try {
-            resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
-        } catch (NotFoundException e) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return errorScreen(e.getMessage());
-        }
+        Realm resolved = authenticationRealm.requireSelfRegistration(realm, RegistrationMethod.EMAIL_OTP);
 
         AuthenticatedSubject registered;
         try {
@@ -138,9 +118,5 @@ public class SignUpController {
                 .addObject("name", name)
                 .addObject("phoneNumber", phoneNumber)
                 .addObject("error", error);
-    }
-
-    private static ModelAndView errorScreen(String reason) {
-        return new ModelAndView("oauth/error").addObject("reason", reason);
     }
 }

@@ -5,14 +5,11 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RequestEmailOtpUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.EmailOtpAuthCommand;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
-import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidAuthorizationRequestException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
-import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
-import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -43,33 +40,12 @@ public class OtpLoginController {
      */
     @PostMapping("/realms/{realm}/auth/send-code")
     public ModelAndView sendCode(@PathVariable String realm,
-                                 @RequestParam(name = "client_id", required = false) String clientId,
-                                 @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                                 @RequestParam(required = false) String scope,
-                                 @RequestParam(required = false) String state,
-                                 @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-                                 @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-                                 @RequestParam(required = false) String nonce,
-                                 @RequestParam(required = false) String email,
-                                 HttpServletResponse response) {
-        Realm resolved;
-        AuthorizationRequest request;
-        try {
-            // 경로에 적힌 realm 을 확인한다. 모르는 realm 이면 여기서 끝난다.
-            resolved = authenticationRealm.of(realm);
-
-            // 이 인가 요청을 받아들일 수 있는지 다시 본다. 등록된 앱인가, 등록된 주소인가,
-            // PKCE 가 붙었는가. 화면의 hidden 값으로 온 값들이라 브라우저에서 고칠 수 있다.
-
-            request = startAuthorization.start(new AuthorizationRequestCommand(
-                    resolved, "code", clientId, redirectUri, scope, state,
-                    codeChallenge, codeChallengeMethod, nonce));
-
-        } catch (NotFoundException | InvalidAuthorizationRequestException | IllegalArgumentException e) {
-            // 돌아갈 주소를 믿을 수 없는 상태다. 적혀 온 주소로 보내지 않고 우리 화면에서 끝낸다.
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return new ModelAndView("oauth/error").addObject("reason", e.getMessage());
-        }
+                                 AuthorizationParams params,
+                                 @RequestParam(required = false) String email) {
+        // 이 인가 요청을 받아들일 수 있는지 다시 본다. 등록된 앱인가, 등록된 주소인가, PKCE 가 붙었는가.
+        // 화면의 hidden 값으로 온 값들이라 브라우저에서 고칠 수 있다. 받아줄 수 없으면 AuthorizationErrorScreen 이 끝낸다.
+        Realm resolved = authenticationRealm.of(realm);
+        AuthorizationRequest request = startAuthorization.start(params.toCommand(resolved));
 
         // 인증번호를 보낸다. 보낼지 말지는 유스케이스가 판단한다 - 등록되지 않은 주소나
         // 재발송 쿨다운이면 그 안에서 조용히 넘어간다. 여기서 잡아 가르지 않는다.
@@ -87,31 +63,13 @@ public class OtpLoginController {
      */
     @PostMapping("/realms/{realm}/auth/login/otp")
     public ModelAndView login(@PathVariable String realm,
-                              @RequestParam(name = "client_id", required = false) String clientId,
-                              @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                              @RequestParam(required = false) String scope,
-                              @RequestParam(required = false) String state,
-                              @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-                              @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-                              @RequestParam(required = false) String nonce,
+                              AuthorizationParams params,
                               @RequestParam(required = false) String email,
                               @RequestParam(required = false) String code,
                               HttpServletRequest httpRequest, HttpServletResponse response) {
-        Realm resolved;
-        AuthorizationRequest request;
-        try {
-            // 경로에 적힌 realm 을 확인한다. 모르는 realm 이면 여기서 끝난다.
-            resolved = authenticationRealm.of(realm);
-
-            // 이 인가 요청을 받아들일 수 있는지 다시 본다. hidden 으로 온 값이라 고칠 수 있다.
-            request = startAuthorization.start(new AuthorizationRequestCommand(
-                    resolved, "code", clientId, redirectUri, scope, state,
-                    codeChallenge, codeChallengeMethod, nonce));
-        } catch (NotFoundException | InvalidAuthorizationRequestException | IllegalArgumentException e) {
-            // 돌아갈 주소를 믿을 수 없는 상태다. 적혀 온 주소로 보내지 않고 우리 화면에서 끝낸다.
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return new ModelAndView("oauth/error").addObject("reason", e.getMessage());
-        }
+        // 이 인가 요청을 받아들일 수 있는지 다시 본다. hidden 으로 온 값이라 고칠 수 있다.
+        Realm resolved = authenticationRealm.of(realm);
+        AuthorizationRequest request = startAuthorization.start(params.toCommand(resolved));
 
         AuthenticatedSubject subject;
         try {

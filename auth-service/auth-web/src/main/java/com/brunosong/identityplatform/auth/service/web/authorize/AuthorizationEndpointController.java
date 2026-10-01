@@ -1,16 +1,13 @@
 package com.brunosong.identityplatform.auth.service.web.authorize;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.FindLoginSessionUseCase;
-import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidAuthorizationRequestException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
-import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.brunosong.identityplatform.auth.service.web.support.LoginSessionCookie;
-import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -71,40 +68,21 @@ public class AuthorizationEndpointController {
 
     @GetMapping("/realms/{realm}/auth")
     public ModelAndView authorize(@PathVariable String realm,
-                            @RequestParam(name = "response_type", required = false) String responseType,
-                            @RequestParam(name = "client_id", required = false) String clientId,
-                            @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                            @RequestParam(required = false) String scope,
-                            @RequestParam(required = false) String state,
-                            @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-                            @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-                            @RequestParam(required = false) String nonce,
-                            @RequestParam(required = false) String prompt,
-                            @CookieValue(name = LoginSessionCookie.NAME, required = false) String sessionId,
-                            HttpServletResponse response) {
-        AuthorizationRequest request;
-        Realm resolved;
-        try {
-            requireSupportedPrompt(prompt);
-            resolved = authenticationRealm.of(realm);
-            request = startAuthorization.start(new AuthorizationRequestCommand(
-                    resolved, responseType, clientId, redirectUri, scope, state,
-                    codeChallenge, codeChallengeMethod, nonce));
-        } catch (NotFoundException e) {
-            // 그런 realm 이 없다. 화면은 같고 상태만 다르다 - 사람은 사유를 읽고, 기계는 코드를 읽는다.
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            return errorScreen(e.getMessage());
-        } catch (InvalidAuthorizationRequestException | IllegalArgumentException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return errorScreen(e.getMessage());
-        }
+                                  @RequestParam(name = "response_type", required = false) String responseType,
+                                  AuthorizationParams params,
+                                  @RequestParam(required = false) String prompt,
+                                  @CookieValue(name = LoginSessionCookie.NAME, required = false) String sessionId) {
+        // 받아줄 수 없는 요청은 여기서 예외로 끝나고 AuthorizationErrorScreen 이 화면을 그린다.
+        // 모르는 realm 이면 404, 앱이나 주소가 틀렸으면 400 이다.
+        requireSupportedPrompt(prompt);
+        Realm resolved = authenticationRealm.of(realm);
+        AuthorizationRequest request = startAuthorization.start(params.toCommand(resolved, responseType));
 
         // 가입해 달라는 요청이면 세션과 상관없이 가입 화면이다. 로그인해 있는 사람이 새 계정을
         // 만들려는 것일 수 있다. 요청 검증은 이미 끝났다.
         if (CREATE.equals(prompt)) {
             if (!resolved.allowsSelfRegistration()) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return errorScreen("이 realm 은 셀프 가입을 지원하지 않습니다.");
+                return AuthorizationErrorScreen.of("이 realm 은 셀프 가입을 지원하지 않습니다.", HttpStatus.BAD_REQUEST);
             }
             return RegistrationController.registerScreen(resolved, request);
         }
@@ -138,9 +116,5 @@ public class AuthorizationEndpointController {
                 .addObject("realm", realm.name().toLowerCase())
                 .addObject("registrationOpen", realm.allowsSelfRegistration())
                 .addObject("request", request);
-    }
-
-    private static ModelAndView errorScreen(String reason) {
-        return new ModelAndView("oauth/error").addObject("reason", reason);
     }
 }

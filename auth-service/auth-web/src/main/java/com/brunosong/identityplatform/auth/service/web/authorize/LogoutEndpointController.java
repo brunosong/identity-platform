@@ -5,7 +5,6 @@ import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.Va
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.brunosong.identityplatform.auth.service.web.support.LoginSessionCookie;
-import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -54,13 +53,7 @@ public class LogoutEndpointController {
                                @RequestParam(required = false) String state,
                                @CookieValue(name = LoginSessionCookie.NAME, required = false) String sessionId,
                                HttpServletRequest httpRequest, HttpServletResponse response) {
-        Realm resolved;
-        try {
-            resolved = authenticationRealm.of(realm);
-        } catch (NotFoundException e) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return new ModelAndView("oauth/error").addObject("reason", e.getMessage());
-        }
+        Realm resolved = authenticationRealm.of(realm);
 
         // 먼저 끊는다. 돌아갈 주소를 따지는 일과 상관없이 로그아웃은 이뤄져야 한다.
         endLoginSession.end(sessionId);

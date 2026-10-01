@@ -5,14 +5,14 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialAuthorizationPort;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.SocialIdentityVerifierPort;
-import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidAuthorizationRequestException;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
-import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.command.AuthorizationRequestCommand;
 import com.brunosong.identityplatform.auth.service.domain.identity.AuthenticationFailedException;
 import com.brunosong.identityplatform.auth.service.domain.identity.SocialProvider;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.authorize.LoginSessionStarter;
+import com.brunosong.identityplatform.auth.service.web.authorize.AuthorizationErrorScreen;
+import com.brunosong.identityplatform.auth.service.web.authorize.AuthorizationParams;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.brunosong.identityplatform.auth.service.web.support.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -115,26 +116,13 @@ public class GoogleBrokerController {
      */
     @GetMapping("/login")
     public ModelAndView login(@PathVariable String realm,
-                              @RequestParam(name = "client_id", required = false) String clientId,
-                              @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-                              @RequestParam(required = false) String scope,
-                              @RequestParam(required = false) String state,
-                              @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-                              @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-                              @RequestParam(required = false) String nonce,
+                              AuthorizationParams params,
                               HttpServletRequest httpRequest,
                               HttpServletResponse response) {
         Realm resolved = authenticationRealm.requireRealm(realm, Realm.PORTAL);
         SocialAuthorizationPort authorization = authorization();
 
-        AuthorizationRequest request;
-        try {
-            request = startAuthorization.start(new AuthorizationRequestCommand(resolved, "code",
-                    clientId, redirectUri, scope, state, codeChallenge, codeChallengeMethod, nonce));
-        } catch (InvalidAuthorizationRequestException | IllegalArgumentException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return errorScreen(e.getMessage());
-        }
+        AuthorizationRequest request = startAuthorization.start(params.toCommand(resolved));
 
         String socialState = newState();
         boolean secure = httpRequest.isSecure();
@@ -170,8 +158,8 @@ public class GoogleBrokerController {
         response.addHeader(HttpHeaders.SET_COOKIE, expired(RESUME_COOKIE).toString());
 
         if (!startedHere(state, startedState) || resume == null) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return errorScreen("이 브라우저에서 시작한 로그인이 아닙니다. 앱에서 로그인을 다시 시작하세요.");
+            return AuthorizationErrorScreen.of("이 브라우저에서 시작한 로그인이 아닙니다. 앱에서 로그인을 다시 시작하세요.",
+                    HttpStatus.BAD_REQUEST);
         }
         String authorizeUrl = authorizeUrl(realm, decode(resume));
 
@@ -185,8 +173,7 @@ public class GoogleBrokerController {
             subject = establishSocialAuthentication.withSocial(
                     new SocialAuthCommand(resolved, SocialProvider.GOOGLE, code));
         } catch (AuthenticationFailedException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return errorScreen(e.getMessage());
+            return AuthorizationErrorScreen.of(e.getMessage(), HttpStatus.UNAUTHORIZED);
         }
 
         loginSessionStarter.start(subject, httpRequest, response);
@@ -224,10 +211,6 @@ public class GoogleBrokerController {
 
     private static ModelAndView redirect(String url) {
         return new ModelAndView(new RedirectView(url));
-    }
-
-    private static ModelAndView errorScreen(String reason) {
-        return new ModelAndView("oauth/error").addObject("reason", reason);
     }
 
     private static String newState() {
