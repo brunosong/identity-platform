@@ -83,9 +83,9 @@ public class RegisterWithPasswordService implements RegisterWithPasswordUseCase 
         // auth 가 채번해서 "생겼다"만 알린다 — 누가 받아 프로필을 만드는지는 모른다.
         Principal principal = createPrincipal(command);
 
+        String passwordHash = passwordEncoder.encode(command.password());
         passwordAccountRepository.save(PasswordAccount.create(
-                principal.getPrincipalId(), command.realm(), command.loginId(),
-                passwordEncoder.encode(command.password())));
+                principal.getPrincipalId(), command.realm(), command.loginId(), passwordHash));
 
         // 인가 역할(authz)은 등록 이벤트를 받은 realm 별 리스너가 authz_subject_role 에 부여한다.
         // 신원(Principal)은 역할을 소유하지 않는다.

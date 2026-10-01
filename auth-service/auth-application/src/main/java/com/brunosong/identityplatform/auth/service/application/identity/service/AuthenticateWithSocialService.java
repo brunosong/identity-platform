@@ -80,13 +80,18 @@ public class AuthenticateWithSocialService implements EstablishSocialAuthenticat
         }
         VerifiedSocialIdentity id = verifier.verify(command.provider(), command.authorizationCode());
 
-        // 이미 연결된 소셜이면 그 Principal, 아니면 verified email 로 주체 resolve 후 링크/생성
-        return socialAccountRepository
-                .findByProvider(command.realm(), command.provider(), id.providerUid())
-                .map(sa -> principalRepository.findById(sa.getPrincipalId())
-                        .orElseThrow(() -> new IllegalStateException(
-                                "Principal not found for socialAccount=" + sa.getSocialAccountId())))
-                .orElseGet(() -> linkOrCreate(command.realm(), command.provider(), id));
+        // 처음 들어온 소셜 계정이면 확인된 이메일로 기존 신원에 잇거나 새로 만든다.
+        Optional<SocialAccount> linked =
+                socialAccountRepository.findByProvider(command.realm(), command.provider(), id.providerUid());
+        if (linked.isEmpty()) {
+            return linkOrCreate(command.realm(), command.provider(), id);
+        }
+
+        // 이미 연결된 소셜 계정이면 그 신원이다. 신원이 없다면 데이터가 깨진 것이다.
+        SocialAccount account = linked.get();
+        return principalRepository.findById(account.getPrincipalId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Principal not found for socialAccount=" + account.getSocialAccountId()));
     }
 
     /**
@@ -126,24 +131,27 @@ public class AuthenticateWithSocialService implements EstablishSocialAuthenticat
                     "이 이메일은 다른 방법으로 가입돼 있습니다. 기존 방법으로 로그인한 뒤 소셜 계정을 연결해주세요.");
         }
 
+        // 같은 이메일의 신원이 있으면 거기에 잇고, 없으면 새로 만든다.
         Principal principal = existing
                 .flatMap(account -> principalRepository.findById(account.getPrincipalId()))
-                .orElseGet(() -> {
-                    SubjectId subjectId = SubjectId.generate();
-                    subjectRegisteredEventPublisher.publish(new SubjectRegisteredEvent(
-                            subjectId.value(), realm, id.email(), id.name(), null));
-                    Principal created = principalRepository.save(Principal.create(subjectId, realm));
-                    principalProfileRepository.save(PrincipalProfile.create(
-                            created.getPrincipalId(), displayName(id), null));
-                    // provider 가 소유를 검증한 주소만 여기까지 온다(위 guard).
-                    emailAccountRepository.save(EmailAccount.verified(
-                            created.getPrincipalId(), realm, id.email()));
-                    return created;
-                });
+                .orElseGet(() -> createPrincipal(realm, id));
 
         socialAccountRepository.save(SocialAccount.create(
                 principal.getPrincipalId(), realm, provider, id.providerUid()));
         return principal;
+    }
+
+    /** 신규 신원: subjectId 채번, 등록 알림, 신원과 프로필과 이메일 계정 저장. */
+    private Principal createPrincipal(Realm realm, VerifiedSocialIdentity id) {
+        SubjectId subjectId = SubjectId.generate();
+        subjectRegisteredEventPublisher.publish(new SubjectRegisteredEvent(
+                subjectId.value(), realm, id.email(), id.name(), null));
+
+        Principal created = principalRepository.save(Principal.create(subjectId, realm));
+        principalProfileRepository.save(PrincipalProfile.create(created.getPrincipalId(), displayName(id), null));
+        // provider 가 소유를 검증한 주소만 여기까지 온다(linkOrCreate 의 guard).
+        emailAccountRepository.save(EmailAccount.verified(created.getPrincipalId(), realm, id.email()));
+        return created;
     }
 
     /**

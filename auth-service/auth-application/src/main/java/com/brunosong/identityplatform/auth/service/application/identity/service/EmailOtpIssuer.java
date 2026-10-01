@@ -61,10 +61,11 @@ public class EmailOtpIssuer {
         boolean local = environment.acceptsProfiles(Profiles.of("local"));
         String rawCode = local ? LOCAL_FIXED_CODE : String.format("%06d", secureRandom.nextInt(1_000_000));
 
-        Instant now = Instant.now();
         // 코드 원문은 저장하지 않는다. DB 가 새도 유효한 인증번호가 함께 새지는 않는다.
-        otpStore.save(EmailOtpChallenge.issue(
-                email, passwordEncoder.encode(rawCode), now, now.plus(Duration.ofMinutes(OTP_TTL_MINUTES))));
+        String codeHash = passwordEncoder.encode(rawCode);
+        Instant now = Instant.now();
+        Instant expiresAt = now.plus(Duration.ofMinutes(OTP_TTL_MINUTES));
+        otpStore.save(EmailOtpChallenge.issue(email, codeHash, now, expiresAt));
 
         if (local) {
             log.info("[local] OTP 메일 발송 생략 — 고정코드({}) 사용: email={}", LOCAL_FIXED_CODE, email);

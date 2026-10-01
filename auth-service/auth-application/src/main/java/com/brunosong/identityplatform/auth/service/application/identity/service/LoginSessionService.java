@@ -7,6 +7,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.LoginSessionRepository;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.PrincipalRepository;
 import com.brunosong.identityplatform.auth.service.domain.identity.LoginSession;
+import com.brunosong.identityplatform.auth.service.domain.identity.Principal;
 import com.brunosong.identityplatform.auth.service.domain.identity.valueobject.PrincipalId;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
@@ -71,11 +72,23 @@ public class LoginSessionService implements StartLoginSessionUseCase, FindLoginS
             return Optional.empty();
         }
 
-        return sessionRepository.findById(sessionId)
-                .filter(session -> session.getRealm() == realm)
-                .filter(session -> !session.isExpired(Instant.now()))
-                .flatMap(session -> principalRepository.findById(session.getPrincipalId()))
-                .map(principal -> new AuthenticatedSubject(principal.getPrincipalId(),
-                        principal.getSubjectId().value(), principal.getRealm()));
+        Optional<LoginSession> found = sessionRepository.findById(sessionId);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+
+        // 다른 realm 의 세션이거나 끝난 세션이면 로그인하지 않은 것과 같다.
+        LoginSession session = found.get();
+        if (session.getRealm() != realm || session.isExpired(Instant.now())) {
+            return Optional.empty();
+        }
+
+        // 세션이 살아 있는 동안 신원이 지워졌다면 여기서 걸린다.
+        Optional<Principal> principal = principalRepository.findById(session.getPrincipalId());
+        if (principal.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new AuthenticatedSubject(principal.get().getPrincipalId(),
+                principal.get().getSubjectId().value(), principal.get().getRealm()));
     }
 }

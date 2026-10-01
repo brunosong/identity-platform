@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -32,17 +34,19 @@ public class RbacTokenIssuerConfiguration {
     @Bean
     public RealmSigningKeys realmSigningKeys(TokenProperties properties) {
         Map<Realm, RealmSigningKeys.RealmKey> keys = new EnumMap<>(Realm.class);
-        properties.getRealms().forEach((realm, config) -> {
+        for (Map.Entry<Realm, TokenProperties.RealmKeyProperties> entry : properties.getRealms().entrySet()) {
+            Realm realm = entry.getKey();
+            TokenProperties.RealmKeyProperties config = entry.getValue();
             if (config.getPrivateKey() == null || config.getPublicKey() == null) {
                 throw new IllegalStateException(
                         "realm 키 설정이 불완전합니다(privateKey/publicKey): token.realms." + realm);
             }
+
             String kid = config.getKid() == null ? realm.name().toLowerCase() : config.getKid();
-            keys.put(realm, new RealmSigningKeys.RealmKey(
-                    kid,
-                    RsaKeys.privateKeyFromBase64Der(config.getPrivateKey()),
-                    RsaKeys.publicKeyFromBase64Der(config.getPublicKey())));
-        });
+            PrivateKey privateKey = RsaKeys.privateKeyFromBase64Der(config.getPrivateKey());
+            PublicKey publicKey = RsaKeys.publicKeyFromBase64Der(config.getPublicKey());
+            keys.put(realm, new RealmSigningKeys.RealmKey(kid, privateKey, publicKey));
+        }
         return new RealmSigningKeys(keys);
     }
 
@@ -59,12 +63,14 @@ public class RbacTokenIssuerConfiguration {
     @Bean
     public RealmSystems realmSystems(TokenProperties properties) {
         Map<Realm, String> byRealm = new EnumMap<>(Realm.class);
-        properties.getRealms().forEach((realm, config) -> {
-            if (!StringUtils.hasText(config.getSystem())) {
+        for (Map.Entry<Realm, TokenProperties.RealmKeyProperties> entry : properties.getRealms().entrySet()) {
+            Realm realm = entry.getKey();
+            String system = entry.getValue().getSystem();
+            if (!StringUtils.hasText(system)) {
                 throw new IllegalStateException("realm 에 system 이 없습니다: token.realms." + realm + ".system");
             }
-            byRealm.put(realm, config.getSystem().trim());
-        });
+            byRealm.put(realm, system.trim());
+        }
         return new RealmSystems(byRealm);
     }
 
