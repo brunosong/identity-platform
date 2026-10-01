@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.auth.service.web.authorize;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.FindUserInfoUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.UserInfo;
+import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Optional;
 
 /**
  * userinfo, {@code GET|POST /realms/{realm}/userinfo} (OIDC Core 5.3). 앱이 들고 있는 access 토큰의 주인이
@@ -38,12 +41,23 @@ public class UserInfoEndpointController {
     /** 토큰 주인의 sub, 이름, 이메일, 전화번호를 준다. OIDC 가 정한 대로 GET 과 POST 둘 다 받는다. */
     @RequestMapping(path = "/realms/{realm}/userinfo", method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity<UserInfoResponse> userinfo(@PathVariable String realm, @AuthenticationPrincipal Jwt token) {
-        return findUserInfo.of(authenticationRealm.of(realm), token.getSubject())
-                .map(info -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(UserInfoResponse.from(info)))
-                // 서명은 맞는데 그 주체가 없다. 지워진 신원이다. 토큰을 더 쓸 수 없다는 뜻으로 401 이다.
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer error=\"invalid_token\"")
-                        .build());
+        Realm resolved = authenticationRealm.of(realm);
+        Optional<UserInfo> info = findUserInfo.of(resolved, token.getSubject());
+
+        // 서명은 맞는데 그 주체가 없다. 지워진 신원이라 이 토큰은 더 쓸 수 없다.
+        if (info.isEmpty()) {
+            return invalidToken();
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())   // 개인 정보라 캐시에 남기지 않는다
+                .body(UserInfoResponse.from(info.get()));
+    }
+
+    /** 토큰을 더 쓸 수 없다는 401. 다시 로그인하라는 뜻이다(RFC 6750). */
+    private static ResponseEntity<UserInfoResponse> invalidToken() {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer error=\"invalid_token\"")
+                .build();
     }
 
     /** userinfo 응답. 이름은 OIDC 표준 claim 그대로이고, 값이 없는 칸은 싣지 않는다. */
