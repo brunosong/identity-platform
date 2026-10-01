@@ -44,17 +44,17 @@ cd frontends/shop       && python -m http.server 5176
 
 ## 채널 — 경로가 누가 부르는지를 말한다
 
-auth-service 의 API 는 **두 채널**로 갈려 있고, 두 앱이 각각 다른 채널을 쓴다.
+auth-service 의 경로는 첫 마디가 누가 부르는지를 말한다.
 
 ```
-/api/admin/**          관리자 채널. MASTER realm 토큰과 AUTHZ_MANAGE 필요
-/api/**  (그 외)        사용자 채널 — 로그인 전 호출자가 있다
+/realms/{realm}/**               로그인 서버. 로그인 화면, 토큰, userinfo. 앱과 브라우저가 부른다
 /realms/{realm}/.well-known/**   다른 서비스가 가져가는 공개 메타데이터
+/api/admin/**                    관리자 채널. MASTER realm 토큰과 AUTHZ_MANAGE 필요
 ```
 
 | | 고객 포털 | 직원 관리자 |
 |---|---|---|
-| 쓰는 채널 | 사용자 채널만 | 사용자 채널만. 관리자 채널은 쓰지 않는다 |
+| 부르는 것 | 로그인 서버(`/realms/portal/...`), userinfo | 로그인 서버(`/realms/admin/...`). 관리자 채널은 쓰지 않는다 |
 
 관리자 채널은 auth 를 관리하는 MASTER realm 의 것이다. 직원 앱이라도 부르지 못한다. 관리 화면은 auth 의
 운영 화면(`http://localhost:8080`, MASTER `admin`/`admin`)에 있다.

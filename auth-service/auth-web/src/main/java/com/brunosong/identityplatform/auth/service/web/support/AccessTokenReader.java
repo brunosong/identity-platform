@@ -49,8 +49,8 @@ public class AccessTokenReader {
     /**
      * 그 realm 의 공개키와 발급자로 검증한다. 다른 realm 이나 다른 배포의 토큰이면 빈 값이다.
      *
-     * <p><b>{@code aud} 는 보지 않는다.</b> client 채널이 쓰는 경로이고, 그쪽은 토큰의 주인에
-     * 대한 API 라 어느 앱이 받은 토큰이든 정상이다.
+     * <p><b>{@code aud} 는 보지 않는다.</b> 토큰의 주인이 누구인지만 확인하는 자리에서 쓴다
+     * (운영 화면의 로그인 확인).
      */
     public Optional<Claims> read(Realm realm, String token) {
         return parse(realm, token);

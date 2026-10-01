@@ -369,14 +369,11 @@ class JwksVerificationIntegrationTest {
         registerCustomer(email);
         String portalToken = login(email);
 
-        Map<String, Object> mine = getWithToken("/api/auth/realms/portal/my-permissions", portalToken);
-        assertThat(mine.get("realm")).isEqualTo("PORTAL");
+        assertThat(statusWithToken("/realms/portal/userinfo", portalToken)).isEqualTo(200);
 
         // 같은 토큰을 어드민 경로에 내밀면, 그 요청은 어드민 공개키로 검증된다. 경로는 realm 을
         // 주장하는 값이 아니라 검증 키를 고르는 값이라, 잘못 적으면 통과하지 못한다.
-        Map<String, Object> spoofed = getWithToken("/api/auth/realms/admin/my-permissions", portalToken);
-        assertThat(spoofed.get("realm")).isNull();
-        assertThat((List<?>) spoofed.get("permissions")).isEmpty();
+        assertThat(statusWithToken("/realms/admin/userinfo", portalToken)).isEqualTo(401);
     }
 
     private int postJson(String path, Map<String, Object> body, String bearerToken) {
@@ -448,10 +445,10 @@ class JwksVerificationIntegrationTest {
         return request.retrieve().toBodilessEntity().getStatusCode().value();
     }
 
-    private Map<String, Object> getWithToken(String path, String bearerToken) {
-        return asMap(http.get().uri(path)
+    private int statusWithToken(String path, String bearerToken) {
+        return lenient().get().uri(path)
                 .header("Authorization", "Bearer " + bearerToken)
-                .retrieve().body(Map.class));
+                .retrieve().toBodilessEntity().getStatusCode().value();
     }
 
     private RestClient lenient() {

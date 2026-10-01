@@ -10,7 +10,6 @@ auth-service 가 받는 요청 전부. 2026-10-01 에 코드에서 뽑았다. �
 |---|---|---|---|---|
 | 로그인 서버 | `/realms/{realm}/...` | 로그인하는 사람의 브라우저, 앱 서버 | 없음, 또는 SSO 쿠키 | 화면, 리다이렉트, 토큰 JSON |
 | 공개 문서 | `/realms/{realm}/.well-known/...` | 다른 서비스 | 없음 | JSON, 캐시 허용 |
-| 사용자 API | `/api/auth/realms/{realm}/...` | 앱 | Bearer (그 realm). 없으면 빈 응답 | JSON |
 | 관리 API | `/api/admin/...` | MASTER 관리자의 도구 | Bearer (MASTER realm) + `AUTHZ_MANAGE` | JSON |
 | 운영 화면 | `/page/...`, `/` | 운영자의 브라우저 | MASTER 로그인 쿠키, local 에서만 | 화면 |
 
@@ -33,6 +32,7 @@ OAuth 2.0 과 OIDC 가 정한 자리다. 리소스 API 가 아니라 프로토�
 | GET | `/realms/{realm}/register` | 가입만 하는 입구 |
 | POST | `/realms/{realm}/register/send-code` | 가입용 인증번호 발송 |
 | POST | `/realms/{realm}/register` | 가입하고 완료 화면. 로그인은 하지 않는다 |
+| GET, POST | `/realms/{realm}/userinfo` | 토큰 주인의 `sub`, `name`, `email`, `phone_number`. 경로의 realm 키로 검증하고 받는 쪽(`aud`)은 따지지 않는다. 권한은 주지 않는다 |
 | POST | `/realms/{realm}/token` | `grant_type=authorization_code` 는 code 교환, `refresh_token` 은 재발급(회전). 그 밖은 `unsupported_grant_type` |
 | GET | `/realms/{realm}/logout` | SSO 세션을 끊고 등록된 `post_logout_redirect_uri` 로 303 |
 | GET | `/realms/portal/broker/google/login` | 구글로 보낸다. 포털에서만 연다 |
@@ -47,12 +47,6 @@ OAuth 2.0 과 OIDC 가 정한 자리다. 리소스 API 가 아니라 프로토�
 |---|---|---|
 | GET | `/realms/{realm}/.well-known/openid-configuration` | 발급자, 엔드포인트, 지원하는 값. 1시간 캐시 |
 | GET | `/realms/{realm}/.well-known/jwks.json` | 그 realm 의 공개키 하나. 합친 JWKS 는 없다. 10분 캐시 |
-
-## 사용자 API
-
-| 메서드 | 경로 | 하는 일 |
-|---|---|---|
-| GET | `/api/auth/realms/{realm}/my-permissions` | 토큰 주인의 권한 코드 목록. 화면이 메뉴를 감출 때 쓴다. 토큰이 없거나 무효면 401 이 아니라 빈 목록 |
 
 ## 관리 API
 
@@ -137,8 +131,8 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 
 ## REST 로 보면
 
-로그인 서버와 공개 문서는 OAuth, OIDC 명세를 따르는 자리라 REST 기준으로 보지 않는다. 관리 API 와
-사용자 API 를 본다.
+로그인 서버와 공개 문서는 OAuth, OIDC 명세를 따르는 자리라 REST 기준으로 보지 않는다. 관리 API 를
+본다.
 
 **지켜진 것**
 - 자원이 명사 복수형이다(`roles`, `permissions`, `subjects`). 하위 자원도 경로로 잇는다(`/roles/{id}/permissions`)
@@ -167,7 +161,6 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 | 로그인 서버, 가입, 토큰, 로그아웃 | `auth-web/.../web/authorize/` |
 | 구글 브로커 | `auth-web/.../web/broker/` |
 | 공개 문서 | `auth-web/.../web/wellknown/` |
-| 사용자 API | `auth-web/.../web/client/` |
 | 관리 API | `auth-web/.../web/admin/authorization/`, `web/admin/identity/` |
 | 운영 화면 | `auth-web/.../web/admin/console/` |
 | 관리 API 의 체인(어느 키로 검증, 어떤 권한, 401 과 403) | `auth-web/.../web/support/SecurityConfiguration.java` |

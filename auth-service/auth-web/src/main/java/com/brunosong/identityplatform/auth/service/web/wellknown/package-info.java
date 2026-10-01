@@ -1,7 +1,7 @@
 /**
  * <b>공개 메타데이터</b> — 사람이 아니라 <b>다른 서비스</b>가 부른다.
  *
- * <p>채널이 {@code admin}/{@code client} 둘뿐이 아닌 이유가 여기 있다. JWKS 와 discovery 문서를
+ * <p>채널이 {@code admin} 하나가 아닌 이유가 여기 있다. JWKS 와 discovery 문서를
  * 받아 가는 쪽은 브라우저도 운영자도 아니라 <b>토큰을 검증하려는 리소스 서버</b>다
  * (customer-service 가 그렇게 쓴다). 부르는 주체가 다르면 채널이 다르다.
  *
