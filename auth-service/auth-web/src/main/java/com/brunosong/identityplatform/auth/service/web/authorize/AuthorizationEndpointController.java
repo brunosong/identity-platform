@@ -1,6 +1,7 @@
 package com.brunosong.identityplatform.auth.service.web.authorize;
 
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.FindLoginSessionUseCase;
+import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticatedSubject;
 import com.brunosong.identityplatform.auth.service.application.oauth.ports.in.StartAuthorizationUseCase;
 import com.brunosong.identityplatform.auth.service.domain.oauth.AuthorizationRequest;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
+
+import java.util.Optional;
 
 /**
  * 인가 요청의 입구 - {@code GET /realms/{realm}/auth}.
@@ -87,15 +90,18 @@ public class AuthorizationEndpointController {
             return RegistrationScreen.withinAuthorization(resolved, request);
         }
 
-        // 이미 로그인해 있으면 묻지 않는다. 세션 확인을 요청 검증 뒤에 두는 것이 중요하다 -
+        // 이미 로그인해 있으면 묻지 않고 코드를 내준다. 세션 확인을 요청 검증 뒤에 두는 것이 중요하다.
         // 등록되지 않은 앱의 요청에 코드를 내주는 일이 없어야 한다.
-        //
-        // 세션이 없을 때 무엇을 할지만 prompt 가 정한다. 있을 때는 어느 쪽이든 코드를 내준다.
-        return findLoginSession.findActive(resolved, sessionId)
-                .map(subject -> authorizationCodeRedirect.issueAndRedirect(request, subject))
-                .orElseGet(() -> SILENT.equals(prompt)
-                        ? authorizationCodeRedirect.loginRequired(request)
-                        : loginScreen(resolved, request));
+        Optional<AuthenticatedSubject> loggedIn = findLoginSession.findActive(resolved, sessionId);
+        if (loggedIn.isPresent()) {
+            return authorizationCodeRedirect.issueAndRedirect(request, loggedIn.get());
+        }
+
+        // 세션이 없을 때 무엇을 할지만 prompt 가 정한다. 조용히 와 본 것이면 화면 대신 앱으로 돌려보낸다.
+        if (SILENT.equals(prompt)) {
+            return authorizationCodeRedirect.loginRequired(request);
+        }
+        return loginScreen(resolved, request);
     }
 
     /**
