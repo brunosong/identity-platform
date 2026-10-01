@@ -44,13 +44,12 @@ public class UserInfoEndpointController {
         Realm resolved = authenticationRealm.of(realm);
         Optional<UserInfo> info = findUserInfo.of(resolved, token.getSubject());
 
-        // 서명은 맞는데 그 주체가 없다. 지워진 신원이라 이 토큰은 더 쓸 수 없다.
-        if (info.isEmpty()) {
-            return invalidToken();
-        }
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.noStore())   // 개인 정보라 캐시에 남기지 않는다
-                .body(UserInfoResponse.from(info.get()));
+        return info
+                .map(userInfo -> ResponseEntity.ok()
+                        .cacheControl(CacheControl.noStore())   // 개인 정보라 캐시에 남기지 않는다
+                        .body(UserInfoResponse.from(userInfo)))
+                // 서명은 맞는데 그 주체가 없다. 지워진 신원이라 이 토큰은 더 쓸 수 없다.
+                .orElseGet(UserInfoEndpointController::invalidToken);
     }
 
     /** 토큰을 더 쓸 수 없다는 401. 다시 로그인하라는 뜻이다(RFC 6750). */
