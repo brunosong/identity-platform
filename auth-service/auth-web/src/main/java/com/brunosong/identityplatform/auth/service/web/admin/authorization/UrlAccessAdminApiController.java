@@ -14,7 +14,6 @@ import com.brunosong.identityplatform.auth.service.application.authorization.rea
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.PermissionUrlAccessResult;
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.UrlAccessView;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -47,75 +46,61 @@ public class UrlAccessAdminApiController {
     private final DeleteUrlAccessUseCase deleteUrlAccess;
     private final SyncPermissionUrlAccessUseCase syncPermissionUrlAccess;
     private final FindUrlAccessUseCase findUrlAccess;
-    private final RbacAdminAccess access;
 
     @GetMapping("/url-access")
-    public PageResult<UrlAccessView> page(HttpServletRequest request,
-                                          @RequestParam Realm realm,
+    public PageResult<UrlAccessView> page(@RequestParam Realm realm,
                                           @RequestParam(required = false) String keyword,
                                           @RequestParam(required = false) String category,
                                           @RequestParam(defaultValue = "1") int page,
                                           @RequestParam(defaultValue = "20") int size) {
-        access.require(request);
         return findUrlAccess.page(realm, keyword, category, PageQuery.of(page, size));
     }
 
     /** 등록된 URL 리소스 전체 — 권한↔URL 매핑 선택 화면이 쓴다. */
     @GetMapping("/registered-urls")
-    public List<UrlAccessView> registeredUrls(HttpServletRequest request, @RequestParam Realm realm) {
-        access.require(request);
+    public List<UrlAccessView> registeredUrls(@RequestParam Realm realm) {
         return findUrlAccess.of(realm);
     }
 
     @GetMapping("/url-access/{urlAccessId}")
-    public UrlAccessView detail(HttpServletRequest request, @PathVariable Long urlAccessId) {
-        access.require(request);
+    public UrlAccessView detail(@PathVariable Long urlAccessId) {
         return findUrlAccess.byId(urlAccessId)
                 .orElseThrow(() -> AuthorizationNotFoundException.urlAccess(urlAccessId));
     }
 
     @PostMapping("/url-access")
     @ResponseStatus(HttpStatus.CREATED)
-    public UrlAccessView register(HttpServletRequest request,
-                                  @RequestParam Realm realm,
+    public UrlAccessView register(@RequestParam Realm realm,
                                   @Valid @RequestBody RegisterUrlAccessRequest body) {
-        access.require(request);
         return registerUrlAccess.register(new RegisterUrlAccessCommand(realm, body.urlPattern(),
                 body.httpMethod(), body.description(), body.sortOrder() == null ? 0 : body.sortOrder()));
     }
 
     @PutMapping("/url-access/{urlAccessId}")
-    public UrlAccessView describe(HttpServletRequest request,
-                                  @PathVariable Long urlAccessId,
+    public UrlAccessView describe(@PathVariable Long urlAccessId,
                                   @Valid @RequestBody DescribeUrlAccessRequest body) {
-        access.require(request);
         return describeUrlAccess.describe(new DescribeUrlAccessCommand(urlAccessId, body.description(),
                 body.sortOrder() == null ? 0 : body.sortOrder()));
     }
 
     @DeleteMapping("/url-access/{urlAccessId}")
-    public ResponseEntity<Void> delete(HttpServletRequest request,
-                                       @RequestParam Realm realm,
+    public ResponseEntity<Void> delete(@RequestParam Realm realm,
                                        @PathVariable Long urlAccessId) {
-        access.require(request);
         deleteUrlAccess.delete(realm, urlAccessId);
         return ResponseEntity.noContent().build();
     }
 
     /** 권한 기준 역방향 — 이 권한에 매핑된 URL 리소스들. */
     @GetMapping("/permissions/{permissionId}/url-access")
-    public PermissionUrlAccessResult forPermission(HttpServletRequest request, @PathVariable Long permissionId) {
-        access.require(request);
+    public PermissionUrlAccessResult forPermission(@PathVariable Long permissionId) {
         return findUrlAccess.forPermission(permissionId);
     }
 
     /** 권한에 매핑된 URL 을 입력 목록과 맞춘다. */
     @PutMapping("/permissions/{permissionId}/url-access")
-    public ResponseEntity<Void> sync(HttpServletRequest request,
-                                     @RequestParam Realm realm,
+    public ResponseEntity<Void> sync(@RequestParam Realm realm,
                                      @PathVariable Long permissionId,
                                      @Valid @RequestBody UrlMappingRequest body) {
-        access.require(request);
         syncPermissionUrlAccess.sync(realm, permissionId, body.urls());
         return ResponseEntity.noContent().build();
     }

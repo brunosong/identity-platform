@@ -3,7 +3,6 @@ package com.brunosong.identityplatform.auth.service.web.admin.authorization;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.BumpAuthorizationRevisionUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.GetAuthorizationRevisionUseCase;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,17 +23,14 @@ public class AuthorizationRevisionApiController {
 
     private final BumpAuthorizationRevisionUseCase bumpRevision;
     private final GetAuthorizationRevisionUseCase currentRevision;
-    private final RbacAdminAccess access;
 
     @GetMapping
-    public RevisionResponse current(HttpServletRequest request, @RequestParam Realm realm) {
-        access.require(request);
+    public RevisionResponse current(@RequestParam Realm realm) {
         return new RevisionResponse(realm, currentRevision.current(realm));
     }
 
     @PostMapping("/bump")
-    public RevisionResponse bump(HttpServletRequest request, @RequestParam Realm realm) {
-        access.require(request);
+    public RevisionResponse bump(@RequestParam Realm realm) {
         bumpRevision.bump(realm);
         return new RevisionResponse(realm, currentRevision.current(realm));
     }

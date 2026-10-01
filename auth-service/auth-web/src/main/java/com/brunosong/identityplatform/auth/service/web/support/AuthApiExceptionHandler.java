@@ -50,11 +50,6 @@ public class AuthApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(e.getMessage()));
     }
 
-    @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<ApiError> onForbidden(ForbiddenException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(e.getMessage()));
-    }
-
     @ExceptionHandler(AuthorizationNotFoundException.class)
     public ResponseEntity<ApiError> onNotFound(AuthorizationNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(e.getMessage()));

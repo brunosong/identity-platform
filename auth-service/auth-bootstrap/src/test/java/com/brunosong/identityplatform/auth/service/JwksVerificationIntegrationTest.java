@@ -350,10 +350,12 @@ class JwksVerificationIntegrationTest {
     @Test
     @DisplayName("관리자 계정 생성은 대상 realm 이 경로에, 호출자 realm 이 토큰에 있다")
     void adminUserCreationSeparatesTargetFromCaller() {
-        // 대상 realm 을 먼저 본다 — 포털 계정을 대신 만드는 유스케이스는 아직 없다.
-        assertThat(postJson("/api/admin/realms/portal/users", adminUserBody(), null)).isEqualTo(404);
-        // 대상은 맞지만 호출자를 밝히지 않았다.
+        // 호출자를 먼저 본다. 토큰이 없으면 대상이 무엇이든 401 이다. 인증 안 된 쪽에 자원이 있는지 없는지
+        // 알려 주지 않는다. 시큐리티 체인이 컨트롤러보다 앞에 있어서 이 순서가 된다.
+        assertThat(postJson("/api/admin/realms/portal/users", adminUserBody(), null)).isEqualTo(401);
         assertThat(postJson("/api/admin/realms/admin/users", adminUserBody(), null)).isEqualTo(401);
+        // 호출자가 맞으면 대상을 본다. 포털 계정을 대신 만드는 유스케이스는 아직 없다.
+        assertThat(postJson("/api/admin/realms/portal/users", adminUserBody(), loginAsAdmin())).isEqualTo(404);
         // 어드민 토큰이면 통과한다.
         assertThat(postJson("/api/admin/realms/admin/users", adminUserBody(), loginAsAdmin()))
                 .isEqualTo(201);

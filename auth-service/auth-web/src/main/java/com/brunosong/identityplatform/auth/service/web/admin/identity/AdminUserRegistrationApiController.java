@@ -4,13 +4,10 @@ import com.brunosong.identityplatform.auth.service.application.authorization.por
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RegisterEmployeeAccountUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterEmployeeAccountCommand;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import com.brunosong.identityplatform.auth.service.web.support.AuthenticatedCaller;
 import com.brunosong.identityplatform.auth.service.web.support.AuthenticationRealm;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,31 +47,23 @@ public class AdminUserRegistrationApiController {
 
     private final RegisterEmployeeAccountUseCase registerEmployeeAccount;
     private final AssignSubjectRolesUseCase assignSubjectRoles;
-    private final AuthenticatedCaller caller;
     private final AuthenticationRealm authenticationRealm;
-    private final String managePermission;
 
     public AdminUserRegistrationApiController(
             RegisterEmployeeAccountUseCase registerEmployeeAccount,
             AssignSubjectRolesUseCase assignSubjectRoles,
-            AuthenticatedCaller caller,
-            AuthenticationRealm authenticationRealm,
-            @Value("${authorization.manage-permission:AUTHZ_MANAGE}") String managePermission) {
+            AuthenticationRealm authenticationRealm) {
         this.registerEmployeeAccount = registerEmployeeAccount;
         this.assignSubjectRoles = assignSubjectRoles;
-        this.caller = caller;
         this.authenticationRealm = authenticationRealm;
-        this.managePermission = managePermission;
     }
 
     @PostMapping("/users")
     @ResponseStatus(HttpStatus.CREATED)
     public RegisterUserResponse createUser(@PathVariable String realm,
-                                           HttpServletRequest request,
                                            @Valid @RequestBody AdminUserRequest body) {
         // 대상 realm 은 경로에서, 호출자 realm 은 토큰에서 — 서로 다른 값이다.
         Realm target = authenticationRealm.requireRealm(realm, Realm.ADMIN);
-        caller.requirePermission(Realm.ADMIN, request, managePermission);
 
         String essentialId = registerEmployeeAccount.register(new RegisterEmployeeAccountCommand(
                 body.employeeId(), body.name(), body.email(), body.mobile(),

@@ -50,23 +50,6 @@ public class AuthenticatedCaller {
         return read(realm, request).orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
     }
 
-    /**
-     * <b>admin 채널용.</b> 그 realm 의 토큰이 이 서비스 앞으로 발급됐고({@code aud}) 그 권한을
-     * 갖고 있으면 claims, 아니면 401/403.
-     *
-     * <p>{@link #require} 와 달리 {@code aud} 까지 본다. 여기 걸리는 API 는 auth 자신의 자원을
-     * 바꾸므로, 같은 realm 의 다른 클라이언트가 받은 토큰이 통과하면 안 된다.
-     */
-    public Claims requirePermission(Realm realm, HttpServletRequest request, String permissionCode) {
-        Claims claims = bearerToken(request)
-                .flatMap(token -> accessTokenReader.readForSelf(realm, token))
-                .orElseThrow(() -> new UnauthorizedException("로그인이 필요합니다."));
-        if (!permissionsOf(realm, claims).contains(permissionCode)) {
-            throw new ForbiddenException("이 작업에 필요한 권한이 없습니다: " + permissionCode);
-        }
-        return claims;
-    }
-
     public String subjectId(Claims claims) {
         return claims.getSubject();
     }

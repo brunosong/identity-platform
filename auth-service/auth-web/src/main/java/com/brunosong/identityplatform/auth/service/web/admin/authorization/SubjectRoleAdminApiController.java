@@ -4,7 +4,6 @@ import com.brunosong.identityplatform.auth.service.application.authorization.por
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.FindRolesUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.RoleView;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -30,22 +29,17 @@ public class SubjectRoleAdminApiController {
 
     private final AssignSubjectRolesUseCase assignSubjectRoles;
     private final FindRolesUseCase findRoles;
-    private final RbacAdminAccess access;
 
     @GetMapping("/{subjectId}/roles")
-    public List<RoleView> ofSubject(HttpServletRequest request,
-                                    @RequestParam Realm realm,
+    public List<RoleView> ofSubject(@RequestParam Realm realm,
                                     @PathVariable String subjectId) {
-        access.require(request);
         return findRoles.ofSubject(realm, subjectId);
     }
 
     /** 여러 주체의 역할을 한 번에 조회한다(목록 화면의 역할 컬럼용). */
     @PostMapping("/roles")
-    public Map<String, List<RoleView>> ofSubjects(HttpServletRequest request,
-                                                  @RequestParam Realm realm,
+    public Map<String, List<RoleView>> ofSubjects(@RequestParam Realm realm,
                                                   @Valid @RequestBody SubjectIdsRequest body) {
-        access.require(request);
         Map<String, List<RoleView>> bySubject = new LinkedHashMap<>();
         for (String subjectId : body.subjectIds()) {
             bySubject.put(subjectId, findRoles.ofSubject(realm, subjectId));
@@ -54,11 +48,9 @@ public class SubjectRoleAdminApiController {
     }
 
     @PutMapping("/{subjectId}/roles")
-    public ResponseEntity<Void> assign(HttpServletRequest request,
-                                       @RequestParam Realm realm,
+    public ResponseEntity<Void> assign(@RequestParam Realm realm,
                                        @PathVariable String subjectId,
                                        @Valid @RequestBody RoleIdsRequest body) {
-        access.require(request);
         assignSubjectRoles.assign(realm, subjectId, body.roleIds());
         return ResponseEntity.noContent().build();
     }

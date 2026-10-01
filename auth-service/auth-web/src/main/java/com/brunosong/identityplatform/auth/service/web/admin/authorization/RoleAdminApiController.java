@@ -9,7 +9,6 @@ import com.brunosong.identityplatform.auth.service.application.authorization.por
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.command.RenameRoleCommand;
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.RoleView;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -45,42 +44,33 @@ public class RoleAdminApiController {
     private final RenameRoleUseCase renameRole;
     private final DeleteRoleUseCase deleteRole;
     private final FindRolesUseCase findRoles;
-    private final RbacAdminAccess access;
 
     @GetMapping
-    public List<RoleView> list(HttpServletRequest request,
-                               @RequestParam Realm realm,
+    public List<RoleView> list(@RequestParam Realm realm,
                                @RequestParam(required = false) String keyword) {
-        access.require(request);
         return findRoles.of(realm, keyword);
     }
 
     @GetMapping("/{roleId}")
-    public RoleView detail(HttpServletRequest request, @PathVariable Long roleId) {
-        access.require(request);
+    public RoleView detail(@PathVariable Long roleId) {
         return findRoles.byId(roleId).orElseThrow(() -> AuthorizationNotFoundException.role(roleId));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public RoleView create(HttpServletRequest request,
-                           @RequestParam Realm realm,
+    public RoleView create(@RequestParam Realm realm,
                            @Valid @RequestBody CreateRoleRequest body) {
-        access.require(request);
         return createRole.create(new CreateRoleCommand(realm, body.roleCode(), body.roleName(), body.description()));
     }
 
     @PutMapping("/{roleId}")
-    public RoleView rename(HttpServletRequest request,
-                           @PathVariable Long roleId,
+    public RoleView rename(@PathVariable Long roleId,
                            @Valid @RequestBody RenameRoleRequest body) {
-        access.require(request);
         return renameRole.rename(new RenameRoleCommand(roleId, body.roleName(), body.description()));
     }
 
     @DeleteMapping("/{roleId}")
-    public ResponseEntity<Void> delete(HttpServletRequest request, @PathVariable Long roleId) {
-        access.require(request);
+    public ResponseEntity<Void> delete(@PathVariable Long roleId) {
         deleteRole.delete(roleId);
         return ResponseEntity.noContent().build();
     }

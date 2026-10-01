@@ -41,7 +41,8 @@ import java.util.Optional;
  *       audience 를 따지지 않는다.)</li>
  *   <li><b>admin 채널</b>({@code /api/admin/**}): <b>대조한다.</b> auth 자신의 자원을 바꾸는
  *       API 라 다른 소비 서비스와 똑같은 자리다. 없으면 같은 realm 의 다른 시스템이 받은
- *       토큰이 관리 API 를 통과한다.</li>
+ *       토큰이 관리 API 를 통과한다. 이 검증은 여기가 아니라 스프링 시큐리티 체인이 한다
+ *       ({@link SecurityConfiguration#adminJwtDecoder}).</li>
  * </ul>
  *
  * <h2>대조하는 값과 읽는 칸이 다르다</h2>
@@ -91,31 +92,18 @@ public class AccessTokenReader {
      * 대한 API 라 어느 앱이 받은 토큰이든 정상이다.
      */
     public Optional<Claims> read(Realm realm, String token) {
-        return parse(realm, token, null);
+        return parse(realm, token);
     }
 
-    /**
-     * 위와 같되 <b>이 서비스 앞으로 발급된 토큰인지</b>까지 본다. admin 채널이 쓴다.
-     *
-     * <p>auth 자신의 자원을 바꾸는 API 는 다른 소비 서비스와 같은 자리다. 자기 시스템이
-     * {@code aud} 에 있어야 한다.
-     */
-    public Optional<Claims> readForSelf(Realm realm, String token) {
-        return parse(realm, token, audience);
-    }
-
-    private Optional<Claims> parse(Realm realm, String token, String requiredAudience) {
+    private Optional<Claims> parse(Realm realm, String token) {
         if (token == null || token.isBlank()) {
             return Optional.empty();
         }
         try {
-            var parser = Jwts.parser()
+            return Optional.of(Jwts.parser()
                     .verifyWith(signingKeys.of(realm).publicKey())
-                    .requireIssuer(issuers.of(realm));
-            if (requiredAudience != null) {
-                parser = parser.requireAudience(requiredAudience);
-            }
-            return Optional.of(parser.build().parseSignedClaims(token).getPayload());
+                    .requireIssuer(issuers.of(realm))
+                    .build().parseSignedClaims(token).getPayload());
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }

@@ -2,9 +2,6 @@ package com.brunosong.identityplatform.auth.service.web.admin.authorization;
 
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ReloadAccessRulesUseCase;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import com.brunosong.identityplatform.auth.service.web.support.AuthenticatedCaller;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,22 +21,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AccessControlReloadApiController {
 
     private final ReloadAccessRulesUseCase reloadAccessRules;
-    private final AuthenticatedCaller caller;
-    private final String managePermission;
 
-    public AccessControlReloadApiController(
-            ReloadAccessRulesUseCase reloadAccessRules,
-            AuthenticatedCaller caller,
-            @Value("${authorization.manage-permission:AUTHZ_MANAGE}") String managePermission) {
+    public AccessControlReloadApiController(ReloadAccessRulesUseCase reloadAccessRules) {
         this.reloadAccessRules = reloadAccessRules;
-        this.caller = caller;
-        this.managePermission = managePermission;
     }
 
     @PostMapping("/reload-url-rules")
-    public ResponseEntity<Void> reloadUrlRules(HttpServletRequest request, @RequestParam Realm realm) {
+    public ResponseEntity<Void> reloadUrlRules(@RequestParam Realm realm) {
         // 호출자는 어드민이고, 파라미터의 realm 은 캐시를 비울 대상이다 — 서로 다른 realm 이다.
-        caller.requirePermission(Realm.ADMIN, request, managePermission);
         reloadAccessRules.reload(realm);
         return ResponseEntity.noContent().build();
     }

@@ -69,19 +69,6 @@
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
-        <!--
-          소비 서비스가 실제로 쓰는 검증기(NimbusJwtDecoder)로 우리 토큰을 열어본다.
-          발급기와 표준 검증이 어긋나면 여기서 걸린다 — customer-service 가 깨지기 전에.
-
-          스타터가 아니라 jose 모듈만 넣는다. 스타터를 넣으면 spring-security-web/config 가 따라와
-          이 테스트 컨텍스트(=auth-service 자신)에 시큐리티 자동설정이 켜지고, 모든 엔드포인트가
-          401 이 된다. 검증에 필요한 것은 디코더뿐이다.
-        -->
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-oauth2-jose</artifactId>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>

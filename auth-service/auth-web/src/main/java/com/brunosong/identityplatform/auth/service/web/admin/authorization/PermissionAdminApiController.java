@@ -11,7 +11,6 @@ import com.brunosong.identityplatform.auth.service.application.authorization.rea
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.PageResult;
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.PermissionView;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -45,63 +44,51 @@ public class PermissionAdminApiController {
     private final RenamePermissionUseCase renamePermission;
     private final DeletePermissionUseCase deletePermission;
     private final FindPermissionsUseCase findPermissions;
-    private final RbacAdminAccess access;
 
     @GetMapping
-    public List<PermissionView> list(HttpServletRequest request,
-                                     @RequestParam Realm realm,
+    public List<PermissionView> list(@RequestParam Realm realm,
                                      @RequestParam(required = false) String keyword) {
-        access.require(request);
         return findPermissions.of(realm, keyword);
     }
 
     @GetMapping("/page")
-    public PageResult<PermissionView> page(HttpServletRequest request,
-                                           @RequestParam Realm realm,
+    public PageResult<PermissionView> page(@RequestParam Realm realm,
                                            @RequestParam(required = false) String keyword,
                                            @RequestParam(defaultValue = "1") int page,
                                            @RequestParam(defaultValue = "20") int size) {
-        access.require(request);
         return findPermissions.page(realm, keyword, PageQuery.of(page, size));
     }
 
     @GetMapping("/{permissionId}")
-    public PermissionView detail(HttpServletRequest request, @PathVariable Long permissionId) {
-        access.require(request);
+    public PermissionView detail(@PathVariable Long permissionId) {
         return findPermissions.byId(permissionId)
                 .orElseThrow(() -> AuthorizationNotFoundException.permission(permissionId));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public PermissionView create(HttpServletRequest request,
-                                 @RequestParam Realm realm,
+    public PermissionView create(@RequestParam Realm realm,
                                  @Valid @RequestBody CreatePermissionRequest body) {
-        access.require(request);
         return createPermission.create(new CreatePermissionCommand(realm, body.permissionCode(),
                 body.permissionName(), body.category(), body.description()));
     }
 
     @PutMapping("/{permissionId}")
-    public PermissionView rename(HttpServletRequest request,
-                                 @PathVariable Long permissionId,
+    public PermissionView rename(@PathVariable Long permissionId,
                                  @Valid @RequestBody RenamePermissionRequest body) {
-        access.require(request);
         return renamePermission.rename(new RenamePermissionCommand(permissionId, body.permissionName(),
                 body.category(), body.description()));
     }
 
     @DeleteMapping("/{permissionId}")
-    public ResponseEntity<Void> delete(HttpServletRequest request, @PathVariable Long permissionId) {
-        access.require(request);
+    public ResponseEntity<Void> delete(@PathVariable Long permissionId) {
         deletePermission.delete(permissionId);
         return ResponseEntity.noContent().build();
     }
 
     /** 화면 필터용 분류 목록. */
     @GetMapping("/categories")
-    public List<String> categories(HttpServletRequest request, @RequestParam Realm realm) {
-        access.require(request);
+    public List<String> categories(@RequestParam Realm realm) {
         return findPermissions.categories(realm);
     }
 

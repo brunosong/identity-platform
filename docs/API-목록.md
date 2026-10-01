@@ -166,7 +166,8 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 | 사용자 API | `auth-web/.../web/client/` |
 | 관리 API | `auth-web/.../web/admin/authorization/`, `web/admin/identity/` |
 | 운영 화면 | `auth-web/.../web/admin/console/` |
-| 관리 API 의 오류 응답 | `auth-web/.../web/support/AuthApiExceptionHandler.java` |
+| 관리 API 의 체인(어느 키로 검증, 어떤 권한, 401 과 403) | `auth-web/.../web/support/SecurityConfiguration.java` |
+| 관리 API 의 그 밖의 오류 응답(400, 404, 409) | `auth-web/.../web/support/AuthApiExceptionHandler.java` |
 | 화면 쪽 오류 응답 | `auth-web/.../web/authorize/AuthorizationErrorScreen.java` |
 
 ## 아직 없는 것
