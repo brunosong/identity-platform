@@ -60,6 +60,13 @@ public class CorsConfiguration implements WebMvcConfigurer {
                 .allowedHeaders("Content-Type")
                 .maxAge(3600);
 
+        // userinfo. 앱이 자기 사용자 정보를 브라우저에서 직접 부른다. 토큰은 Authorization 헤더로 싣는다.
+        registry.addMapping("/realms/*/userinfo")
+                .allowedOrigins(allowedOrigins.toArray(String[]::new))
+                .allowedMethods("GET", "POST")
+                .allowedHeaders("Authorization")
+                .maxAge(3600);
+
         // JWKS 는 누구나 읽어도 되는 공개키다. 다른 서비스가 서버에서 받아가는 것이 보통이지만,
         // 브라우저에서 토큰을 직접 검증해 보는 데모 같은 것도 막을 이유가 없다.
         registry.addMapping("/realms/*/.well-known/**")

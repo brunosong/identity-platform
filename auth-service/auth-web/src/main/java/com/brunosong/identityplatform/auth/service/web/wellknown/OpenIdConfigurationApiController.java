@@ -50,8 +50,8 @@ import java.util.Map;
  *
  * <h2>ID 토큰은 신원 하나만</h2>
  * 인가 요청의 scope 에 {@code openid} 가 있으면 코드 교환 응답에 {@code id_token} 이 붙는다.
- * 담는 것은 {@code sub} 까지다. 이름이나 이메일 같은 프로필 claim 은 없고, 그래서
- * {@code scopes_supported} 도 {@code openid} 하나이며 {@code userinfo_endpoint} 도 비어 있다.
+ * 담는 것은 {@code sub} 까지다. 이름, 이메일, 전화번호는 토큰에 싣지 않고 {@code userinfo_endpoint} 에
+ * 물으면 준다. scope 로 나누지 않아서 {@code scopes_supported} 는 {@code openid} 하나다.
  * {@code max_age} 를 받지 않으므로 {@code auth_time} 도 싣지 않는다.
  *
  * <p>인증이 필요 없다. 여기 담긴 것은 모두 공개 정보다.
@@ -77,6 +77,7 @@ public class OpenIdConfigurationApiController {
         document.put("issuer", issuer);
         document.put("authorization_endpoint", issuer + "/auth");
         document.put("token_endpoint", issuer + "/token");
+        document.put("userinfo_endpoint", issuer + "/userinfo");
         document.put("end_session_endpoint", issuer + "/logout");
         document.put("jwks_uri", issuer + "/.well-known/jwks.json");
         document.put("response_types_supported", List.of("code"));
