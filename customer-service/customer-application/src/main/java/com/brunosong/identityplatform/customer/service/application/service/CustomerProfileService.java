@@ -30,12 +30,13 @@ public class CustomerProfileService implements CustomerProfileUseCase {
     @Override
     @Transactional
     public CustomerProfile save(String customerId, String name, String phoneNumber, String email) {
-        CustomerProfile profile = repository.findById(customerId)
-                .map(existing -> {
-                    existing.change(name, phoneNumber, email);
-                    return existing;
-                })
-                .orElseGet(() -> CustomerProfile.create(customerId, name, phoneNumber, email));
+        Optional<CustomerProfile> existing = repository.findById(customerId);
+        if (existing.isEmpty()) {
+            return repository.save(CustomerProfile.create(customerId, name, phoneNumber, email));
+        }
+
+        CustomerProfile profile = existing.get();
+        profile.change(name, phoneNumber, email);
         return repository.save(profile);
     }
 }
