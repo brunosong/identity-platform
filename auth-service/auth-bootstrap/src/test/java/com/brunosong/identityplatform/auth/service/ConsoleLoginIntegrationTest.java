@@ -201,6 +201,42 @@ class ConsoleLoginIntegrationTest {
         assertThat(authorize.getStatusCode().value()).isEqualTo(200);
     }
 
+    @Test
+    @DisplayName("access 쿠키가 사라졌어도 refresh 가 있으면 로그인 서버를 거치지 않고 새로 받아 화면을 연다")
+    void refreshesWhenAccessIsGone() {
+        String refresh = cookie(loggedIn(), "CONSOLE_REFRESH");
+
+        // access 쿠키는 토큰과 같이 1분 뒤 브라우저에서 사라진다. refresh 쿠키만 실린 요청이 그 상황이다.
+        ResponseEntity<Void> page = get("/page/roles", refresh);
+
+        assertThat(page.getStatusCode().value()).isEqualTo(200);
+        assertThat(setCookie(page, "CONSOLE_ACCESS")).doesNotContain("Max-Age=0");
+        // 회전이다. 낸 refresh 대신 새 것이 내려온다.
+        assertThat(cookie(page, "CONSOLE_REFRESH")).isNotEqualTo(refresh);
+        assertThat(get("/page/roles", cookie(page, "CONSOLE_ACCESS")).getStatusCode().value()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("이미 쓴 refresh 가 다시 오면 재발급하지 않고 토큰 쿠키를 지운 뒤 로그인으로 보낸다")
+    void reusedRefreshGoesToLogin() {
+        String refresh = cookie(loggedIn(), "CONSOLE_REFRESH");
+        get("/page/roles", refresh);
+
+        ResponseEntity<Void> again = get("/page/roles", refresh);
+
+        assertThat(again.getStatusCode().value()).isEqualTo(302);
+        assertThat(again.getHeaders().getLocation().getPath()).isEqualTo("/realms/master/auth");
+        assertThat(setCookie(again, "CONSOLE_ACCESS")).contains("Max-Age=0");
+        assertThat(setCookie(again, "CONSOLE_REFRESH")).contains("Max-Age=0");
+    }
+
+    /** MASTER 관리자로 로그인을 끝까지 밟고, 토큰 쿠키가 실린 콜백 응답을 돌려준다. */
+    private ResponseEntity<Void> loggedIn() {
+        ResponseEntity<Void> start = get("/page/roles", null);
+        URI callback = login(queryOf(start.getHeaders().getLocation())).getHeaders().getLocation();
+        return get(callback.getRawPath() + "?" + callback.getRawQuery(), cookie(start, "CONSOLE_LOGIN"));
+    }
+
     /** 로그인 화면의 폼이 보내는 값 그대로. 인가 요청의 값을 숨은 칸으로 들고 간다. */
     private ResponseEntity<Void> login(Map<String, String> query) {
         return http.post().uri("/realms/master/auth/login")

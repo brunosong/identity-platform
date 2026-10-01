@@ -11,9 +11,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * 요청마다 로그인을 확인한다. 셋 중 하나로 끝난다.
  *
  * <ul>
- *   <li>쿠키의 access 가 유효하면 통과</li>
+ *   <li>쿠키의 access 가 유효하거나, refresh 로 새로 받았으면 통과</li>
  *   <li>아니고 화면을 달라는 요청이면 MASTER 로그인으로 보낸다</li>
- *   <li>아니면 쿠키를 건드리지 않고 401</li>
+ *   <li>아니면 로그인 쿠키를 건드리지 않고 401</li>
  * </ul>
  *
  * <p>로그인으로 보내는 것은 화면 요청뿐이다. 브라우저는 페이지를 열면서 {@code /favicon.ico} 같은
@@ -30,7 +30,7 @@ class ConsoleLoginInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
-        if (consoleLogin.loggedIn(request)) {
+        if (consoleLogin.authenticate(request, response)) {
             return true;
         }
         if (wantsPage(request)) {
