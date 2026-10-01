@@ -27,10 +27,10 @@ import java.util.List;
  * POST /api/admin/realms/admin/users
  *                            ^^^^^
  *                            계정을 만들 realm (대상)
- *      호출자의 realm 은 경로가 아니라 토큰이 정한다 — 언제나 어드민이다.
+ *      호출자의 realm 은 경로가 아니라 토큰이 정한다. 언제나 MASTER 다.
  * </pre>
  *
- * <b>인증하는 realm 과 조작하는 realm 은 다른 값이다.</b> 어드민이 포털 계정을 만드는 것은 정상이므로
+ * <b>인증하는 realm 과 조작하는 realm 은 다른 값이다.</b> MASTER 관리자가 직원 계정을 만드는 것은 정상이므로
  * 둘을 한 값으로 묶으면 안 된다. Keycloak 의 {@code /admin/realms/{realm}/users} 도 같은 모양이다 —
  * 호출자는 보통 master realm 토큰이고, 경로의 realm 은 관리 대상이다.
  *

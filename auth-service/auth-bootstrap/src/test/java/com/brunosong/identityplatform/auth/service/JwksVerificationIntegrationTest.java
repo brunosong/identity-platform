@@ -81,6 +81,7 @@ class JwksVerificationIntegrationTest {
 
     /** 쿨다운 때문에 클래스 전체에서 한 번만 로그인한다. 컨텍스트가 같으니 토큰도 그대로 쓸 수 있다. */
     private static String cachedAdminToken;
+    private static String cachedMasterToken;
 
     private RestClient http;
     private CodeFlowLogin codeFlow;
@@ -355,9 +356,9 @@ class JwksVerificationIntegrationTest {
         assertThat(postJson("/api/admin/realms/portal/users", adminUserBody(), null)).isEqualTo(401);
         assertThat(postJson("/api/admin/realms/admin/users", adminUserBody(), null)).isEqualTo(401);
         // 호출자가 맞으면 대상을 본다. 포털 계정을 대신 만드는 유스케이스는 아직 없다.
-        assertThat(postJson("/api/admin/realms/portal/users", adminUserBody(), loginAsAdmin())).isEqualTo(404);
-        // 어드민 토큰이면 통과한다.
-        assertThat(postJson("/api/admin/realms/admin/users", adminUserBody(), loginAsAdmin()))
+        assertThat(postJson("/api/admin/realms/portal/users", adminUserBody(), loginAsMaster())).isEqualTo(404);
+        // MASTER 관리자 토큰이면 통과한다. 직원 계정도 auth 를 관리하는 MASTER 가 만든다.
+        assertThat(postJson("/api/admin/realms/admin/users", adminUserBody(), loginAsMaster()))
                 .isEqualTo(201);
     }
 
@@ -477,6 +478,14 @@ class JwksVerificationIntegrationTest {
      * ({@code RequestEmailOtpService.RESEND_COOLDOWN_SECONDS}) 짧은 간격의 두 번째 요청은 조용히
      * 무시된다. 실제 사용자에게는 이것이 올바른 동작(무차별 발송 방지)이라, 테스트 쪽이 맞춰야 한다.
      */
+    /** 관리 API 를 부르는 MASTER 관리자 토큰. auth 를 관리하는 것은 MASTER realm 이다. */
+    private String loginAsMaster() {
+        if (cachedMasterToken == null) {
+            cachedMasterToken = codeFlow.masterWithPassword("admin", "admin").accessToken();
+        }
+        return cachedMasterToken;
+    }
+
     private String loginAsAdmin() {
         if (cachedAdminToken == null) {
             cachedAdminToken = codeFlow.adminWithOtp("admin@example.com").accessToken();

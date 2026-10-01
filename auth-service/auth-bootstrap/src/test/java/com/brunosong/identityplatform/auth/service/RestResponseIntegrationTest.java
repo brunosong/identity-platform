@@ -40,8 +40,8 @@ class RestResponseIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    /** 인증번호 쿨다운 때문에 클래스 전체에서 한 번만 로그인한다. */
-    private static CodeFlowLogin.Tokens admin;
+    /** 클래스 전체에서 한 번만 로그인한다. 관리 API 를 부르는 MASTER 관리자다. */
+    private static CodeFlowLogin.Tokens master;
 
     @LocalServerPort
     private int port;
@@ -54,8 +54,8 @@ class RestResponseIntegrationTest {
                 .baseUrl("http://localhost:" + port)
                 .defaultStatusHandler(status -> true, (request, response) -> { })
                 .build();
-        if (admin == null) {
-            admin = new CodeFlowLogin(port).adminWithOtp("admin@example.com");
+        if (master == null) {
+            master = new CodeFlowLogin(port).masterWithPassword("admin", "admin");
         }
     }
 
@@ -98,7 +98,7 @@ class RestResponseIntegrationTest {
     @Test
     @DisplayName("토큰 엔드포인트의 응답은 성공이든 실패든 캐시에 남지 않는다")
     void tokenResponsesAreNotStored() {
-        ResponseEntity<String> issued = token("grant_type=refresh_token&refresh_token=" + admin.refreshToken());
+        ResponseEntity<String> issued = token("grant_type=refresh_token&refresh_token=" + master.refreshToken());
         ResponseEntity<String> rejected = token("grant_type=refresh_token&refresh_token=not-a-token");
 
         assertThat(issued.getStatusCode().value()).isEqualTo(200);
@@ -110,14 +110,14 @@ class RestResponseIntegrationTest {
 
     private ResponseEntity<String> postAsAdmin(String path, Map<String, String> body) {
         return http.post().uri(path)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + admin.accessToken())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + master.accessToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve().toEntity(String.class);
     }
 
     private ResponseEntity<String> token(String form) {
-        return http.post().uri("/realms/admin/token")
+        return http.post().uri("/realms/master/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(form)
                 .retrieve().toEntity(String.class);

@@ -28,7 +28,7 @@ public class AccessControlReloadApiController {
 
     @PostMapping("/reload-url-rules")
     public ResponseEntity<Void> reloadUrlRules(@RequestParam Realm realm) {
-        // 호출자는 어드민이고, 파라미터의 realm 은 캐시를 비울 대상이다 — 서로 다른 realm 이다.
+        // 호출자는 MASTER 관리자이고, 파라미터의 realm 은 캐시를 비울 대상이다. 서로 다른 realm 이다.
         reloadAccessRules.reload(realm);
         return ResponseEntity.noContent().build();
     }

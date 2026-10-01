@@ -11,7 +11,7 @@ auth-service 가 받는 요청 전부. 2026-10-01 에 코드에서 뽑았다. �
 | 로그인 서버 | `/realms/{realm}/...` | 로그인하는 사람의 브라우저, 앱 서버 | 없음, 또는 SSO 쿠키 | 화면, 리다이렉트, 토큰 JSON |
 | 공개 문서 | `/realms/{realm}/.well-known/...` | 다른 서비스 | 없음 | JSON, 캐시 허용 |
 | 사용자 API | `/api/auth/realms/{realm}/...` | 앱 | Bearer (그 realm). 없으면 빈 응답 | JSON |
-| 관리 API | `/api/admin/...` | 백오피스 | Bearer (ADMIN realm) + `AUTHZ_MANAGE` | JSON |
+| 관리 API | `/api/admin/...` | MASTER 관리자의 도구 | Bearer (MASTER realm) + `AUTHZ_MANAGE` | JSON |
 | 운영 화면 | `/page/...`, `/` | 운영자의 브라우저 | MASTER 로그인 쿠키, local 에서만 | 화면 |
 
 `{realm}` 은 경로에서 소문자(`master`, `admin`, `portal`), 관리 API 의 `?realm=` 에서는 대문자(`ADMIN`)다.
@@ -56,7 +56,8 @@ OAuth 2.0 과 OIDC 가 정한 자리다. 리소스 API 가 아니라 프로토�
 
 ## 관리 API
 
-모두 ADMIN realm 토큰과 `AUTHZ_MANAGE` 가 필요하다. 오류는 `{"message": "..."}` 이다.
+모두 MASTER realm 토큰과 `AUTHZ_MANAGE` 가 필요하다. auth 를 관리하는 것은 MASTER realm 의 관리자다(Keycloak 의
+Admin REST API 와 같은 자리). 직원(ADMIN)이나 고객(PORTAL) 토큰은 401 이다. 오류는 `{"message": "..."}` 이다.
 
 **역할** `/api/admin/rbac/roles`
 
@@ -175,5 +176,6 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 - **서비스의 권한을 만드는 길.** `POST /permissions` 에 서비스(`service_id`)를 적을 칸이 없다. 이
   API 로 만든 권한은 모두 어드민 콘솔 자신의 권한이 된다. 서비스의 권한은 시드로만 들어간다
 - **포털 계정을 관리자가 만드는 길.** `POST /api/admin/realms/{realm}/users` 의 대상은 admin 뿐이다
-- **MASTER 토큰으로 관리 API 부르기.** 관리 API 는 호출자를 ADMIN realm 으로 못박고 있다
+- **realm 별 관리 권한.** `AUTHZ_MANAGE` 하나로 모든 realm 을 고친다. Keycloak 처럼 "이 관리자는 포털만" 같은
+  권한(`{realm}-realm` 의 `manage-users` 등)은 아직 없다
 - **앱이 부르는 토큰 폐기(RFC 7009).** 계보를 끊는 유스케이스는 있지만 엔드포인트가 없다

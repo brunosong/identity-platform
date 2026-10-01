@@ -3,6 +3,7 @@ package com.brunosong.identityplatform.auth.service.web.support;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectPermissionsUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.token.RealmIssuers;
 import com.brunosong.identityplatform.auth.service.application.identity.token.RealmSigningKeys;
+import com.brunosong.identityplatform.auth.service.application.identity.token.RealmSystems;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -38,7 +39,7 @@ import java.util.List;
  * auth 가 받는 토큰을 어디서 어떻게 검증하나. 경로마다 필터 체인이 하나씩 있다.
  *
  * <pre>
- * 1  /api/admin/**                      관리 API. ADMIN 키로 검증하고 AUTHZ_MANAGE 가 있어야 들여보낸다
+ * 1  /api/admin/**                      관리 API. MASTER 키로 검증하고 AUTHZ_MANAGE 가 있어야 들여보낸다
  * 2  /realms/**, /api/**, /.well-known/**, /error
  *                                       공개. 로그인 서버, 토큰 발급, 공개 문서, 사용자 API 는 각자 알아서 한다
  * 3  나머지 전부 (local)                 운영 화면. MASTER 로그인 쿠키 ({@code ConsoleSecurityConfiguration})
@@ -48,8 +49,9 @@ import java.util.List;
  * <p>위에서부터 처음 맞는 체인 하나만 돈다. 그래서 2번에 넣지 않은 경로는 local 에서 모두 MASTER 로그인
  * 뒤로 들어간다.
  *
- * <p>체인이 realm 을 정한다. 관리 API 체인의 검증기는 ADMIN 공개키 하나만 안다. 그래서 포털이나 MASTER
- * 토큰은 서명에서 떨어진다. 전에는 컨트롤러 메서드마다 {@code access.require(request)} 를 불러 같은
+ * <p>체인이 realm 을 정한다. 관리 API 체인의 검증기는 MASTER 공개키 하나만 안다. 그래서 직원(ADMIN)이나
+ * 고객(PORTAL) 토큰은 서명에서 떨어진다. auth 를 관리하는 것은 MASTER realm 의 관리자다. Keycloak 의
+ * Admin REST API 를 master realm 관리자가 부르는 것과 같다. 직원 realm 은 업무 시스템을 쓰는 사람들의 자리다. 전에는 컨트롤러 메서드마다 {@code access.require(request)} 를 불러 같은
  * 일을 했고, 한 곳에서 빠뜨리면 그 API 는 인증 없이 열렸다. 지금은 경로가 체인을 고르니 빠뜨릴 수 없다.
  *
  * <p>auth 는 발급자 자신이라 공개키를 JWKS 로 받아 오지 않는다. 서명할 때 쓰는 키의 짝을 메모리에서 바로 쓴다.
@@ -64,18 +66,18 @@ public class SecurityConfiguration {
     @Bean
     @Order(1)
     SecurityFilterChain adminApi(HttpSecurity http,
-                                 JwtDecoder adminJwtDecoder,
+                                 JwtDecoder masterJwtDecoder,
                                  ListSubjectPermissionsUseCase subjectPermissions,
                                  @Value("${authorization.manage-permission:AUTHZ_MANAGE}") String managePermission,
                                  ObjectMapper objectMapper) throws Exception {
         return http.securityMatcher("/api/admin/**")
                 .authorizeHttpRequests(a -> a.anyRequest().hasAuthority(managePermission))
                 .oauth2ResourceServer(o -> o
-                        .jwt(j -> j.decoder(adminJwtDecoder)
+                        .jwt(j -> j.decoder(masterJwtDecoder)
                                 // 토큰에는 권한이 없다. 그 사람의 권한을 DB 에서 읽어 authorities 로 채운다.
                                 // 권한을 회수하면 다음 요청부터 바로 막힌다.
                                 .jwtAuthenticationConverter(jwt -> new JwtAuthenticationToken(jwt,
-                                        subjectPermissions.of(Realm.ADMIN, jwt.getSubject()).stream()
+                                        subjectPermissions.of(Realm.MASTER, jwt.getSubject()).stream()
                                                 .map(SimpleGrantedAuthority::new).toList(),
                                         jwt.getSubject())))
                         .authenticationEntryPoint((request, response, e) -> {
@@ -127,21 +129,21 @@ public class SecurityConfiguration {
     }
 
     /**
-     * 관리 API 가 받는 토큰. ADMIN 공개키로 서명을, 그리고 발급자, 만료, 받는 쪽({@code aud}), 종류를 본다.
+     * 관리 API 가 받는 토큰. MASTER 공개키로 서명을, 그리고 발급자, 만료, 받는 쪽({@code aud}), 종류를 본다.
      *
-     * <p>{@code aud} 는 이 서비스가 속한 시스템(backoffice)이다. 같은 ADMIN realm 이라도 다른 시스템 앞으로
-     * 나간 토큰은 받지 않는다. {@code type} 은 refresh 를 access 자리에 넣는 것을 막는다. 둘 다 같은 키로
-     * 서명돼 있어 서명만 보면 통과한다.
+     * <p>{@code aud} 는 MASTER realm 의 시스템(auth-console, {@code token.realms.MASTER.system})이다.
+     * {@code type} 은 refresh 를 access 자리에 넣는 것을 막는다. 둘 다 같은 키로 서명돼 있어 서명만 보면
+     * 통과한다.
      */
     @Bean
-    JwtDecoder adminJwtDecoder(RealmSigningKeys signingKeys, RealmIssuers issuers,
-                               @Value("${auth.audience:backoffice}") String audience) {
+    JwtDecoder masterJwtDecoder(RealmSigningKeys signingKeys, RealmIssuers issuers, RealmSystems systems) {
+        String audience = systems.of(Realm.MASTER);
         NimbusJwtDecoder decoder = NimbusJwtDecoder
-                .withPublicKey((RSAPublicKey) signingKeys.of(Realm.ADMIN).publicKey())
+                .withPublicKey((RSAPublicKey) signingKeys.of(Realm.MASTER).publicKey())
                 .signatureAlgorithm(SignatureAlgorithm.RS256)
                 .build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(issuers.of(Realm.ADMIN)),
+                JwtValidators.createDefaultWithIssuer(issuers.of(Realm.MASTER)),
                 new JwtClaimValidator<List<String>>(JwtClaimNames.AUD, aud -> aud != null && aud.contains(audience)),
                 new JwtClaimValidator<String>("type", "access"::equals)));
         return decoder;

@@ -25,6 +25,8 @@ final class CodeFlowLogin {
     /** V9002 시드의 앱들. */
     private static final App PORTAL = new App("portal", "portal-17kqqi85h2ks", "http://localhost:5173/login/callback");
     private static final App ADMIN = new App("admin", "admin-ln4efwmg0tee", "http://localhost:5174/login/callback");
+    /** V9003 시드의 운영 화면 앱. 관리 API 를 부르는 MASTER 토큰이 여기서 나온다. */
+    private static final App MASTER = new App("master", "auth-console", "http://localhost:8080/page/login/callback");
 
     private final RestClient http;
 
@@ -40,6 +42,13 @@ final class CodeFlowLogin {
         ResponseEntity<Void> response = form("/realms/portal/auth/login", PORTAL,
                 "&loginId=" + encode(loginId) + "&password=" + encode(password));
         return exchange(PORTAL, codeFrom(response));
+    }
+
+    /** MASTER 관리자로 비밀번호 로그인한다. 시드의 관리자는 admin / admin 이다. */
+    Tokens masterWithPassword(String loginId, String password) {
+        ResponseEntity<Void> response = form("/realms/master/auth/login", MASTER,
+                "&loginId=" + encode(loginId) + "&password=" + encode(password));
+        return exchange(MASTER, codeFrom(response));
     }
 
     /**

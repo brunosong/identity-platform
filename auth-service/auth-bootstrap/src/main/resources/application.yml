@@ -24,16 +24,6 @@ server:
       # 그러면 관리자 세션 id 가 주소창과 로그, Referer 로 샌다.
       tracking-modes: cookie
 
-# 이 서비스가 자기 관리 API 에서 요구하는 대상(aud). auth 도 자기 API 에 대해서는
-# 리소스 서버라, 자기 시스템으로 발급된 토큰만 받아야 한다.
-#
-# aud 는 시스템이므로 auth-service 가 아니라 backoffice 다. token.realms.ADMIN.system 과 짝이다.
-# auth 자신이 그 시스템의 서비스 하나이고, 서비스 이름(auth-service)은 권한 조회에만 쓴다.
-auth:
-  audience: ${AUTH_AUDIENCE:backoffice}
-  # resource_access 에서 auth 자신의 칸 이름. authz_service.service_id 와 같아야 한다.
-  service-id: ${AUTH_SERVICE_ID:auth-service}
-
 authorization:
   # RBAC 편집·캐시 리로드 같은 운영 API 를 부르는 데 필요한 권한 코드.
   manage-permission: AUTHZ_MANAGE
