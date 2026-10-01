@@ -22,7 +22,7 @@ import java.util.List;
  * 등록된 앱을 보고 새로 등록하는 운영 화면. 서버가 직접 그린다.
  *
  * <h2>아직 로컬에서만 뜬다</h2>
- * 화면은 MASTER 로 로그인해야 열린다({@link ConsoleLogin}). 하지만 아직 권한은 보지 않는다.
+ * 화면은 MASTER 로 로그인해야 열린다({@link com.brunosong.identityplatform.auth.service.web.admin.console.login.ConsoleLogin}). 하지만 아직 권한은 보지 않는다.
  * MASTER 에 계정만 있으면 누구든 들어온다. 그래서 {@code local} 프로파일에서만 등록된다. 다른
  * 환경에서는 이 경로 자체가 존재하지 않는다.
  *

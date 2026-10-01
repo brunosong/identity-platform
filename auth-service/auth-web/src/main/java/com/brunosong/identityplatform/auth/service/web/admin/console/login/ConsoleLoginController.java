@@ -1,4 +1,4 @@
-package com.brunosong.identityplatform.auth.service.web.admin.console;
+package com.brunosong.identityplatform.auth.service.web.admin.console.login;
 
 import com.brunosong.identityplatform.auth.service.application.oauth.exception.InvalidGrantException;
 import jakarta.servlet.http.HttpServletRequest;
