@@ -1,18 +1,17 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth, MANAGE_PERMISSION } from '../auth/AuthContext';
-import { jwks, myPermissions } from '../api/auth';
+import { useAuth } from '../auth/AuthContext';
+import { jwks } from '../api/auth';
 import TokenInspector from '../components/TokenInspector';
 import Notice from '../components/Notice';
 
 /**
  * 대시보드 - 로그인한 뒤 처음 보는 화면.
  *
- * 위쪽은 운영자가 한눈에 볼 것(누구로 로그인했나, 무엇을 할 수 있나, 언제까지 유효한가),
- * 아래쪽은 그 값들이 어디서 왔는지 직접 열어보는 자리다.
+ * 위쪽은 한눈에 볼 것(누구로 로그인했나, 언제까지 유효한가), 아래쪽은 그 값들이 어디서 왔는지
+ * 직접 열어보는 자리다.
  */
 export default function HomePage() {
-    const { tokens, claims, permissions, canManage, refresh } = useAuth();
+    const { tokens, claims, refresh } = useAuth();
 
     const [keys, setKeys] = useState(null);
     const [notice, setNotice] = useState(null);
@@ -36,23 +35,6 @@ export default function HomePage() {
             : { kind: 'err', text: result.message ?? `재발급 실패 (${result.status})` });
     }
 
-    async function onLoadPermissions() {
-        setBusy(true);
-        const result = await myPermissions(tokens.accessToken);
-        setBusy(false);
-
-        if (!result.ok) {
-            setNotice({ kind: 'err', text: `권한 조회 실패 (${result.status})` });
-            return;
-        }
-        setNotice({
-            kind: 'ok',
-            text: `realm ${result.data.realm ?? '(없음)'} · `
-                + `${result.data.permissions.join(', ') || '권한 없음'} — `
-                + '이 값은 서버가 토큰을 열어 읽어준 것입니다.',
-        });
-    }
-
     async function onLoadJwks() {
         setBusy(true);
         const result = await jwks();
@@ -74,7 +56,7 @@ export default function HomePage() {
     return (
         <div className="page">
             <h1>대시보드</h1>
-            <p className="lead">직원 계정과 인가 정책을 관리합니다.</p>
+            <p className="lead">직원이 업무를 보는 앱입니다.</p>
 
             <Notice kind={notice?.kind}>{notice?.text}</Notice>
 
@@ -88,10 +70,6 @@ export default function HomePage() {
                     <div className="tile-value">ADMIN</div>
                 </div>
                 <div className="tile">
-                    <div className="tile-label">관리 권한</div>
-                    <div className="tile-value">{canManage ? '있음' : '없음'}</div>
-                </div>
-                <div className="tile">
                     <div className="tile-label">토큰 만료</div>
                     <div className="tile-value small">
                         {expiresAt ? expiresAt.toLocaleTimeString() : '-'}
@@ -99,44 +77,13 @@ export default function HomePage() {
                 </div>
             </div>
 
-            {canManage ? (
-                <div className="card">
-                    <h2>바로가기</h2>
-                    <div className="row" style={{ marginTop: 0 }}>
-                        <Link className="button-like" to="/users/new">직원 등록</Link>
-                        <Link className="button-like" to="/rbac">인가 정책</Link>
-                    </div>
-                </div>
-            ) : (
-                <div className="card">
-                    <h2>관리 기능이 보이지 않는 이유</h2>
-                    <p className="hint">
-                        <code>{MANAGE_PERMISSION}</code> 권한이 없습니다. 관리자가 역할을 부여한 뒤
-                        <b> 토큰 재발급</b>을 받아야 보입니다 — 권한은 토큰이 발급될 때 실리기 때문에,
-                        지금 들고 있는 토큰에는 역할 변경이 반영되지 않습니다.
-                    </p>
-                </div>
-            )}
-
             <div className="card">
-                <div className="card-head">
-                    <h2>내 권한</h2>
-                    <span className={`pill ${canManage ? 'ok' : ''}`}>
-                        {canManage ? MANAGE_PERMISSION : '관리 권한 없음'}
-                    </span>
-                </div>
-                <div>
-                    {permissions.length === 0
-                        ? <em className="hint">없음</em>
-                        : permissions.map((p) => <span className="chip" key={p}>{p}</span>)}
-                </div>
-                <p className="field-hint">
-                    토큰에는 권한이 실리지 않습니다. 이 목록은 서버에 물어 받은 값입니다 —
-                    그래서 역할이 바뀌면 다음 조회부터 바로 반영됩니다.
+                <h2>직원 등록과 역할은 어디서 하나</h2>
+                <p className="hint">
+                    auth 의 운영 화면에서 MASTER 관리자가 합니다. auth 를 관리하는 것은 MASTER realm 이고,
+                    이 앱이 쓰는 직원 realm 은 업무를 보는 사람들의 자리입니다.
                 </p>
-
                 <div className="row">
-                    <button onClick={onLoadPermissions} disabled={busy}>다시 조회</button>
                     <button onClick={onRefresh} disabled={busy}>토큰 재발급</button>
                     <button onClick={onLoadJwks} disabled={busy}>JWKS 보기</button>
                 </div>

@@ -27,10 +27,6 @@ const authUrl = () => endpoints().auth;
 
 
 
-export function myPermissions(accessToken) {
-    return request(authUrl(), 'GET', `/api/auth/realms/${REALM}/my-permissions`, { token: accessToken });
-}
-
 /**
  * 이 realm 의 공개키. 브라우저가 볼 필요는 없지만 학습용으로 띄운다.
  *

@@ -11,7 +11,7 @@ import RequestLog from './RequestLog';
  * 메뉴를 세울 이유가 없고, 세우면 눌러봐야 전부 로그인으로 튕긴다.
  */
 export default function Layout({ children }) {
-    const { isLoggedIn, canManage, claims, logout } = useAuth();
+    const { isLoggedIn, claims, logout } = useAuth();
 
     /**
      * 토큰을 버리고 auth 의 로그인 세션도 끊는다.
@@ -44,11 +44,6 @@ export default function Layout({ children }) {
 
                 <nav className="sidenav">
                     <NavLink to="/" end>대시보드</NavLink>
-
-                    {/* 권한이 없으면 메뉴를 감춘다. 편의일 뿐이고 방어는 서버가 한다. */}
-                    {canManage && <span className="group">운영</span>}
-                    {canManage && <NavLink to="/users/new">직원 등록</NavLink>}
-                    {canManage && <NavLink to="/rbac">인가 정책</NavLink>}
                 </nav>
 
                 <div className="sidebar-foot">
