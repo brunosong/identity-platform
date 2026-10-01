@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { jwks, myPermissions } from '../api/auth';
+import { jwks, userinfo } from '../api/auth';
 import { myProfile, saveMyProfile } from '../api/customer';
 import TokenInspector from '../components/TokenInspector';
 import DevPanel from '../components/DevPanel';
@@ -21,7 +21,7 @@ export default function MyPage() {
     const [profile, setProfile] = useState(null);
     const [profileMissing, setProfileMissing] = useState(false);
     const [form, setForm] = useState({ name: '', phoneNumber: '', email: '' });
-    const [permissions, setPermissions] = useState(null);
+    const [owner, setOwner] = useState(null);
     const [keys, setKeys] = useState(null);
     const [notice, setNotice] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -69,13 +69,13 @@ export default function MyPage() {
         setNotice({ kind: 'ok', text: '저장했습니다.' });
     }
 
-    async function onLoadPermissions() {
-        const result = await myPermissions(accessToken);
+    async function onLoadUserInfo() {
+        const result = await userinfo(accessToken);
         if (!result.ok) {
-            setNotice({ kind: 'err', text: `권한 조회 실패 (${result.status})` });
+            setNotice({ kind: 'err', text: `userinfo 조회 실패 (${result.status})` });
             return;
         }
-        setPermissions(result.data);
+        setOwner(result.data);
     }
 
     async function onLoadJwks() {
@@ -179,7 +179,7 @@ export default function MyPage() {
                 <h3>토큰</h3>
                 <div className="row">
                     <button onClick={onRefresh} disabled={busy}>토큰 재발급</button>
-                    <button onClick={onLoadPermissions}>권한 조회 (auth)</button>
+                    <button onClick={onLoadUserInfo}>userinfo (auth)</button>
                     <button onClick={onLoadJwks}>JWKS 보기</button>
                 </div>
 
@@ -189,21 +189,18 @@ export default function MyPage() {
 
                 <TokenInspector label="refresh 토큰" token={tokens?.refreshToken} kind="refresh" />
 
-                {permissions && (
+                {owner && (
                     <>
-                        <h3>권한 조회 결과</h3>
+                        <h3>userinfo 결과</h3>
                         <div className="kv">
-                            <span>realm</span><code>{permissions.realm}</code>
-                            <span>permissions</span>
-                            <span>
-                                {permissions.permissions.length === 0
-                                    ? <em className="hint">없음</em>
-                                    : permissions.permissions.map((p) => <code key={p} className="chip">{p}</code>)}
-                            </span>
+                            <span>sub</span><code>{owner.sub}</code>
+                            <span>name</span><span>{owner.name ?? <em className="hint">없음</em>}</span>
+                            <span>email</span><span>{owner.email ?? <em className="hint">없음</em>}</span>
+                            <span>phone_number</span><span>{owner.phone_number ?? <em className="hint">없음</em>}</span>
                         </div>
                         <p className="field-hint">
-                            이 API 는 토큰을 읽어 돌려줄 뿐이라 <b>새로 조회하는 게 아닙니다.</b>
-                            방금 권한이 바뀌었어도 여기엔 안 나옵니다. 반영하려면 재발급을 받아야 합니다.
+                            auth 가 아는 신원 정보입니다(OIDC userinfo). 위의 프로필은 customer-service 가 가진 업무
+                            정보라 주인이 다릅니다. 권한은 여기 없습니다. 무엇을 할 수 있는지는 각 서비스가 판단합니다.
                         </p>
                     </>
                 )}

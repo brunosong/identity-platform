@@ -18,8 +18,14 @@ const REALM = 'portal';
 
 const authUrl = () => endpoints().auth;
 
-export function myPermissions(accessToken) {
-    return request(authUrl(), 'GET', `/api/auth/realms/${REALM}/my-permissions`, { token: accessToken });
+/**
+ * 토큰 주인이 누구인가(OIDC userinfo). sub, name, email, phone_number 를 준다. 권한은 주지 않는다.
+ *
+ * 프로필(customer-service)과 다른 것이다. 이것은 auth 가 아는 신원 정보이고, 주소나 주문 같은 업무 정보는
+ * 그 서비스에 묻는다.
+ */
+export function userinfo(accessToken) {
+    return request(authUrl(), 'GET', `/realms/${REALM}/userinfo`, { token: accessToken });
 }
 
 /**
