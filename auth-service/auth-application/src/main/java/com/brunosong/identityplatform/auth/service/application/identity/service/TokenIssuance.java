@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.auth.service.application.identity.service;
 
+import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListServicePermissionsUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ListSubjectRolesUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.result.AuthenticationResult;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.out.RefreshChainRepository;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 토큰 발급 결과를 만드는 곳. 발급 자체는 {@link TokenIssuerPort} 가 한다.
@@ -39,6 +41,7 @@ class TokenIssuance {
     private final RefreshChainRepository refreshChains;
     private final TokenProperties tokenProperties;
     private final ListSubjectRolesUseCase subjectRoles;
+    private final ListServicePermissionsUseCase servicePermissions;
 
     /** 인증된 주체에게 그 realm 의 토큰을 발급해 인증 결과로 만든다. 계보가 하나 열린다. */
     AuthenticationResult resultFor(Realm realm, Principal principal) {
@@ -85,9 +88,10 @@ class TokenIssuance {
 
     private AuthenticationResult resultWith(Realm realm, Principal principal, RefreshChain chain) {
         String subjectId = principal.getSubjectId().value();
-        // 발급할 때마다 다시 읽는다. 재발급도 여기를 지나므로 바뀐 역할은 다음 access 부터 실린다.
+        // 발급할 때마다 다시 읽는다. 재발급도 여기를 지나므로 바뀐 역할과 권한은 다음 access 부터 실린다.
         List<String> roles = subjectRoles.roleCodes(realm, subjectId);
-        TokenPair tokens = tokenIssuer.issue(realm, principal, chain, roles);
+        Map<String, List<String>> permissions = servicePermissions.permissionsByService(realm, subjectId);
+        TokenPair tokens = tokenIssuer.issue(realm, principal, chain, roles, permissions);
 
         return new AuthenticationResult(
                 principal.getPrincipalId().value(),

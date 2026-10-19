@@ -282,10 +282,11 @@ final class IdentityFakes {
         }
     }
 
-    /** 계보 저장소, 토큰 수명 기본값, 역할 조회를 묶어 준다. 대부분의 테스트는 셋 다 관심 밖이다. */
+    /** 계보 저장소, 토큰 수명 기본값, 역할과 권한 조회를 묶어 준다. 대부분의 테스트는 모두 관심 밖이다. */
     static TokenIssuance tokenIssuance(TokenIssuerPort issuer) {
         return new TokenIssuance(issuer, new FakeRefreshChains(), new TokenProperties(),
-                (realm, subjectId) -> List.of("CUSTOMER"));
+                (realm, subjectId) -> List.of("CUSTOMER"),
+                (realm, subjectId) -> Map.of("order-service", List.of("ORDER_READ")));
     }
 
     /** 토큰 형식은 관심 밖이라 subjectId 를 그대로 실어 준다. */
@@ -300,15 +301,19 @@ final class IdentityFakes {
         Realm verifiedRealm;
         /** 마지막으로 access 에 실으라고 받은 역할. 발급 시점의 역할이 넘어오는지 본다. */
         List<String> issuedRoles;
+        /** 마지막으로 access 에 실으라고 받은 서비스별 권한. */
+        Map<String, List<String>> issuedPermissions;
 
         /** 마지막으로 발급을 요청받은 클라이언트 — aud 가 그 값에서 나온다. */
         /** 재발급이 refresh 토큰의 클라이언트를 그대로 쓰는지 보려고 둔다. */
 
         @Override
-        public TokenPair issue(Realm realm, Principal principal, RefreshChain chain, List<String> roles) {
+        public TokenPair issue(Realm realm, Principal principal, RefreshChain chain, List<String> roles,
+                               Map<String, List<String>> permissions) {
             this.issuedRealm = realm;
             this.issuedChain = chain;
             this.issuedRoles = roles;
+            this.issuedPermissions = permissions;
             return new TokenPair("access:" + realm + ":" + principal.getSubjectId().value(),
                     "refresh:" + principal.getSubjectId().value());
         }

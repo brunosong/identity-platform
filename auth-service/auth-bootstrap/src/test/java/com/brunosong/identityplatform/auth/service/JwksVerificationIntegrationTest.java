@@ -7,6 +7,7 @@ import com.brunosong.identityplatform.auth.service.application.identity.ports.in
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.RequestRegistrationOtpUseCase;
 import com.brunosong.identityplatform.auth.service.application.identity.ports.in.command.RegisterWithPasswordCommand;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -301,15 +302,28 @@ class JwksVerificationIntegrationTest {
     }
 
     @Test
-    @DisplayName("access 토큰은 역할을 realm_access 에 싣고, 서비스별 권한은 아직 싣지 않는다")
-    void tokenCarriesRolesOnly() {
+    @DisplayName("access 토큰은 역할을 realm_access 에, 서비스별 권한을 resource_access 에 싣는다")
+    void tokenCarriesRolesAndServicePermissions() {
         String email = "roles-" + UUID.randomUUID() + "@example.com";
         registerCustomer(email);
 
-        // 가입하면 CUSTOMER 가 붙는다. 그 역할이 토큰에 실린다.
+        // 가입하면 CUSTOMER 가 붙고, 시드가 그 역할에 포털 권한 셋을 연결해 두었다.
         Map<String, Object> claims = payloadOf(login(email));
         assertThat(claims.get("realm_access")).isEqualTo(Map.of("roles", List.of("CUSTOMER")));
-        assertThat(claims).doesNotContainKeys("resource_access", "rbacRev", "azp");
+        assertThat(claims.get("resource_access")).isEqualTo(Map.of(
+                "customer-service", Map.of("roles", List.of("PROFILE_READ")),
+                "order-service", Map.of("roles", List.of("ORDER_READ", "ORDER_WRITE"))));
+        assertThat(claims).doesNotContainKeys("rbacRev", "azp");
+    }
+
+    @Test
+    @DisplayName("어드민 토큰에는 포털 서비스의 권한이 실리지 않는다")
+    void adminTokenCarriesOnlyItsOwnServices() {
+        Map<String, Object> claims = payloadOf(loginAsAdmin());
+
+        assertThat(claims.get("resource_access"))
+                .asInstanceOf(InstanceOfAssertFactories.MAP)
+                .doesNotContainKeys("order-service", "customer-service");
     }
 
     @Test

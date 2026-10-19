@@ -16,11 +16,12 @@ import org.springframework.util.StringUtils;
 
 import java.security.PublicKey;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 표준 JWT 토큰 발급기. 신원과 역할을 담아 RS256 으로 서명한다.
+ * 표준 JWT 토큰 발급기. 신원과 역할, 서비스별 권한을 담아 RS256 으로 서명한다.
  *
  * <pre>
  * "iss":  "http://localhost:8080/realms/portal"   어느 realm 이 발급했나
@@ -28,14 +29,22 @@ import java.util.Map;
  * "sub":  "a4120a37-..."                           누구인가
  * "type": "access"
  * "realm_access": { "roles": ["CUSTOMER"] }        무슨 역할인가
+ * "resource_access": {                              서비스마다 무엇을 할 수 있나
+ *     "customer-service": { "roles": ["PROFILE_READ"] },
+ *     "order-service":    { "roles": ["ORDER_READ", "ORDER_WRITE"] } }
  * </pre>
  *
- * <h2>역할을 싣는다</h2>
- * {@code realm_access.roles} 에 그 사람의 역할 코드를 싣는다. 소비 서비스가 auth 에 묻지 않고
- * 토큰만으로 판정하게 하려는 것이다. 한때 걷어 냈던 이유는 회수가 늦다는 것이었는데, access 수명이
- * 짧고(1분) 재발급 때마다 역할을 다시 읽으므로 늦어도 그 수명만큼이다.
+ * <h2>역할과 권한을 싣는다</h2>
+ * {@code realm_access.roles} 에 그 사람의 역할 코드를, {@code resource_access.<service>.roles} 에 그
+ * 역할들이 주는 권한을 서비스별로 싣는다. Keycloak 의 realm role 과 client role 자리다. 소비 서비스가
+ * auth 에 묻지 않고 토큰만으로 판정하게 하려는 것이다. 한때 걷어 냈던 이유는 회수가 늦다는 것이었는데,
+ * access 수명이 짧고(1분) 재발급 때마다 다시 읽으므로 늦어도 그 수명만큼이다.
  *
- * <p>서비스별 권한({@code resource_access})은 아직 싣지 않는다.
+ * <p>서비스는 자기 칸만 읽는다. {@code resource_access} 안의 이름이 {@code roles} 인 것은 Keycloak 을
+ * 따른 것이고, 내용물은 권한 코드다.
+ *
+ * <p>같은 시스템 아래 서비스가 늘면 이 칸이 함께 커진다. 그 한계와 대안은
+ * {@code docs/MSA-인가-방식.md} 에 있다.
  *
  * <p><b>서명:</b> RS256(비대칭). realm 마다 다른 RSA 키페어를 쓴다({@link RealmSigningKeys}).
  * 한 프로세스가 두 realm 을 모두 담당하므로 발급기가 두 벌을 다 쥐고 realm 에 맞는 키를 고른다 —
@@ -94,13 +103,15 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     }
 
     @Override
-    public TokenPair issue(Realm realm, Principal principal, RefreshChain chain, List<String> roles) {
+    public TokenPair issue(Realm realm, Principal principal, RefreshChain chain, List<String> roles,
+                           Map<String, List<String>> permissions) {
         String subjectId = principal.getSubjectId().value();
         String systemId = systems.of(realm);
 
         RealmSigningKeys.RealmKey key = signingKeys.of(realm);
         String issuer = issuers.of(realm);
-        String access = buildAccess(key, issuer, subjectId, systemId, roles, accessExpirationMillis);
+        String access = buildAccess(key, issuer, subjectId, systemId, roles, permissions,
+                accessExpirationMillis);
         String refresh = buildRefresh(key, issuer, subjectId, chain, refreshExpirationMillis);
         return new TokenPair(access, refresh);
     }
@@ -173,12 +184,14 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         }
     }
 
-    /** access 토큰. 신원과 그 사람의 역할을 싣는다. */
+    /** access 토큰. 신원과 그 사람의 역할, 서비스별 권한을 싣는다. */
     private String buildAccess(RealmSigningKeys.RealmKey key, String issuer, String subjectId,
-                               String systemId, List<String> roles, long ttlMillis) {
+                               String systemId, List<String> roles, Map<String, List<String>> permissions,
+                               long ttlMillis) {
         long now = System.currentTimeMillis();
-        // Keycloak 과 같은 모양이다. 서비스별 권한은 나중에 resource_access 로 따로 싣는다.
+        // Keycloak 과 같은 모양이다.
         Map<String, Object> realmAccess = Map.of("roles", roles);
+        Map<String, Object> resourceAccess = resourceAccess(permissions);
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
                 .issuer(issuer)
@@ -186,9 +199,19 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
                 .subject(subjectId)
                 .claim("type", "access")
                 .claim("realm_access", realmAccess)
+                .claim("resource_access", resourceAccess)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMillis));
         return builder.signWith(key.privateKey(), Jwts.SIG.RS256).compact();
+    }
+
+    /** 서비스마다 roles 한 칸. 받은 순서(서비스 이름순)를 그대로 지킨다. */
+    private static Map<String, Object> resourceAccess(Map<String, List<String>> permissions) {
+        Map<String, Object> resourceAccess = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : permissions.entrySet()) {
+            resourceAccess.put(entry.getKey(), Map.of("roles", entry.getValue()));
+        }
+        return resourceAccess;
     }
 
     /**

@@ -276,7 +276,8 @@ class AuthorizationCodeServiceTest {
         }
 
         @Override
-        public TokenPair issue(Realm realm, Principal principal, RefreshChain chain, List<String> roles) {
+        public TokenPair issue(Realm realm, Principal principal, RefreshChain chain, List<String> roles,
+                               Map<String, List<String>> permissions) {
             throw new UnsupportedOperationException();
         }
 

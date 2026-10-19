@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeRefreshChains;
@@ -31,6 +32,8 @@ class RefreshTokenServiceTest {
     private FakeRefreshChains chains;
     /** 역할 조회가 돌려줄 값. 테스트 중에 바꿔서 발급 시점에 다시 읽는지 본다. */
     private List<String> currentRoles;
+    /** 권한 조회가 돌려줄 값. 역할과 같은 이유로 둔다. */
+    private Map<String, List<String>> currentPermissions;
     private RefreshTokenService service;
 
     @BeforeEach
@@ -40,9 +43,11 @@ class RefreshTokenServiceTest {
         tokenIssuer = new FakeTokenIssuer();
         chains = new FakeRefreshChains();
         currentRoles = List.of("CUSTOMER");
+        currentPermissions = Map.of("order-service", List.of("ORDER_READ"));
         service = new RefreshTokenService(principalRepo,
                 new TokenIssuance(tokenIssuer, chains, new TokenProperties(),
-                        (realm, subjectId) -> currentRoles));
+                        (realm, subjectId) -> currentRoles,
+                        (realm, subjectId) -> currentPermissions));
     }
 
     @Test
@@ -66,6 +71,19 @@ class RefreshTokenServiceTest {
         service.refresh(Realm.PORTAL, "refresh:customer-uuid-1");
 
         assertThat(tokenIssuer.issuedRoles).containsExactly("CUSTOMER", "VIP");
+    }
+
+    @Test
+    @DisplayName("재발급하면 그 시점의 권한을 다시 읽어 싣는다")
+    void refreshCarriesCurrentPermissions() {
+        present(openChain("customer-uuid-1"), "customer-uuid-1");
+        // 로그인한 뒤에 역할에 권한이 더 붙었다. 다음 access 부터 실려야 한다.
+        currentPermissions = Map.of("order-service", List.of("ORDER_READ", "ORDER_WRITE"));
+
+        service.refresh(Realm.PORTAL, "refresh:customer-uuid-1");
+
+        assertThat(tokenIssuer.issuedPermissions)
+                .containsEntry("order-service", List.of("ORDER_READ", "ORDER_WRITE"));
     }
 
     @Test
