@@ -301,14 +301,15 @@ class JwksVerificationIntegrationTest {
     }
 
     @Test
-    @DisplayName("토큰은 인가에 쓸 값을 싣지 않는다")
-    void tokenCarriesNothingForAuthorization() {
-        String email = "noauthz-" + UUID.randomUUID() + "@example.com";
+    @DisplayName("access 토큰은 역할을 realm_access 에 싣고, 서비스별 권한은 아직 싣지 않는다")
+    void tokenCarriesRolesOnly() {
+        String email = "roles-" + UUID.randomUUID() + "@example.com";
         registerCustomer(email);
 
-        // 역할도 권한도 정책 리비전도 없다. 토큰이 답하는 것은 "이 요청이 누구인가" 까지다.
-        assertThat(payloadOf(login(email)))
-                .doesNotContainKeys("realm_access", "resource_access", "rbacRev", "azp");
+        // 가입하면 CUSTOMER 가 붙는다. 그 역할이 토큰에 실린다.
+        Map<String, Object> claims = payloadOf(login(email));
+        assertThat(claims.get("realm_access")).isEqualTo(Map.of("roles", List.of("CUSTOMER")));
+        assertThat(claims).doesNotContainKeys("resource_access", "rbacRev", "azp");
     }
 
     @Test

@@ -16,27 +16,26 @@ import org.springframework.util.StringUtils;
 
 import java.security.PublicKey;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 /**
- * 표준 JWT 토큰 발급기. <b>신원만</b> 담아 RS256 으로 서명한다.
- *
- * <h2>인가에 쓸 값은 토큰에 싣지 않는다</h2>
- * 전에는 역할과 권한을 실었다({@code realm_access}, {@code resource_access}) 그리고 그것이 낡았는지
- * 가리는 리비전({@code rbacRev})까지 함께 실었다. 토큰 하나가 신원과 인가를 겸하면서, 같은
- * 판단이 세 군데(토큰 클레임, authz DB, 소비 서비스의 matcher)에 나뉘어 읽기 어려웠다.
- *
- * <p>지금 토큰이 답하는 것은 하나다. <b>이 요청이 누구인가.</b>
+ * 표준 JWT 토큰 발급기. 신원과 역할을 담아 RS256 으로 서명한다.
  *
  * <pre>
  * "iss":  "http://localhost:8080/realms/portal"   어느 realm 이 발급했나
  * "aud":  ["shop"]                                 어느 시스템이 받아주나
  * "sub":  "a4120a37-..."                           누구인가
  * "type": "access"
+ * "realm_access": { "roles": ["CUSTOMER"] }        무슨 역할인가
  * </pre>
  *
- * <p>인가는 아직 자리를 정하지 않았다. 권한 데이터는 authz 표에 그대로 있고
- * ({@code authz_role}, {@code authz_permission}, {@code authz_service}), auth 자신의 관리 API 는
- * 그 표를 직접 조회해 판정한다. 소비 서비스가 어떻게 판정할지는 다음에 정한다.
+ * <h2>역할을 싣는다</h2>
+ * {@code realm_access.roles} 에 그 사람의 역할 코드를 싣는다. 소비 서비스가 auth 에 묻지 않고
+ * 토큰만으로 판정하게 하려는 것이다. 한때 걷어 냈던 이유는 회수가 늦다는 것이었는데, access 수명이
+ * 짧고(1분) 재발급 때마다 역할을 다시 읽으므로 늦어도 그 수명만큼이다.
+ *
+ * <p>서비스별 권한({@code resource_access})은 아직 싣지 않는다.
  *
  * <p><b>서명:</b> RS256(비대칭). realm 마다 다른 RSA 키페어를 쓴다({@link RealmSigningKeys}).
  * 한 프로세스가 두 realm 을 모두 담당하므로 발급기가 두 벌을 다 쥐고 realm 에 맞는 키를 고른다 —
@@ -95,13 +94,13 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
     }
 
     @Override
-    public TokenPair issue(Realm realm, Principal principal, RefreshChain chain) {
+    public TokenPair issue(Realm realm, Principal principal, RefreshChain chain, List<String> roles) {
         String subjectId = principal.getSubjectId().value();
         String systemId = systems.of(realm);
 
         RealmSigningKeys.RealmKey key = signingKeys.of(realm);
         String issuer = issuers.of(realm);
-        String access = buildAccess(key, issuer, subjectId, systemId, accessExpirationMillis);
+        String access = buildAccess(key, issuer, subjectId, systemId, roles, accessExpirationMillis);
         String refresh = buildRefresh(key, issuer, subjectId, chain, refreshExpirationMillis);
         return new TokenPair(access, refresh);
     }
@@ -174,16 +173,19 @@ public class RbacJwtTokenIssuer implements TokenIssuerPort {
         }
     }
 
-    /** access 토큰. <b>신원만 싣는다.</b> 인가에 쓸 값은 담지 않는다. */
+    /** access 토큰. 신원과 그 사람의 역할을 싣는다. */
     private String buildAccess(RealmSigningKeys.RealmKey key, String issuer, String subjectId,
-                               String systemId, long ttlMillis) {
+                               String systemId, List<String> roles, long ttlMillis) {
         long now = System.currentTimeMillis();
+        // Keycloak 과 같은 모양이다. 서비스별 권한은 나중에 resource_access 로 따로 싣는다.
+        Map<String, Object> realmAccess = Map.of("roles", roles);
         JwtBuilder builder = Jwts.builder()
                 .header().keyId(key.kid()).and()
                 .issuer(issuer)
                 .audience().add(systemId).and()
                 .subject(subjectId)
                 .claim("type", "access")
+                .claim("realm_access", realmAccess)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMillis));
         return builder.signWith(key.privateKey(), Jwts.SIG.RS256).compact();

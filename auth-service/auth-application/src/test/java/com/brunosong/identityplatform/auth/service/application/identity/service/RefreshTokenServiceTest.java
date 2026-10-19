@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakePrincipalRepository;
 import static com.brunosong.identityplatform.auth.service.application.identity.service.IdentityFakes.FakeRefreshChains;
@@ -28,6 +29,8 @@ class RefreshTokenServiceTest {
     private FakePrincipalRepository principalRepo;
     private FakeTokenIssuer tokenIssuer;
     private FakeRefreshChains chains;
+    /** 역할 조회가 돌려줄 값. 테스트 중에 바꿔서 발급 시점에 다시 읽는지 본다. */
+    private List<String> currentRoles;
     private RefreshTokenService service;
 
     @BeforeEach
@@ -36,8 +39,10 @@ class RefreshTokenServiceTest {
         principalRepo.seed("customer-uuid-1", Realm.PORTAL);
         tokenIssuer = new FakeTokenIssuer();
         chains = new FakeRefreshChains();
+        currentRoles = List.of("CUSTOMER");
         service = new RefreshTokenService(principalRepo,
-                new TokenIssuance(tokenIssuer, chains, new TokenProperties()));
+                new TokenIssuance(tokenIssuer, chains, new TokenProperties(),
+                        (realm, subjectId) -> currentRoles));
     }
 
     @Test
@@ -49,6 +54,18 @@ class RefreshTokenServiceTest {
 
         assertThat(result.subjectId()).isEqualTo("customer-uuid-1");
         assertThat(result.tokens().accessToken()).isEqualTo("access:PORTAL:customer-uuid-1");
+    }
+
+    @Test
+    @DisplayName("재발급하면 그 시점의 역할을 다시 읽어 싣는다")
+    void refreshCarriesCurrentRoles() {
+        present(openChain("customer-uuid-1"), "customer-uuid-1");
+        // 로그인한 뒤에 역할이 바뀌었다. 옛 토큰이 아니라 지금의 역할이 실려야 한다.
+        currentRoles = List.of("CUSTOMER", "VIP");
+
+        service.refresh(Realm.PORTAL, "refresh:customer-uuid-1");
+
+        assertThat(tokenIssuer.issuedRoles).containsExactly("CUSTOMER", "VIP");
     }
 
     @Test
