@@ -385,3 +385,18 @@ pre.raw {
     .thumb-detail { aspect-ratio: 16 / 10; }
     .thumb-detail span { font-size: 52px; }
 }
+
+/* 상세 화면 수량 선택 */
+.order-line { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.order-line label { margin: 0; }
+.order-line select {
+    padding: 8px 10px; background: var(--input); color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px; font: inherit;
+}
+.order-total { margin-left: auto; font-size: 14px; }
+
+/* 주문 내역 */
+.orders-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.orders-table th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 0 10px; }
+.orders-table td { padding: 12px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.orders-table .num { text-align: right; }

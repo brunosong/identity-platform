@@ -31,6 +31,7 @@ export default function Layout({ children }) {
                         {isLoggedIn ? (
                             <>
                                 <span className="who">{claims?.sub?.slice(0, 8)}…</span>
+                                <Link to="/orders">주문 내역</Link>
                                 <Link to="/me">마이페이지</Link>
                                 <button className="link-button" onClick={onLogout}>로그아웃</button>
                             </>

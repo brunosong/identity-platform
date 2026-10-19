@@ -1,9 +1,13 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { placeOrder } from '../api/order';
 import Notice from '../components/Notice';
 import ProductThumb from '../components/ProductThumb';
 import { findProduct, formatPrice } from '../data/products';
+
+/** 한 번에 고를 수 있는 최대 수량. 재고가 이보다 적으면 재고까지만 고른다. */
+const MAX_QUANTITY = 10;
 
 /**
  * 상품 상세.
@@ -11,19 +15,61 @@ import { findProduct, formatPrice } from '../data/products';
  * <b>로그인 없이 볼 수 있다.</b> 상품 설명은 누구에게나 같은 값이라 신원을 물을 이유가 없다.
  * 신원이 필요해지는 곳은 주문 버튼부터다. 그 경계가 이 화면에서 눈에 보이는 것이 요점이다.
  *
- * 아래 주문 버튼은 아직 주문을 넣지 못한다. order-service 에 주문을 만드는 API 가 없다.
- * 그래서 로그인 여부에 따라 버튼이 갈리는 데까지만 한다.
+ * 주문은 상품 번호와 수량만 보낸다. 가격은 order-service 가 정한다. 주문이 끝나면 남은 수량을
+ * 다시 읽는다. 내가 산 만큼, 그리고 그사이 다른 사람이 산 만큼 줄어 있다.
  */
 export default function ProductDetailPage() {
     const { id } = useParams();
-    const { isLoggedIn } = useAuth();
+    const { isLoggedIn, tokens } = useAuth();
+    const [product, setProduct] = useState(null);
+    const [loaded, setLoaded] = useState(false);
+    const [quantity, setQuantity] = useState(1);
     const [notice, setNotice] = useState(null);
+    const [busy, setBusy] = useState(false);
 
-    const product = findProduct(id);
+    const load = useCallback(async () => {
+        const result = await findProduct(id);
+        setLoaded(true);
+        if (!result.ok) {
+            setNotice({ kind: 'err', text: result.message ?? `상품을 불러오지 못했습니다 (${result.status})` });
+            return;
+        }
+        setProduct(result.product ?? null);
+    }, [id]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    async function onOrder() {
+        setBusy(true);
+        setNotice(null);
+
+        const result = await placeOrder(tokens?.accessToken, { productId: product.id, quantity });
+        setBusy(false);
+
+        if (!result.ok) {
+            setNotice({ kind: 'err', text: result.message ?? `주문하지 못했습니다 (${result.status})` });
+            load();
+            return;
+        }
+
+        setNotice({
+            kind: 'ok',
+            text: `주문했습니다. ${result.data.quantity}개, ${formatPrice(result.data.amount)}.`,
+        });
+        setQuantity(1);
+        load();
+    }
+
+    if (!loaded) {
+        return <div className="page narrow"><p className="lead">불러오는 중입니다.</p></div>;
+    }
 
     if (!product) {
         return (
             <div className="page narrow">
+                <Notice kind={notice?.kind}>{notice?.text}</Notice>
                 <div className="page-head">
                     <h1>없는 상품입니다</h1>
                     <p className="lead">주소가 바뀌었거나 판매가 끝난 상품일 수 있습니다.</p>
@@ -34,6 +80,10 @@ export default function ProductDetailPage() {
     }
 
     const soldOut = product.stock === 0;
+    const quantityChoices = Array.from(
+        { length: Math.min(product.stock, MAX_QUANTITY) },
+        (_, index) => index + 1,
+    );
 
     return (
         <div className="page">
@@ -57,16 +107,32 @@ export default function ProductDetailPage() {
                     <Notice kind={notice?.kind}>{notice?.text}</Notice>
 
                     {isLoggedIn ? (
-                        <button
-                            className="btn btn-primary btn-block"
-                            disabled={soldOut}
-                            onClick={() => setNotice({
-                                kind: 'info',
-                                text: '주문을 넣을 API 가 아직 없습니다. order-service 는 주문 조회만 합니다.',
-                            })}
-                        >
-                            주문하기
-                        </button>
+                        <>
+                            {!soldOut && (
+                                <div className="order-line">
+                                    <label htmlFor="o-qty">수량</label>
+                                    <select id="o-qty" value={quantity}
+                                            onChange={(e) => setQuantity(Number(e.target.value))}>
+                                        {quantityChoices.map((count) => (
+                                            <option key={count} value={count}>{count}개</option>
+                                        ))}
+                                    </select>
+                                    <span className="order-total">
+                                        합계 {formatPrice(product.price * quantity)}
+                                    </span>
+                                </div>
+                            )}
+                            <button
+                                className="btn btn-primary btn-block"
+                                disabled={soldOut || busy}
+                                onClick={onOrder}
+                            >
+                                {soldOut ? '품절' : '주문하기'}
+                            </button>
+                            {notice?.kind === 'ok' && (
+                                <Link className="btn btn-ghost btn-block" to="/orders">주문 내역 보기</Link>
+                            )}
+                        </>
                     ) : (
                         <>
                             {/* state 는 로그인 뒤 돌아올 자리다. auth 에는 가지 않는다. */}

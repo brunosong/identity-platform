@@ -6,6 +6,7 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import LoginPage from './pages/LoginPage';
 import LoginCallbackPage from './pages/LoginCallbackPage';
 import MyPage from './pages/MyPage';
+import OrdersPage from './pages/OrdersPage';
 
 export default function App() {
     return (
@@ -21,6 +22,10 @@ export default function App() {
                 <Route
                     path="/me"
                     element={<RequireAuth><MyPage /></RequireAuth>}
+                />
+                <Route
+                    path="/orders"
+                    element={<RequireAuth><OrdersPage /></RequireAuth>}
                 />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
