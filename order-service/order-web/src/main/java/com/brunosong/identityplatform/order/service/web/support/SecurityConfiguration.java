@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -29,12 +30,9 @@ import org.springframework.security.web.SecurityFilterChain;
  * 포털 realm 의 토큰은 {@code aud} 가 {@code shop} 하나라서, 한 번 로그인한 토큰이 둘 다 통한다. <b>"한 번만 로그인" 과 "아무 데나 통한다" 는 다른
  * 이야기다</b>. 포털 앱에 없는 서비스를 여기에 적으면 그 토큰은 이 서비스에서 거부된다.
  *
- * <h2>지금 이 서비스에 역할 검사가 없다</h2>
- * 토큰에서 인가 클레임을 걷어냈다. 전에는 {@code resource_access} 의 이 서비스 칸을 authority 로
- * 옮겨 {@code ORDER_READ} / {@code ORDER_WRITE} 를 요구했는데, 그 칸이 더 이상 오지 않는다.
- *
- * <p>그래서 <b>지금은 인증만 통과하면 이 API 들이 열린다.</b> 인가를 어디서 판정할지
- * (게이트웨이, 이 서비스의 auth 조회, 토큰 재적재)는 아직 정하지 않았다.
+ * <h2>역할은 읽지만 아직 검사하지 않는다</h2>
+ * 토큰의 {@code realm_access.roles} 를 {@link RealmRoleAuthorities} 가 권한({@code ROLE_CUSTOMER})으로
+ * 옮긴다. 그 권한으로 경로를 막는 규칙은 아직 없어서, 지금은 인증만 통과하면 이 API 들이 열린다.
  *
  * <p>권한 데이터 자체는 auth 에 그대로 있다({@code authz_permission} 의
  * {@code (PORTAL, order-service, ORDER_READ)} 행). 없어진 것은 그것을 토큰으로 나르던 길뿐이다.
@@ -52,6 +50,10 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
+        // 토큰을 Spring 이 아는 사용자로 바꿀 때 realm_access.roles 를 권한으로 옮긴다.
+        JwtAuthenticationConverter tokenToUser = new JwtAuthenticationConverter();
+        tokenToUser.setJwtGrantedAuthoritiesConverter(new RealmRoleAuthorities());
+
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 // CorsPolicy 가 준 규칙을 시큐리티 필터 안에서 적용한다. WebMvc 쪽 설정만 두면
@@ -60,11 +62,11 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 기본이 거부다. 여는 것을 잊는 실수는 401 로 드러나고, 막는 것을 잊는 실수는 생기지 않는다.
                 //
-                // 지금 요구하는 것은 인증뿐이다. 역할 검사는 토큰에서 인가 클레임을 걷어내면서
-                // 함께 빠졌고, 어디서 판정할지 정해지면 이 자리로 돌아온다.
+                // 지금 요구하는 것은 인증뿐이다. 역할 규칙은 다음에 이 자리에 건다.
                 .authorizeHttpRequests(requests -> requests
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(tokenToUser)))
                 .build();
     }
 }
