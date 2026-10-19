@@ -17,6 +17,7 @@ import java.time.Instant;
  */
 public record OrderResponse(
         String orderId,
+        String productId,
         String productName,
         int quantity,
         BigDecimal amount,
@@ -25,7 +26,7 @@ public record OrderResponse(
 ) {
 
     public static OrderResponse of(Order order) {
-        return new OrderResponse(order.getOrderId(), order.getProductName(), order.getQuantity(),
-                order.getAmount(), order.getStatus(), order.getCreatedAt());
+        return new OrderResponse(order.getOrderId(), order.getProductId(), order.getProductName(),
+                order.getQuantity(), order.getAmount(), order.getStatus(), order.getCreatedAt());
     }
 }

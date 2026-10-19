@@ -26,16 +26,20 @@ public class Order {
 
     private final String orderId;
     private final String customerId;
+    /** 어느 상품인가. 이 칸이 생기기 전 주문에는 없다. */
+    private final String productId;
+    /** 주문 당시의 이름. 상품 이름이 나중에 바뀌어도 주문 내역은 그때 이름으로 남는다. */
     private final String productName;
     private final int quantity;
     private final BigDecimal amount;
     private final OrderStatus status;
     private final Instant createdAt;
 
-    private Order(String orderId, String customerId, String productName, int quantity,
+    private Order(String orderId, String customerId, String productId, String productName, int quantity,
                   BigDecimal amount, OrderStatus status, Instant createdAt) {
         this.orderId = orderId;
         this.customerId = customerId;
+        this.productId = productId;
         this.productName = productName;
         this.quantity = quantity;
         this.amount = amount;
@@ -43,25 +47,23 @@ public class Order {
         this.createdAt = createdAt;
     }
 
-    public static Order place(String customerId, String productName, int quantity, BigDecimal unitPrice) {
+    /**
+     * 상품을 주문한다. 가격은 상품에서 읽는다. 부르는 쪽이 가격을 정할 길을 두지 않는다.
+     */
+    public static Order place(String customerId, Product product, int quantity) {
         if (customerId == null || customerId.isBlank()) {
             throw new IllegalArgumentException("customerId must not be blank");
-        }
-        if (productName == null || productName.isBlank()) {
-            throw new IllegalArgumentException("productName must not be blank");
         }
         if (quantity < 1) {
             throw new IllegalArgumentException("quantity must be at least 1");
         }
-        if (unitPrice == null || unitPrice.signum() < 0) {
-            throw new IllegalArgumentException("unitPrice must not be negative");
-        }
-        return new Order(UUID.randomUUID().toString(), customerId, productName.trim(), quantity,
-                unitPrice.multiply(BigDecimal.valueOf(quantity)), OrderStatus.PLACED, Instant.now());
+        BigDecimal amount = product.getPrice().multiply(BigDecimal.valueOf(quantity));
+        return new Order(UUID.randomUUID().toString(), customerId, product.getProductId(), product.getName(),
+                quantity, amount, OrderStatus.PLACED, Instant.now());
     }
 
-    public static Order restore(String orderId, String customerId, String productName, int quantity,
-                                BigDecimal amount, OrderStatus status, Instant createdAt) {
-        return new Order(orderId, customerId, productName, quantity, amount, status, createdAt);
+    public static Order restore(String orderId, String customerId, String productId, String productName,
+                                int quantity, BigDecimal amount, OrderStatus status, Instant createdAt) {
+        return new Order(orderId, customerId, productId, productName, quantity, amount, status, createdAt);
     }
 }

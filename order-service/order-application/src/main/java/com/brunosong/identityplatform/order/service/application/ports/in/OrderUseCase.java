@@ -2,7 +2,6 @@ package com.brunosong.identityplatform.order.service.application.ports.in;
 
 import com.brunosong.identityplatform.order.service.domain.Order;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,5 +28,11 @@ public interface OrderUseCase {
      */
     Optional<Order> findOwned(String customerId, String orderId);
 
-    Order place(String customerId, String productName, int quantity, BigDecimal unitPrice);
+    /**
+     * 상품을 주문한다. 가격은 서버가 상품에서 읽고, 그만큼 재고를 줄인다.
+     *
+     * @throws com.brunosong.identityplatform.order.service.domain.ProductNotFoundException 없는 상품
+     * @throws com.brunosong.identityplatform.order.service.domain.OutOfStockException 재고가 모자람
+     */
+    Order place(String customerId, String productId, int quantity);
 }

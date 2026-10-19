@@ -38,6 +38,10 @@ public class OrderJpaEntity {
     @Column(name = "customer_id", nullable = false, length = 64)
     private String customerId;
 
+    // 이 칸이 생기기 전 주문에는 값이 없다.
+    @Column(name = "product_id", length = 50)
+    private String productId;
+
     @Column(name = "product_name", nullable = false, length = 200)
     private String productName;
 

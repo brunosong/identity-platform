@@ -43,6 +43,7 @@ public class OrderPersistenceAdapter implements OrderRepository {
         OrderJpaEntity e = new OrderJpaEntity();
         e.setOrderId(order.getOrderId());
         e.setCustomerId(order.getCustomerId());
+        e.setProductId(order.getProductId());
         e.setProductName(order.getProductName());
         e.setQuantity(order.getQuantity());
         e.setAmount(order.getAmount());
@@ -52,7 +53,7 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     private static Order toDomain(OrderJpaEntity e) {
-        return Order.restore(e.getOrderId(), e.getCustomerId(), e.getProductName(), e.getQuantity(),
-                e.getAmount(), e.getStatus(), e.getCreatedAt());
+        return Order.restore(e.getOrderId(), e.getCustomerId(), e.getProductId(), e.getProductName(),
+                e.getQuantity(), e.getAmount(), e.getStatus(), e.getCreatedAt());
     }
 }

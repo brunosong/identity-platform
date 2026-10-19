@@ -2,10 +2,8 @@ package com.brunosong.identityplatform.order.service.web.api;
 
 import com.brunosong.identityplatform.order.service.application.ports.in.OrderUseCase;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -67,18 +64,17 @@ public class MyOrderApiController {
     /**
      * 주문한다.
      *
-     * <p>주문자를 본문으로 받지 않는다. 받으면 남의 이름으로 주문할 수 있다.
+     * <p>주문자를 본문으로 받지 않는다. 받으면 남의 이름으로 주문할 수 있다. 가격도 받지 않는다.
+     * 받으면 본문을 고쳐 보내는 것만으로 값을 정할 수 있다. 가격은 서버가 상품에서 읽는다.
      */
     @PostMapping
     public OrderResponse place(@AuthenticationPrincipal Jwt token,
                                @Valid @RequestBody PlaceOrderRequest body) {
-        return OrderResponse.of(orders.place(
-                token.getSubject(), body.productName(), body.quantity(), body.unitPrice()));
+        return OrderResponse.of(orders.place(token.getSubject(), body.productId(), body.quantity()));
     }
 
     public record PlaceOrderRequest(
-            @NotBlank @Size(max = 200) String productName,
-            @Min(1) int quantity,
-            @NotNull @DecimalMin("0") BigDecimal unitPrice) {
+            @NotBlank @Size(max = 50) String productId,
+            @Min(1) int quantity) {
     }
 }

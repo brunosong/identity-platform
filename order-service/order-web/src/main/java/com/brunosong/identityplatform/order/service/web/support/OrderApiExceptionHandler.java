@@ -1,5 +1,7 @@
 package com.brunosong.identityplatform.order.service.web.support;
 
+import com.brunosong.identityplatform.order.service.domain.OutOfStockException;
+import com.brunosong.identityplatform.order.service.domain.ProductNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,17 @@ public class OrderApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> onIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(new ApiError(e.getMessage()));
+    }
+
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<ApiError> onProductNotFound(ProductNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(e.getMessage()));
+    }
+
+    /** 요청은 맞는데 지금 상태로는 들어줄 수 없다. 재고가 늘면 같은 요청이 통한다. */
+    @ExceptionHandler(OutOfStockException.class)
+    public ResponseEntity<ApiError> onOutOfStock(OutOfStockException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

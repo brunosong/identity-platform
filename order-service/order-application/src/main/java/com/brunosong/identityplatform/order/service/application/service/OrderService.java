@@ -2,12 +2,15 @@ package com.brunosong.identityplatform.order.service.application.service;
 
 import com.brunosong.identityplatform.order.service.application.ports.in.OrderUseCase;
 import com.brunosong.identityplatform.order.service.application.ports.out.OrderRepository;
+import com.brunosong.identityplatform.order.service.application.ports.out.ProductRepository;
 import com.brunosong.identityplatform.order.service.domain.Order;
+import com.brunosong.identityplatform.order.service.domain.OutOfStockException;
+import com.brunosong.identityplatform.order.service.domain.Product;
+import com.brunosong.identityplatform.order.service.domain.ProductNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +25,7 @@ import java.util.Optional;
 public class OrderService implements OrderUseCase {
 
     private final OrderRepository repository;
+    private final ProductRepository products;
 
     @Override
     @Transactional(readOnly = true)
@@ -37,7 +41,18 @@ public class OrderService implements OrderUseCase {
 
     @Override
     @Transactional
-    public Order place(String customerId, String productName, int quantity, BigDecimal unitPrice) {
-        return repository.save(Order.place(customerId, productName, quantity, unitPrice));
+    public Order place(String customerId, String productId, int quantity) {
+        Product product = products.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId));
+
+        // 수량 검증이 여기서 끝난다. 재고를 줄이기 전이어야 한다. 음수 수량이 닿으면 재고가 늘어난다.
+        Order order = Order.place(customerId, product, quantity);
+
+        // 재고를 줄이는 것과 주문을 남기는 것이 한 트랜잭션이다. 주문 저장이 실패하면 재고도 돌아온다.
+        boolean taken = products.takeStock(productId, quantity);
+        if (!taken) {
+            throw new OutOfStockException(product.getName());
+        }
+        return repository.save(order);
     }
 }
