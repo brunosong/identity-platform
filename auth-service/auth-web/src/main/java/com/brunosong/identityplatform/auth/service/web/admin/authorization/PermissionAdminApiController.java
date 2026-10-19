@@ -48,7 +48,7 @@ public class PermissionAdminApiController {
     @GetMapping
     public List<PermissionView> list(@RequestParam Realm realm,
                                      @RequestParam(required = false) String keyword) {
-        return findPermissions.of(realm, keyword);
+        return findPermissions.search(realm, keyword);
     }
 
     @GetMapping("/page")

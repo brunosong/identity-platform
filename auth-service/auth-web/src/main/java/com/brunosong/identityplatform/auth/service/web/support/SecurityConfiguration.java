@@ -209,7 +209,7 @@ public class SecurityConfiguration {
      * 권한을 회수하면 다음 요청부터 바로 막힌다.
      */
     private static JwtAuthenticationToken withMasterPermissions(Jwt jwt, ListSubjectPermissionsUseCase subjectPermissions) {
-        List<SimpleGrantedAuthority> authorities = subjectPermissions.of(Realm.MASTER, jwt.getSubject()).stream()
+        List<SimpleGrantedAuthority> authorities = subjectPermissions.permissionCodes(Realm.MASTER, jwt.getSubject()).stream()
                 .map(SimpleGrantedAuthority::new)
                 .toList();
         return new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());

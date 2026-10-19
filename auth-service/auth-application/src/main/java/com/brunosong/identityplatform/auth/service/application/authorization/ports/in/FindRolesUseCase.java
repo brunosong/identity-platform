@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface FindRolesUseCase {
 
     /** 활성 역할 목록. keyword 는 코드/이름 부분일치이며 비면 전체다. */
-    List<RoleView> of(Realm realm, String keyword);
+    List<RoleView> search(Realm realm, String keyword);
 
     Optional<RoleView> byId(Long roleId);
 

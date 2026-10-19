@@ -38,7 +38,7 @@ public class RoleConsoleController {
     public String list(@RequestParam(defaultValue = "ADMIN") Realm realm, Model model) {
         model.addAttribute("realm", realm);
         model.addAttribute("realms", Realm.values());
-        model.addAttribute("roles", findRoles.of(realm, null));
+        model.addAttribute("roles", findRoles.search(realm, null));
         return "console/roles";
     }
 

@@ -41,7 +41,7 @@ public class EmployeeConsoleController {
 
     @GetMapping("/new")
     public String form(Model model) {
-        model.addAttribute("roles", findRoles.of(Realm.ADMIN, null));
+        model.addAttribute("roles", findRoles.search(Realm.ADMIN, null));
         return "console/employees";
     }
 

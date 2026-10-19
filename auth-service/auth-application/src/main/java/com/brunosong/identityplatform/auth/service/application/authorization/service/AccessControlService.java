@@ -96,7 +96,7 @@ public class AccessControlService implements CheckAccessUseCase, ListSubjectPerm
     }
 
     @Override
-    public List<String> of(Realm realm, String subjectId) {
+    public List<String> permissionCodes(Realm realm, String subjectId) {
         return subjectRoleQuery.permissionCodes(realm, subjectId);
     }
 

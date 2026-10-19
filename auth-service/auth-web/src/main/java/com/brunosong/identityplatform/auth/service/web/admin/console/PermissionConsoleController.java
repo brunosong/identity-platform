@@ -29,7 +29,7 @@ public class PermissionConsoleController {
     public String list(@RequestParam(defaultValue = "ADMIN") Realm realm, Model model) {
         model.addAttribute("realm", realm);
         model.addAttribute("realms", Realm.values());
-        model.addAttribute("permissions", findPermissions.of(realm, null));
+        model.addAttribute("permissions", findPermissions.search(realm, null));
         return "console/permissions";
     }
 }

@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface FindPermissionsUseCase {
 
     /** 활성 권한 목록(선택 화면용). keyword 는 코드/이름/분류 부분일치이며 비면 전체다. */
-    List<PermissionView> of(Realm realm, String keyword);
+    List<PermissionView> search(Realm realm, String keyword);
 
     /** 활성 권한 페이지(관리 화면용). */
     PageResult<PermissionView> page(Realm realm, String keyword, PageQuery pageQuery);

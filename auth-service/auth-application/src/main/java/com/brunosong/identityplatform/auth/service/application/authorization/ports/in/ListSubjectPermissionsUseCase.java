@@ -8,5 +8,5 @@ import java.util.List;
  */
 public interface ListSubjectPermissionsUseCase {
 
-    List<String> of(Realm realm, String subjectId);
+    List<String> permissionCodes(Realm realm, String subjectId);
 }

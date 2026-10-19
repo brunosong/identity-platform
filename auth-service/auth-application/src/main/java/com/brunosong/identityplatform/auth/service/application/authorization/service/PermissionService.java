@@ -71,7 +71,7 @@ public class PermissionService implements CreatePermissionUseCase, RenamePermiss
     }
 
     @Override
-    public List<PermissionView> of(Realm realm, String keyword) {
+    public List<PermissionView> search(Realm realm, String keyword) {
         return permissionSearchQuery.search(realm, keyword);
     }
 

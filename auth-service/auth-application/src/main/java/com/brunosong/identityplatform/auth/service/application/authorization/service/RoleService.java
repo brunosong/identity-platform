@@ -71,7 +71,7 @@ public class RoleService implements CreateRoleUseCase, RenameRoleUseCase, Delete
     }
 
     @Override
-    public List<RoleView> of(Realm realm, String keyword) {
+    public List<RoleView> search(Realm realm, String keyword) {
         return roleSearchQuery.search(realm, keyword);
     }
 

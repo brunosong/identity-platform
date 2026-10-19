@@ -48,7 +48,7 @@ public class RoleAdminApiController {
     @GetMapping
     public List<RoleView> list(@RequestParam Realm realm,
                                @RequestParam(required = false) String keyword) {
-        return findRoles.of(realm, keyword);
+        return findRoles.search(realm, keyword);
     }
 
     @GetMapping("/{roleId}")
