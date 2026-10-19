@@ -3,7 +3,7 @@
 서비스가 나뉜 뒤 "이 사람이 이 일을 해도 되나" 를 어디서 판정할지 정리한 문서다. 지금 무엇을
 하고 있고, 서비스가 늘면 어디서 막히고, 다음에 어느 쪽으로 갈지를 담는다.
 
-**상태: 방향 제안까지. 아직 정하지 않았다.** 지금 코드는 아래 "지금 하는 것" 까지다.
+**상태: 지금은 권한을 다 싣는 방식으로 돈다. 서비스가 늘었을 때의 방향은 제안까지다.**
 
 ## 질문을 둘로 나눈다
 
@@ -36,9 +36,10 @@
 
 ## 지금 하는 것
 
-3번이다. auth 가 access 토큰의 `realm_access.roles` 에 역할을 싣고, order-service 가
-`hasRole("CUSTOMER")` 로 판정한다. 소유권은 `findOwned(customerId, orderId)` 가 따로 본다.
-역할은 발급할 때마다 다시 읽어서 refresh 하면 바뀐 역할이 실린다.
+3번이다. auth 가 access 토큰의 `realm_access.roles` 에 역할을, `resource_access.<service>.roles` 에
+서비스별 권한을 싣는다. order-service 와 customer-service 는 자기 칸의 권한으로 `hasAuthority` 판정을
+한다. 소유권은 `findOwned(customerId, orderId)` 처럼 서비스 안에서 따로 본다. 역할과 권한은 발급할
+때마다 다시 읽어서 refresh 하면 바뀐 값이 실린다.
 
 이 저장소는 4번에서 왔다. auth 의 `authz_url_access` 와 `CheckAccessUseCase` 가 요청마다 묻는
 방식이었다. 지금은 auth 콘솔 자신(MASTER)을 지키는 데만 쓴다.
@@ -68,7 +69,7 @@ API 를 고칠 때만 바뀌므로 코드와 함께 둔다. 뒤의 것은 역할
 
 서비스가 `hasRole("CUSTOMER")` 를 쓰면 서비스 코드에 조직 구조가 들어온다. "상담원도 주문을
 넣게" 하려면 서비스를 고쳐 배포해야 한다. `hasAuthority("ORDER_WRITE")` 면 auth 콘솔에서 상담원
-역할에 그 권한을 붙이면 끝이다. 지금의 `hasRole` 은 권한을 나르는 길이 없어서 쓰는 임시 상태다.
+역할에 그 권한을 붙이면 끝이다. 그래서 두 서비스 모두 권한으로 판정한다.
 
 전자정부 공통컴포넌트는 이름이 반대다. 거기의 "권한"(`ROLE_ADMIN`)이 우리의 역할이고, "롤"이
 우리의 권한이다. 3계층 구조는 같다.
@@ -119,11 +120,12 @@ order-service  CUSTOMER -> [ORDER_READ, ORDER_WRITE]   자기 service_id 몫만 
 
 1. auth 에 서비스용 조회 API. 그 서비스 몫의 역할-권한 표를 준다
 2. order-service 가 표를 받아 캐시하고, 토큰의 역할을 그 표로 권한으로 바꾼다
-3. 규칙을 `hasRole` 에서 `hasAuthority` 로 바꾼다
+3. 서비스의 `hasAuthority` 규칙은 그대로 둔다. 권한을 토큰 대신 그 표에서 얻을 뿐이다
 
 ## 정하지 않은 것
 
-- **갈래 1 로 갈지.** 서비스가 둘인 지금은 `resource_access` 에 다 실어도 당장 문제가 없다
+- **갈래 1 로 옮길지, 언제.** 서비스가 둘인 지금은 다 싣는 방식으로 돈다. 옮겨도 서비스의
+  `hasAuthority` 규칙은 그대로고, 변환기가 권한을 얻는 곳만 바뀐다
 - **1번 API 의 인증.** 서비스가 부르는 API 라 서비스 자신의 인증(client credentials)이 필요하다.
   처음부터 만들지, 로컬에서는 열어 두고 시작할지
 - **갱신 방식.** 주기적으로 다시 받기로 시작하고, 즉시 반영이 필요해지면 이벤트로 바꾼다
