@@ -31,14 +31,18 @@ import org.springframework.security.web.SecurityFilterChain;
  * 포털 realm 의 토큰은 {@code aud} 가 {@code shop} 하나라서, 한 번 로그인한 토큰이 둘 다 통한다. <b>"한 번만 로그인" 과 "아무 데나 통한다" 는 다른
  * 이야기다</b>. 포털 앱에 없는 서비스를 여기에 적으면 그 토큰은 이 서비스에서 거부된다.
  *
- * <h2>역할은 읽지만 아직 검사하지 않는다</h2>
+ * <h2>주문은 CUSTOMER 역할만 한다</h2>
  * 토큰의 {@code realm_access.roles} 를 {@link RealmRoleAuthorities} 가 권한({@code ROLE_CUSTOMER})으로
- * 옮긴다. 그 권한으로 경로를 막는 규칙은 아직 없어서, 지금은 인증만 통과하면 이 API 들이 열린다.
+ * 옮기고, 주문 경로마다 {@code hasRole("CUSTOMER")} 를 건다. 역할은 가입할 때 auth 가 붙인다.
+ * 로그인은 했지만 역할이 없는 토큰은 403 이다.
  *
  * <p>상품 목록({@code GET /api/products})만 로그인 없이 열린다. 누구에게나 같은 값이다.
  *
- * <p>권한 데이터 자체는 auth 에 그대로 있다({@code authz_permission} 의
- * {@code (PORTAL, order-service, ORDER_READ)} 행). 없어진 것은 그것을 토큰으로 나르던 길뿐이다.
+ * <p><b>적지 않은 경로는 막는다({@code denyAll}).</b> 새 API 를 만들고 규칙을 잊으면 열리는 대신
+ * 403 으로 드러난다.
+ *
+ * <p>서비스별 권한({@code resource_access.order-service.roles})이 토큰에 실리면 역할 대신 그 권한으로
+ * 판정하게 된다. 그때 바뀌는 자리는 아래 규칙 몇 줄뿐이다.
  *
  * <p><b>소유권 확인은 그대로다.</b> 그것은 역할이 아니라 조회 키의 문제였고
  * ({@code MyOrderApiController}), 인가가 빠져도 남의 주문은 여전히 404 다.
@@ -50,6 +54,9 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
+
+    /** auth 가 가입한 고객에게 붙이는 역할. hasRole 이 앞에 ROLE_ 을 붙여 찾는다. */
+    private static final String CUSTOMER = "CUSTOMER";
 
     @Bean
     public SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
@@ -63,12 +70,13 @@ public class SecurityConfiguration {
                 // 이 필터체인이 먼저 돌아 preflight 가 401 로 막힌다.
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // 기본이 거부다. 여는 것을 잊는 실수는 401 로 드러나고, 막는 것을 잊는 실수는 생기지 않는다.
-                //
-                // 지금 요구하는 것은 인증뿐이다. 역할 규칙은 다음에 이 자리에 건다.
+                // 기본이 거부다. 여는 것을 잊는 실수는 403 으로 드러나고, 막는 것을 잊는 실수는 생기지 않는다.
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers(HttpMethod.GET, "/api/orders").hasRole(CUSTOMER)
+                        .requestMatchers(HttpMethod.GET, "/api/orders/*").hasRole(CUSTOMER)
+                        .requestMatchers(HttpMethod.POST, "/api/orders").hasRole(CUSTOMER)
+                        .anyRequest().denyAll())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(tokenToUser)))
                 .build();
