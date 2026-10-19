@@ -30,7 +30,7 @@ import java.util.Map;
  * "type": "access"
  * "realm_access": { "roles": ["CUSTOMER"] }        무슨 역할인가
  * "resource_access": {                              서비스마다 무엇을 할 수 있나
- *     "customer-service": { "roles": ["PROFILE_READ"] },
+ *     "customer-service": { "roles": ["PROFILE_READ", "PROFILE_WRITE"] },
  *     "order-service":    { "roles": ["ORDER_READ", "ORDER_WRITE"] } }
  * </pre>
  *

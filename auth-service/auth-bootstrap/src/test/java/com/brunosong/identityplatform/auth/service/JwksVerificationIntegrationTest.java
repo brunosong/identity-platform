@@ -307,11 +307,11 @@ class JwksVerificationIntegrationTest {
         String email = "roles-" + UUID.randomUUID() + "@example.com";
         registerCustomer(email);
 
-        // 가입하면 CUSTOMER 가 붙고, 시드가 그 역할에 포털 권한 셋을 연결해 두었다.
+        // 가입하면 CUSTOMER 가 붙고, 시드가 그 역할에 포털 권한 넷을 연결해 두었다.
         Map<String, Object> claims = payloadOf(login(email));
         assertThat(claims.get("realm_access")).isEqualTo(Map.of("roles", List.of("CUSTOMER")));
         assertThat(claims.get("resource_access")).isEqualTo(Map.of(
-                "customer-service", Map.of("roles", List.of("PROFILE_READ")),
+                "customer-service", Map.of("roles", List.of("PROFILE_READ", "PROFILE_WRITE")),
                 "order-service", Map.of("roles", List.of("ORDER_READ", "ORDER_WRITE"))));
         assertThat(claims).doesNotContainKeys("rbacRev", "azp");
     }
