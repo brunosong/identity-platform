@@ -214,5 +214,10 @@ class AccessControlServiceTest {
             return List.of();
         }
 
+        @Override
+        public List<String> roleCodes(Realm realm, String subjectId) {
+            return List.of();
+        }
+
     }
 }

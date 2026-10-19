@@ -16,6 +16,9 @@ public interface SubjectRoleQuery {
     /** 주체의 모든 권한 코드(역할 → 권한 조인, 활성만). */
     List<String> permissionCodes(Realm realm, String subjectId);
 
+    /** 주체의 역할 코드(활성 역할만). */
+    List<String> roleCodes(Realm realm, String subjectId);
+
     /** 주체에 배정된 역할. 활성 여부와 무관 — 배정 그대로. */
     List<RoleView> assignedRoles(Realm realm, String subjectId);
 

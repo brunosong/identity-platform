@@ -79,7 +79,7 @@ class AuthorizationStorePersistenceIntegrationTest {
             subjectRoleRepository.addRole(Realm.ADMIN, "EMP-1", manager);
             flushClear();
 
-            assertThat(activeRoleCodes(Realm.ADMIN, "EMP-1"))
+            assertThat(subjectRoleQuery.roleCodes(Realm.ADMIN, "EMP-1"))
                     .containsExactly("ROLE_MANAGER");
             assertThat(subjectRoleQuery.permissionCodes(Realm.ADMIN, "EMP-1"))
                     .containsExactlyInAnyOrder("RESUME_READ", "RESUME_WRITE");
@@ -109,7 +109,7 @@ class AuthorizationStorePersistenceIntegrationTest {
             subjectRoleRepository.addRole(Realm.ADMIN, "EMP-2", deadRole);
             flushClear();
 
-            assertThat(activeRoleCodes(Realm.ADMIN, "EMP-2"))
+            assertThat(subjectRoleQuery.roleCodes(Realm.ADMIN, "EMP-2"))
                     .containsExactly("ROLE_LIVE");
             assertThat(subjectRoleQuery.permissionCodes(Realm.ADMIN, "EMP-2"))
                     .containsExactly("ACTIVE_PERM");
@@ -122,8 +122,8 @@ class AuthorizationStorePersistenceIntegrationTest {
             subjectRoleRepository.addRole(Realm.ADMIN, "SAME-ID", employeeRole);
             flushClear();
 
-            assertThat(activeRoleCodes(Realm.ADMIN, "SAME-ID")).containsExactly("ROLE_EMP");
-            assertThat(activeRoleCodes(Realm.PORTAL, "SAME-ID")).isEmpty();
+            assertThat(subjectRoleQuery.roleCodes(Realm.ADMIN, "SAME-ID")).containsExactly("ROLE_EMP");
+            assertThat(subjectRoleQuery.roleCodes(Realm.PORTAL, "SAME-ID")).isEmpty();
             assertThat(subjectRoleQuery.assignedRoles(Realm.PORTAL, "SAME-ID")).isEmpty();
         }
 
@@ -168,8 +168,8 @@ class AuthorizationStorePersistenceIntegrationTest {
             subjectRoleRepository.replaceRoles(Realm.ADMIN, "EMP-3", List.of(second));
             flushClear();
 
-            assertThat(activeRoleCodes(Realm.ADMIN, "EMP-3")).containsExactly("ROLE_B");
-            assertThat(activeRoleCodes(Realm.ADMIN, "EMP-4")).containsExactly("ROLE_A");
+            assertThat(subjectRoleQuery.roleCodes(Realm.ADMIN, "EMP-3")).containsExactly("ROLE_B");
+            assertThat(subjectRoleQuery.roleCodes(Realm.ADMIN, "EMP-4")).containsExactly("ROLE_A");
         }
 
         @Test
@@ -358,17 +358,6 @@ class AuthorizationStorePersistenceIntegrationTest {
         e.getPermissions().addAll(List.of(permissions));
         em.persist(e);
         return e;
-    }
-
-    /**
-     * 배정된 역할 중 활성인 것의 코드. 예전에는 저장소 포트에 이 조회가 있었는데, 실제로 부르는
-     * 곳이 없어 포트에서 걷어내고 검증만 여기 남겼다 — 활성 필터가 도는지는 계속 봐야 한다.
-     */
-    private List<String> activeRoleCodes(Realm realm, String subjectId) {
-        return subjectRoleQuery.assignedRoles(realm, subjectId).stream()
-                .filter(RoleView::active)
-                .map(RoleView::roleCode)
-                .toList();
     }
 
     private void flushClear() {

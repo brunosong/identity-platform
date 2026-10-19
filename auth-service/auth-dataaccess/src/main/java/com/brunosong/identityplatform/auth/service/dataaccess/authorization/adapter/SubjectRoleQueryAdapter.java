@@ -32,6 +32,12 @@ public class SubjectRoleQueryAdapter implements SubjectRoleQuery {
 
     @Override
     @Transactional(readOnly = true)
+    public List<String> roleCodes(Realm realm, String subjectId) {
+        return subjectRoleRepository.findRoleCodes(realm, subjectId, ACTIVE);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<RoleView> assignedRoles(Realm realm, String subjectId) {
         return subjectRoleRepository.findAssignedRoles(realm, subjectId).stream()
                 .map(SubjectRoleQueryAdapter::toView)
