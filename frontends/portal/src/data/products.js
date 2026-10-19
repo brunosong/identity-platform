@@ -1,21 +1,20 @@
+import { fetchProducts } from '../api/order';
+
 /**
  * 상품 목록.
  *
- * 아직 상품 API 가 없다. order-service 는 주문만 알고 상품을 모른다. 그래서 여기 박아 두었다.
+ * 값이 두 곳에서 온다. 이름, 가격, 남은 수량은 order-service 가 준다. 주문할 때 서버가 그 값으로
+ * 판단하므로 화면도 같은 값을 보여야 한다. 설명, 사양, 색은 화면에만 쓰는 값이라 여기 둔다.
  *
- * <b>화면은 이 파일을 직접 읽지 않는다.</b> 아래 두 함수만 부른다. 나중에 상품 API 가 생기면
- * 고칠 자리가 그 둘뿐이고, 목록과 상세 화면은 그대로 둔다.
+ * <b>화면은 이 파일을 직접 읽지 않는다.</b> 아래 두 함수만 부른다.
  *
  * tone 은 색상환의 각도다. 상품 사진이 없어서 이 값으로 타일 색을 만든다.
  */
 
-const PRODUCTS = [
+const DISPLAY = [
     {
         id: 'kb-realforce-45',
-        name: '무접점 키보드 45g',
         category: '주변기기',
-        price: 259000,
-        stock: 8,
         tone: 222,
         summary: '누르는 깊이로 입력을 잡는 방식이라 끝까지 누르지 않아도 된다.',
         description: [
@@ -32,10 +31,7 @@ const PRODUCTS = [
     },
     {
         id: 'mn-lg-27-4k',
-        name: '27인치 4K 모니터',
         category: '모니터',
-        price: 549000,
-        stock: 3,
         tone: 265,
         summary: '글자를 오래 보는 사람을 위한 해상도. 27인치에서 4K 는 인쇄물에 가깝다.',
         description: [
@@ -52,10 +48,7 @@ const PRODUCTS = [
     },
     {
         id: 'hp-sony-wh',
-        name: '노이즈 캔슬링 헤드폰',
         category: '음향',
-        price: 399000,
-        stock: 14,
         tone: 190,
         summary: '지하철과 카페의 웅웅거림이 사라진다. 사람 목소리는 남는다.',
         description: [
@@ -72,10 +65,7 @@ const PRODUCTS = [
     },
     {
         id: 'ms-mx-master',
-        name: '버티컬 무선 마우스',
         category: '주변기기',
-        price: 129000,
-        stock: 21,
         tone: 152,
         summary: '손목을 비틀지 않는 각도. 익숙해지는 데 사흘쯤 걸린다.',
         description: [
@@ -92,10 +82,7 @@ const PRODUCTS = [
     },
     {
         id: 'nb-a5-dot',
-        name: '도트 노트 A5 3권',
         category: '문구',
-        price: 21000,
-        stock: 60,
         tone: 36,
         summary: '줄도 격자도 아닌 점. 그려도 되고 써도 된다.',
         description: [
@@ -112,10 +99,7 @@ const PRODUCTS = [
     },
     {
         id: 'lp-stand-al',
-        name: '알루미늄 노트북 거치대',
         category: '데스크',
-        price: 59000,
-        stock: 0,
         tone: 205,
         summary: '화면을 눈높이로 올린다. 목이 앞으로 나가지 않게 하는 가장 싼 방법.',
         description: [
@@ -132,10 +116,7 @@ const PRODUCTS = [
     },
     {
         id: 'cb-usbc-240w',
-        name: 'USB-C 케이블 240W 2m',
         category: '케이블',
-        price: 18000,
-        stock: 45,
         tone: 285,
         summary: '생긴 건 다 같아 보이지만 통하는 전력이 다르다.',
         description: [
@@ -152,10 +133,7 @@ const PRODUCTS = [
     },
     {
         id: 'mg-ceramic-350',
-        name: '두꺼운 머그 350ml',
         category: '주방',
-        price: 24000,
-        stock: 33,
         tone: 18,
         summary: '두꺼워서 늦게 식는다. 오래 앉아 있는 사람에게 맞다.',
         description: [
@@ -172,14 +150,44 @@ const PRODUCTS = [
     },
 ];
 
-/** 목록 화면이 부른다. 상품 API 가 생기면 여기가 fetch 로 바뀐다. */
-export function listProducts() {
-    return PRODUCTS;
+/** 서버에는 있는데 화면 정보가 아직 없는 상품. 이름과 가격만으로 보인다. */
+const NO_DISPLAY = { category: '', tone: 220, summary: '', description: [], specs: {} };
+
+/**
+ * 목록 화면이 부른다. 서버가 아는 상품만 나온다. 판매 여부는 서버가 정한다.
+ *
+ * @returns {{ok, status, message, products}}
+ */
+export async function listProducts() {
+    const result = await fetchProducts();
+    if (!result.ok) {
+        return { ...result, products: [] };
+    }
+
+    const products = result.data.map(withDisplay);
+    return { ...result, products };
 }
 
-/** 상세 화면이 부른다. 없는 id 면 undefined 다. 화면이 그 경우를 처리한다. */
-export function findProduct(id) {
-    return PRODUCTS.find((product) => product.id === id);
+/**
+ * 상세 화면이 부른다. 없는 id 면 product 가 undefined 다. 화면이 그 경우를 처리한다.
+ *
+ * 상품 하나만 주는 API 가 없어서 목록에서 찾는다. 상품이 여덟 개라 그것으로 충분하다.
+ */
+export async function findProduct(id) {
+    const result = await listProducts();
+    const product = result.products.find((candidate) => candidate.id === id);
+    return { ...result, product };
+}
+
+function withDisplay(server) {
+    const display = DISPLAY.find((candidate) => candidate.id === server.productId) ?? NO_DISPLAY;
+    return {
+        ...display,
+        id: server.productId,
+        name: server.name,
+        price: server.price,
+        stock: server.stock,
+    };
 }
 
 /** 화면 여러 곳에서 같은 모양으로 찍어야 해서 여기 둔다. */

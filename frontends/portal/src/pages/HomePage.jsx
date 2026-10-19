@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import Notice from '../components/Notice';
 import ProductThumb from '../components/ProductThumb';
 import { formatPrice, listProducts } from '../data/products';
 
@@ -9,11 +11,24 @@ import { formatPrice, listProducts } from '../data/products';
  * 로그인하지 않아도 들어올 수 있다. 상품을 보는 데 신원이 필요하지 않기 때문이다. 로그인이
  * 필요해지는 곳은 주문부터이고, 그 경계는 상세 화면에서 드러난다.
  *
- * 상품은 아직 프론트에 박혀 있다(data/products.js). 상품 API 가 없다.
+ * 가격과 남은 수량은 order-service 에서 온다. 상품 목록은 토큰 없이 부른다.
  */
 export default function HomePage() {
     const { isLoggedIn, claims } = useAuth();
-    const products = listProducts();
+    const [products, setProducts] = useState([]);
+    const [loadError, setLoadError] = useState(null);
+
+    useEffect(() => {
+        async function load() {
+            const result = await listProducts();
+            if (!result.ok) {
+                setLoadError(result.message ?? `상품을 불러오지 못했습니다 (${result.status})`);
+                return;
+            }
+            setProducts(result.products);
+        }
+        load();
+    }, []);
 
     return (
         <div className="page">
@@ -47,6 +62,8 @@ export default function HomePage() {
                     <span className="section-count">{products.length}개</span>
                 </div>
 
+                <Notice kind="err">{loadError}</Notice>
+
                 <div className="products">
                     {products.map((product) => (
                         <ProductCard key={product.id} product={product} />
@@ -69,7 +86,7 @@ export default function HomePage() {
                     <ServiceCard
                         title="주문 내역"
                         body="주문과 배송 상태를 봅니다."
-                        to="/me"
+                        to="/orders"
                         locked={!isLoggedIn}
                     />
                     <ServiceCard

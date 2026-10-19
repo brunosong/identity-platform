@@ -26,7 +26,7 @@ export default function EndpointSettings() {
     return (
         <div className="endpoints">
             <button className="endpoints-toggle" onClick={() => setOpen(!open)}>
-                <span className="dot" /> auth {short(current.auth)} · customer {short(current.customer)}
+                <span className="dot" /> auth {short(current.auth)} · customer {short(current.customer)} · order {short(current.order)}
             </button>
 
             {open && (
@@ -50,13 +50,19 @@ export default function EndpointSettings() {
                         onChange={(e) => setValues({ ...values, customer: e.target.value })}
                     />
 
+                    <label>order-service</label>
+                    <input
+                        value={values.order}
+                        onChange={(e) => setValues({ ...values, order: e.target.value })}
+                    />
+
                     <div className="row">
                         <button className="primary" onClick={apply}>적용 (새로고침)</button>
                         <button onClick={restore}>기본값으로</button>
                     </div>
 
                     <p className="hint">
-                        기본값: {defaultEndpoints().auth} · {defaultEndpoints().customer}
+                        기본값: {defaultEndpoints().auth} · {defaultEndpoints().customer} · {defaultEndpoints().order}
                         <br />(<code>.env</code> 에서 옵니다)
                     </p>
                 </div>
