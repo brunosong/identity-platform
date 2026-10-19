@@ -23,6 +23,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,6 +84,30 @@ class AuthorizationStorePersistenceIntegrationTest {
                     .containsExactly("ROLE_MANAGER");
             assertThat(subjectRoleQuery.permissionCodes(Realm.ADMIN, "EMP-1"))
                     .containsExactlyInAnyOrder("RESUME_READ", "RESUME_WRITE");
+        }
+
+        @Test
+        @DisplayName("권한이 서비스별로 묶여 나오고, 서비스가 없는 권한은 빠진다")
+        void permissionsGroupedByService() {
+            service("order-service");
+            service("customer-service");
+            AuthzPermissionEntity orderRead = permission(Realm.PORTAL, "order-service", "ORDER_READ", true);
+            AuthzPermissionEntity orderWrite = permission(Realm.PORTAL, "order-service", "ORDER_WRITE", true);
+            AuthzPermissionEntity profileRead = permission(Realm.PORTAL, "customer-service", "PROFILE_READ", true);
+            AuthzPermissionEntity console = permission(Realm.PORTAL, "CONSOLE_ONLY", true);
+            Long customer = role(Realm.PORTAL, "CUSTOMER", true, orderWrite, orderRead, profileRead, console)
+                    .getRoleId();
+            // 두 역할이 같은 권한을 줘도 한 번만 나와야 한다.
+            Long vip = role(Realm.PORTAL, "VIP", true, orderRead).getRoleId();
+            subjectRoleRepository.addRole(Realm.PORTAL, "CUST-9", customer);
+            subjectRoleRepository.addRole(Realm.PORTAL, "CUST-9", vip);
+            flushClear();
+
+            Map<String, List<String>> byService = subjectRoleQuery.permissionsByService(Realm.PORTAL, "CUST-9");
+
+            assertThat(byService).containsExactly(
+                    Map.entry("customer-service", List.of("PROFILE_READ")),
+                    Map.entry("order-service", List.of("ORDER_READ", "ORDER_WRITE")));
         }
 
         @Test
@@ -347,6 +372,20 @@ class AuthorizationStorePersistenceIntegrationTest {
         e.setActive(active);
         em.persist(e);
         return e;
+    }
+
+    private AuthzPermissionEntity permission(Realm realm, String serviceId, String code, boolean active) {
+        AuthzPermissionEntity e = permission(realm, code, active);
+        e.setServiceId(serviceId);
+        return e;
+    }
+
+    /** 권한의 service_id 가 가리킬 서비스. 엔티티가 없어 SQL 로 넣는다. */
+    private void service(String serviceId) {
+        em.createNativeQuery("INSERT INTO authz_service (service_id, realm, system_id, service_name) "
+                        + "VALUES (?1, 'PORTAL', 'shop', ?1)")
+                .setParameter(1, serviceId)
+                .executeUpdate();
     }
 
     private AuthzRoleEntity role(Realm realm, String code, boolean active, AuthzPermissionEntity... permissions) {

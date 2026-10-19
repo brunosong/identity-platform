@@ -219,5 +219,10 @@ class AccessControlServiceTest {
             return List.of();
         }
 
+        @Override
+        public Map<String, List<String>> permissionsByService(Realm realm, String subjectId) {
+            return Map.of();
+        }
+
     }
 }

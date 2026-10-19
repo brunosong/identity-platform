@@ -35,6 +35,22 @@ public interface AuthzSubjectRoleJpaRepository
     List<String> findPermissionCodes(@Param("realm") Realm realm, @Param("subjectId") String subjectId,
                                      @Param("active") boolean active);
 
+    /**
+     * 주체의 권한과 그 서비스(역할 → 권한 조인, 활성만). 서비스가 없는 권한은 뺀다.
+     * 두 역할이 같은 권한을 주면 한 번만 나온다.
+     */
+    @Query("SELECT DISTINCT new com.brunosong.identityplatform.auth.service.dataaccess.authorization"
+            + ".repository.ServicePermissionRow(p.serviceId, p.permissionCode) "
+            + "FROM AuthzSubjectRoleEntity sr "
+            + "JOIN AuthzRoleEntity r ON sr.roleId = r.roleId "
+            + "JOIN r.permissions p "
+            + "WHERE sr.realm = :realm AND sr.subjectId = :subjectId "
+            + "AND r.active = :active AND p.active = :active AND p.serviceId IS NOT NULL "
+            + "ORDER BY p.serviceId ASC, p.permissionCode ASC")
+    List<ServicePermissionRow> findServicePermissions(@Param("realm") Realm realm,
+                                                      @Param("subjectId") String subjectId,
+                                                      @Param("active") boolean active);
+
     /** 주체의 역할 코드(활성 역할만). */
     @Query("SELECT r.roleCode FROM AuthzSubjectRoleEntity sr "
             + "JOIN AuthzRoleEntity r ON sr.roleId = r.roleId "

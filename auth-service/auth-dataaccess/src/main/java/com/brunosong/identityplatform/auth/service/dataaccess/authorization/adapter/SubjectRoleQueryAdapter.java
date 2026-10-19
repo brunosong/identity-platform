@@ -4,12 +4,16 @@ import com.brunosong.identityplatform.auth.service.application.authorization.por
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.RoleView;
 import com.brunosong.identityplatform.auth.service.dataaccess.authorization.entity.AuthzRoleEntity;
 import com.brunosong.identityplatform.auth.service.dataaccess.authorization.repository.AuthzSubjectRoleJpaRepository;
+import com.brunosong.identityplatform.auth.service.dataaccess.authorization.repository.ServicePermissionRow;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 주체-역할 배정 조회 어댑터.
@@ -34,6 +38,20 @@ public class SubjectRoleQueryAdapter implements SubjectRoleQuery {
     @Transactional(readOnly = true)
     public List<String> roleCodes(Realm realm, String subjectId) {
         return subjectRoleRepository.findRoleCodes(realm, subjectId, ACTIVE);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, List<String>> permissionsByService(Realm realm, String subjectId) {
+        List<ServicePermissionRow> rows = subjectRoleRepository.findServicePermissions(realm, subjectId, ACTIVE);
+
+        // 쿼리가 서비스 순으로 주므로 넣은 순서를 지키는 맵에 담는다. 토큰에 실릴 때도 그 순서다.
+        Map<String, List<String>> byService = new LinkedHashMap<>();
+        for (ServicePermissionRow row : rows) {
+            List<String> codes = byService.computeIfAbsent(row.serviceId(), serviceId -> new ArrayList<>());
+            codes.add(row.permissionCode());
+        }
+        return byService;
     }
 
     @Override
