@@ -1,12 +1,15 @@
 package com.brunosong.identityplatform.customer.service.web.support;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -17,7 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * 그 방식의 문제는 <b>부르는 것을 잊으면 그대로 열린다</b>는 것이다 — 새 컨트롤러를 추가하면서
  * 한 줄을 빠뜨리면 인증 없는 API 가 조용히 생긴다.
  *
- * <p>지금은 필터가 <b>모든 요청 앞에</b> 있고 기본값이 "거부" 다({@code anyRequest().authenticated()}).
+ * <p>지금은 필터가 <b>모든 요청 앞에</b> 있고 기본값이 "거부" 다({@code anyRequest().denyAll()}).
  * 열려면 명시적으로 적어야 한다. 잊었을 때의 결과가 반대 방향으로 뒤집힌 것이 핵심이다.
  *
  * <h2>설정 한 줄이 auth 와의 계약 전부다</h2>
@@ -38,15 +41,15 @@ import org.springframework.security.web.SecurityFilterChain;
  * <p><b>auth 보다 먼저 떠도 된다.</b> {@code issuer-uri} 를 쓰면 Spring 이 디코더 생성을 첫 검증까지
  * 미룬다({@code SupplierJwtDecoder}). 부팅 시점에 auth 를 부르지 않는다.
  *
- * <h2>지금 이 서비스에 역할 검사가 없다</h2>
- * 토큰에서 인가 클레임을 걷어냈다. 전에는 {@code resource_access} 의 이 서비스 칸을 authority 로
- * 옮겨 {@code PROFILE_READ} 를 요구했는데, 그 칸이 더 이상 오지 않는다.
+ * <h2>경로마다 이 서비스의 권한을 요구한다</h2>
+ * 토큰의 {@code resource_access.customer-service.roles} 를 {@link ServicePermissionAuthorities} 가 권한으로
+ * 옮기고, 조회는 {@code PROFILE_READ}, 저장은 {@code PROFILE_WRITE} 를 요구한다. 로그인은 했지만 그
+ * 권한이 없는 토큰은 403 이다. 적지 않은 경로는 막는다({@code denyAll}).
  *
- * <p>그래서 <b>지금은 인증만 통과하면 이 API 들이 열린다.</b> 인가를 어디서 판정할지는 아직
- * 정하지 않았다. 권한 데이터 자체는 auth 에 그대로 있고, 없어진 것은 그것을 토큰으로 나르던 길이다.
+ * <p>역할은 보지 않는다. 누가 이 권한을 갖는지는 auth 가 역할과 권한을 이어서 정한다.
  *
  * <p><b>소유권 확인은 그대로다.</b> {@code /api/customers/me} 는 조회 키를 토큰의 {@code sub} 로만
- * 잡으므로, 인가가 빠져도 남의 프로필은 열리지 않는다. 그것은 역할이 아니라 조회 키의 문제였다.
+ * 잡으므로, 권한이 있어도 남의 프로필은 열리지 않는다. 그것은 권한이 아니라 조회 키의 문제다.
  *
  * <h2>무상태</h2>
  * 세션을 만들지 않는다. 토큰이 요청마다 신원을 들고 오므로 서버가 기억할 것이 없고, 기억하기
@@ -57,8 +60,19 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
+    /** 내 프로필을 본다. auth 의 authz_permission 에 같은 코드가 있다. */
+    private static final String PROFILE_READ = "PROFILE_READ";
+
+    /** 내 프로필을 만들거나 고친다. */
+    private static final String PROFILE_WRITE = "PROFILE_WRITE";
+
     @Bean
-    public SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
+    public SecurityFilterChain apiSecurity(HttpSecurity http,
+                                           @Value("${app.service-id}") String serviceId) throws Exception {
+        // 토큰을 Spring 이 아는 사용자로 바꿀 때 resource_access 의 이 서비스 칸을 권한으로 옮긴다.
+        JwtAuthenticationConverter tokenToUser = new JwtAuthenticationConverter();
+        tokenToUser.setJwtGrantedAuthoritiesConverter(new ServicePermissionAuthorities(serviceId));
+
         return http
                 // 쿠키를 쓰지 않으므로 CSRF 가 성립하지 않는다.
                 .csrf(AbstractHttpConfigurer::disable)
@@ -66,13 +80,13 @@ public class SecurityConfiguration {
                 // 이 필터체인이 먼저 돌아 preflight 가 401 로 막힌다.
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // 기본이 거부다. 여는 것을 잊는 실수는 401 로 드러나고, 막는 것을 잊는 실수는 생기지 않는다.
-                //
-                // 지금 요구하는 것은 인증뿐이다. 역할 검사는 토큰에서 인가 클레임을 걷어내면서
-                // 함께 빠졌고, 어디서 판정할지 정해지면 이 자리로 돌아온다.
+                // 기본이 거부다. 여는 것을 잊는 실수는 403 으로 드러나고, 막는 것을 잊는 실수는 생기지 않는다.
                 .authorizeHttpRequests(requests -> requests
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                        .requestMatchers(HttpMethod.GET, "/api/customers/me").hasAuthority(PROFILE_READ)
+                        .requestMatchers(HttpMethod.PUT, "/api/customers/me").hasAuthority(PROFILE_WRITE)
+                        .anyRequest().denyAll())
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(tokenToUser)))
                 .build();
     }
 }

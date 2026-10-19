@@ -53,13 +53,17 @@ auth 의 모듈을 하나도 의존하지 않는다. **표준 라이브러리(Sp
 `SecurityConfiguration` **한 곳**이다. 필터가 모든 요청 앞에 있고 기본값이 거부다.
 
 ```java
-.authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
-.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+.authorizeHttpRequests(requests -> requests
+        .requestMatchers(HttpMethod.GET, "/api/customers/me").hasAuthority(PROFILE_READ)
+        .requestMatchers(HttpMethod.PUT, "/api/customers/me").hasAuthority(PROFILE_WRITE)
+        .anyRequest().denyAll())
+.oauth2ResourceServer(oauth2 -> oauth2
+        .jwt(jwt -> jwt.jwtAuthenticationConverter(tokenToUser)))
 ```
 
 전에는 직접 만든 `AuthenticatedCaller` 를 컨트롤러마다 불렀다(`auth-client` 모듈). 그 방식은
 **부르는 것을 잊으면 그대로 열린다** — 새 컨트롤러를 추가하면서 한 줄을 빠뜨리면 인증 없는 API 가
-조용히 생긴다. 지금은 잊었을 때의 결과가 반대다: 아무것도 안 하면 401 이고, 열려면 명시해야 한다.
+조용히 생긴다. 지금은 잊었을 때의 결과가 반대다: 규칙을 적지 않은 경로는 403 이고, 열려면 명시해야 한다.
 
 그래서 컨트롤러에 인증 코드가 **한 줄도 없다.** 거기 도달했다는 것이 곧 검증을 통과했다는 뜻이다.
 
@@ -69,17 +73,19 @@ public ProfileResponse save(@AuthenticationPrincipal Jwt token, ...) {
 }
 ```
 
-### 네 겹으로 막는다
+### 다섯 겹으로 막는다
 
 | | 무엇을 보나 | 어디서 |
 |---|---|---|
 | **서명·만료·용도** | 이 토큰이 진짜 auth 가 만든 access 토큰인가 | Spring Security 필터 |
 | **발급자·realm** | 우리 auth 의 포털 것인가 | **설정** (`issuer-uri`) |
 | **대상·시스템** | 이 시스템 앞으로 발급된 토큰인가 | **설정** (`audiences`) |
+| **권한** | 이 사람이 이 기능을 쓸 수 있나 | 필터 (`resource_access.customer-service.roles`) |
 | **소유권** | 이 데이터가 이 사람 것인가 | 컨트롤러 |
 
-> **역할 검사는 없다.** 토큰에서 인가 클레임을 걷어내면서 함께 빠졌다. 지금은 인증만 통과하면
-> 이 API 가 열린다. 소유권은 역할이 아니라 조회 키의 문제라 그대로 선다.
+> **권한은 자기 칸만 읽는다.** `ServicePermissionAuthorities` 가 토큰의 `resource_access` 에서
+> `app.service-id`(customer-service) 칸만 꺼내 권한으로 옮긴다. 역할(`realm_access`)은 보지 않는다.
+> 누가 이 권한을 갖는지는 auth 가 역할과 권한을 이어서 정한다.
 
 **realm 확인이 코드에 없다.** 사라진 것이 아니라 설정으로 옮겨갔다. JWKS 가 realm 별로 나뉘어 있어
 이 서비스는 어드민 공개키를 아예 갖지 못하고, 그래서 어드민 토큰은 서명 검증에서 죽는다 —
@@ -98,8 +104,8 @@ public ProfileResponse save(@AuthenticationPrincipal Jwt token, ...) {
 
 | | 조건 | 하는 일 |
 |---|---|---|
-| `GET /api/customers/me` | PORTAL 토큰 | 내 프로필 (없으면 404) |
-| `PUT /api/customers/me` | PORTAL 토큰 | 내 프로필 생성/수정 |
+| `GET /api/customers/me` | PROFILE_READ | 내 프로필 (없으면 404) |
+| `PUT /api/customers/me` | PROFILE_WRITE | 내 프로필 생성/수정 |
 
 **직원이 고객을 조회하는 API 는 여기 없다.** 그런 것이 필요해지면 **같은 코드를 어드민 realm
 설정으로 한 벌 더 띄우는** 것이 표준적인 방법이다. 한 프로세스가 두 realm 의 키를 다 쥐기
@@ -107,8 +113,7 @@ public ProfileResponse save(@AuthenticationPrincipal Jwt token, ...) {
 
 > 권한 코드는 auth 가 보관하지만 그 의미는 **자원을 가진 서비스**가 정한다. auth 는 그 코드가
 > 무엇을 여는지 모르고, 이 서비스는 그 코드가 어떤 역할에 붙어 있는지 모른다. 그래서 코드
-> 이름에 이 서비스의 자원을 넣는다(`PROFILE_READ`). 다만 <b>지금 그 코드를 읽는 곳은 없다</b>.
-> 토큰에서 인가를 걷어냈고, 어디서 판정할지 정해지면 돌아온다.
+> 이름에 이 서비스의 자원을 넣는다(`PROFILE_READ`, `PROFILE_WRITE`).
 
 ## 자기 DB 를 쓴다
 
