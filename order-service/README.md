@@ -39,12 +39,16 @@ spring.security.oauth2.resourceserver.jwt.audiences: shop
 {
   "iss": "http://localhost:8080/realms/portal",
   "aud": ["shop"],
-  "sub": "cust-..."
+  "sub": "cust-...",
+  "resource_access": {
+    "customer-service": { "roles": ["PROFILE_READ"] },
+    "order-service":    { "roles": ["ORDER_READ", "ORDER_WRITE"] }
+  }
 }
 ```
 
-토큰에 역할도 권한도 없다. 두 서비스를 가르는 것은 `aud` 가 아니라 **각자의 코드**다.
-지금은 둘 다 인증만 요구한다.
+두 서비스를 가르는 것은 `aud` 가 아니라 `resource_access` 의 **자기 칸**이다. 같은 토큰을 받아도
+order-service 는 `order-service` 칸만 읽는다.
 
 > **시스템 이름을 realm 과 다르게 지었다.** 로그인 경로는 `/realms/portal` 인데 시스템은 `shop` 이다.
 > 같은 글자를 쓰면 둘이 다른 개념이라는 사실이 이름에서 지워진다. realm 은 "어느 서랍에서 계정을
@@ -144,24 +148,25 @@ orders.findOwned(token.getSubject(), orderId)
 **게이트웨이가 있어도 이 확인은 대신해 줄 수 없다.** 게이트웨이는 "이 URL 에 들어와도 되는가"
 까지 알지만 "이 데이터가 이 사람 것인가" 는 모른다.
 
-## 주문은 CUSTOMER 역할만 한다
+## 경로마다 이 서비스의 권한을 요구한다
 
-auth 가 access 토큰의 `realm_access.roles` 에 역할을 싣는다(Keycloak 모양). 이 서비스는 그것을
-`ROLE_CUSTOMER` 로 옮기고 주문 경로마다 역할을 요구한다.
+auth 가 access 토큰의 `resource_access` 에 서비스별 권한을 싣는다(Keycloak 의 client role 자리).
+이 서비스는 자기 칸(`resource_access.order-service.roles`)만 읽어 권한으로 옮기고 경로마다 요구한다.
+어느 칸인지는 `app.service-id` 가 정한다.
 
 ```java
 .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
-.requestMatchers(HttpMethod.GET, "/api/orders").hasRole(CUSTOMER)
-.requestMatchers(HttpMethod.GET, "/api/orders/*").hasRole(CUSTOMER)
-.requestMatchers(HttpMethod.POST, "/api/orders").hasRole(CUSTOMER)
+.requestMatchers(HttpMethod.GET, "/api/orders").hasAuthority(ORDER_READ)
+.requestMatchers(HttpMethod.GET, "/api/orders/*").hasAuthority(ORDER_READ)
+.requestMatchers(HttpMethod.POST, "/api/orders").hasAuthority(ORDER_WRITE)
 .anyRequest().denyAll()
 ```
 
-로그인했지만 역할이 없는 토큰은 403 이다. 적지 않은 경로는 막는다. 새 API 에 규칙을 잊으면 열리는
-대신 403 으로 드러난다.
+로그인했지만 그 권한이 없는 토큰은 403 이다. 적지 않은 경로는 막는다. 새 API 에 규칙을 잊으면
+열리는 대신 403 으로 드러난다.
 
-서비스별 권한(`resource_access.order-service.roles`)은 아직 토큰에 없다. 그것이 실리면 역할 대신
-그 권한으로 판정하고, 바뀌는 자리는 위 규칙 몇 줄이다.
+역할(`realm_access.roles`)은 보지 않는다. 누가 이 권한을 갖는지는 auth 가 역할과 권한을 이어서
+정한다. "상담원도 주문을 넣게" 같은 변경은 auth 콘솔에서 끝나고 이 서비스는 재배포하지 않는다.
 
 **위의 소유권 확인은 그대로 선다.** 그것은 역할이 아니라 조회 키의 문제였기 때문이다. 인가를
 붙이든 빼든 남의 주문은 404 다.
@@ -171,9 +176,9 @@ auth 가 access 토큰의 `realm_access.roles` 에 역할을 싣는다(Keycloak 
 | | 조건 | 하는 일 |
 |---|---|---|
 | `GET /api/products` | **없음** | 상품 목록. 이름, 가격, 남은 수량 |
-| `GET /api/orders` | CUSTOMER | 내 주문 목록 (최근 순) |
-| `GET /api/orders/{orderId}` | CUSTOMER + **소유권** | 내 주문 하나 (없거나 남의 것이면 404) |
-| `POST /api/orders` | CUSTOMER | 주문. 본문은 `{productId, quantity}`. 없는 상품 404, 재고 부족 409 |
+| `GET /api/orders` | ORDER_READ | 내 주문 목록 (최근 순) |
+| `GET /api/orders/{orderId}` | ORDER_READ + **소유권** | 내 주문 하나 (없거나 남의 것이면 404) |
+| `POST /api/orders` | ORDER_WRITE | 주문. 본문은 `{productId, quantity}`. 없는 상품 404, 재고 부족 409 |
 
 주문자를 본문으로 받지 않는다. 받으면 남의 이름으로 주문할 수 있다. 가격과 금액도 받지 않는다.
 서버가 `products` 표의 가격으로 계산하고 재고를 줄인다. 자세한 것은 [주문](../docs/주문.md).
@@ -266,13 +271,18 @@ print(json.dumps(json.loads(base64.urlsafe_b64decode(p)), indent=2))
   "aud": ["shop"],
   "sub": "2f231b51-7703-42b8-aa13-fa906fd57dc6",
   "type": "access",
+  "realm_access": { "roles": ["CUSTOMER"] },
+  "resource_access": {
+    "customer-service": { "roles": ["PROFILE_READ"] },
+    "order-service":    { "roles": ["ORDER_READ", "ORDER_WRITE"] }
+  },
   "iat": 1789476440,
   "exp": 1789483640
 }
 ```
 
-역할도 권한도 없다. `aud` 가 `shop` 하나라서 이 토큰이 두 서비스에 통하고, 서비스가 하나 더
-붙어도 `aud` 는 그대로다.
+`aud` 가 `shop` 하나라서 이 토큰이 두 서비스에 통하고, 서비스가 하나 더 붙어도 `aud` 는 그대로다.
+각 서비스는 `resource_access` 의 자기 칸으로 판정한다.
 
 그 토큰 하나로 두 서비스를 부른다.
 

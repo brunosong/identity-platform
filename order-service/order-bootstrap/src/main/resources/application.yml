@@ -41,3 +41,7 @@ server:
 logging:
   level:
     com.brunosong.identityplatform: INFO
+
+app:
+  # auth 의 authz_service.service_id 와 같은 값이다. 토큰의 resource_access 에서 이 칸만 읽는다.
+  service-id: ${SERVICE_ID:order-service}

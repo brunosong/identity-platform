@@ -1,5 +1,6 @@
 package com.brunosong.identityplatform.order.service.web.support;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -31,20 +32,22 @@ import org.springframework.security.web.SecurityFilterChain;
  * 포털 realm 의 토큰은 {@code aud} 가 {@code shop} 하나라서, 한 번 로그인한 토큰이 둘 다 통한다. <b>"한 번만 로그인" 과 "아무 데나 통한다" 는 다른
  * 이야기다</b>. 포털 앱에 없는 서비스를 여기에 적으면 그 토큰은 이 서비스에서 거부된다.
  *
- * <h2>주문은 CUSTOMER 역할만 한다</h2>
- * 토큰의 {@code realm_access.roles} 를 {@link RealmRoleAuthorities} 가 권한({@code ROLE_CUSTOMER})으로
- * 옮기고, 주문 경로마다 {@code hasRole("CUSTOMER")} 를 건다. 역할은 가입할 때 auth 가 붙인다.
- * 로그인은 했지만 역할이 없는 토큰은 403 이다.
+ * <h2>경로마다 이 서비스의 권한을 요구한다</h2>
+ * 토큰의 {@code resource_access.order-service.roles} 를 {@link ServicePermissionAuthorities} 가 권한으로
+ * 옮기고, 경로마다 {@code hasAuthority} 를 건다. 조회는 {@code ORDER_READ}, 주문은 {@code ORDER_WRITE} 다.
+ * 로그인은 했지만 그 권한이 없는 토큰은 403 이다.
+ *
+ * <p><b>역할은 보지 않는다.</b> 누가 이 권한을 갖는지는 auth 가 역할과 권한을 이어서 정한다. 그래서
+ * "상담원도 주문을 넣게" 같은 변경은 auth 콘솔에서 끝나고 이 서비스는 재배포하지 않는다. 이 서비스에
+ * 남는 것은 "이 URL 은 이 권한" 이라는, API 를 고칠 때만 바뀌는 사실뿐이다.
  *
  * <p>상품 목록({@code GET /api/products})만 로그인 없이 열린다. 누구에게나 같은 값이다.
  *
  * <p><b>적지 않은 경로는 막는다({@code denyAll}).</b> 새 API 를 만들고 규칙을 잊으면 열리는 대신
  * 403 으로 드러난다.
+
  *
- * <p>서비스별 권한({@code resource_access.order-service.roles})이 토큰에 실리면 역할 대신 그 권한으로
- * 판정하게 된다. 그때 바뀌는 자리는 아래 규칙 몇 줄뿐이다.
- *
- * <p><b>소유권 확인은 그대로다.</b> 그것은 역할이 아니라 조회 키의 문제였고
+ * <p><b>소유권 확인은 그대로다.</b> 그것은 권한이 아니라 조회 키의 문제였고
  * ({@code MyOrderApiController}), 인가가 빠져도 남의 주문은 여전히 404 다.
  *
  * <h2>무상태</h2>
@@ -55,14 +58,18 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
-    /** auth 가 가입한 고객에게 붙이는 역할. hasRole 이 앞에 ROLE_ 을 붙여 찾는다. */
-    private static final String CUSTOMER = "CUSTOMER";
+    /** 내 주문을 본다. auth 의 authz_permission 에 같은 코드가 있다. */
+    private static final String ORDER_READ = "ORDER_READ";
+
+    /** 주문한다. */
+    private static final String ORDER_WRITE = "ORDER_WRITE";
 
     @Bean
-    public SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
-        // 토큰을 Spring 이 아는 사용자로 바꿀 때 realm_access.roles 를 권한으로 옮긴다.
+    public SecurityFilterChain apiSecurity(HttpSecurity http,
+                                           @Value("${app.service-id}") String serviceId) throws Exception {
+        // 토큰을 Spring 이 아는 사용자로 바꿀 때 resource_access 의 이 서비스 칸을 권한으로 옮긴다.
         JwtAuthenticationConverter tokenToUser = new JwtAuthenticationConverter();
-        tokenToUser.setJwtGrantedAuthoritiesConverter(new RealmRoleAuthorities());
+        tokenToUser.setJwtGrantedAuthoritiesConverter(new ServicePermissionAuthorities(serviceId));
 
         return http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -73,9 +80,9 @@ public class SecurityConfiguration {
                 // 기본이 거부다. 여는 것을 잊는 실수는 403 으로 드러나고, 막는 것을 잊는 실수는 생기지 않는다.
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/orders").hasRole(CUSTOMER)
-                        .requestMatchers(HttpMethod.GET, "/api/orders/*").hasRole(CUSTOMER)
-                        .requestMatchers(HttpMethod.POST, "/api/orders").hasRole(CUSTOMER)
+                        .requestMatchers(HttpMethod.GET, "/api/orders").hasAuthority(ORDER_READ)
+                        .requestMatchers(HttpMethod.GET, "/api/orders/*").hasAuthority(ORDER_READ)
+                        .requestMatchers(HttpMethod.POST, "/api/orders").hasAuthority(ORDER_WRITE)
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(tokenToUser)))
