@@ -2,6 +2,7 @@ package com.brunosong.identityplatform.order.service.web.support;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -34,6 +35,8 @@ import org.springframework.security.web.SecurityFilterChain;
  * 토큰의 {@code realm_access.roles} 를 {@link RealmRoleAuthorities} 가 권한({@code ROLE_CUSTOMER})으로
  * 옮긴다. 그 권한으로 경로를 막는 규칙은 아직 없어서, 지금은 인증만 통과하면 이 API 들이 열린다.
  *
+ * <p>상품 목록({@code GET /api/products})만 로그인 없이 열린다. 누구에게나 같은 값이다.
+ *
  * <p>권한 데이터 자체는 auth 에 그대로 있다({@code authz_permission} 의
  * {@code (PORTAL, order-service, ORDER_READ)} 행). 없어진 것은 그것을 토큰으로 나르던 길뿐이다.
  *
@@ -64,6 +67,7 @@ public class SecurityConfiguration {
                 //
                 // 지금 요구하는 것은 인증뿐이다. 역할 규칙은 다음에 이 자리에 건다.
                 .authorizeHttpRequests(requests -> requests
+                        .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(tokenToUser)))
