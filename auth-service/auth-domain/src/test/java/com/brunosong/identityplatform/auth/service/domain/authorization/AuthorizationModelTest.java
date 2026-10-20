@@ -1,13 +1,10 @@
 package com.brunosong.identityplatform.auth.service.domain.authorization;
 
-import com.brunosong.identityplatform.auth.service.domain.authorization.valueobject.HttpMethodPattern;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -120,124 +117,6 @@ class AuthorizationModelTest {
         void requiresCode() {
             assertThatThrownBy(() -> Permission.create(Realm.ADMIN, "", "인가 관리", "AUTHZ", null))
                     .isInstanceOf(IllegalArgumentException.class);
-        }
-    }
-
-    @Nested
-    @DisplayName("URL 접근 규칙")
-    class UrlAccessTest {
-
-        @Test
-        @DisplayName("권한 없이 시작해도 빈 목록을 갖는다")
-        void startsWithEmptyPermissions() {
-            UrlAccess access = UrlAccess.create(Realm.PORTAL, "/api/resumes/**", "GET", null, 0);
-
-            assertThat(access.getPermissionCodes()).isNotNull().isEmpty();
-        }
-
-        @Test
-        @DisplayName("메서드를 비우면 ALL 로 읽는다")
-        void blankMethodMeansAll() {
-            UrlAccess access = UrlAccess.create(Realm.PORTAL, "/api/resumes/**", " ", null, 0);
-
-            assertThat(access.getHttpMethod()).isEqualTo(HttpMethodPattern.ALL);
-        }
-
-        @Test
-        @DisplayName("캐시 규칙으로 투영한다")
-        void projectsToRule() {
-            UrlAccess access = UrlAccess.restore(1L, Realm.ADMIN, "/api/admin/**", "get",
-                    null, true, 0, null, List.of("ADMIN_READ"));
-
-            UrlRule rule = access.toRule();
-
-            assertThat(rule.urlPattern()).isEqualTo("/api/admin/**");
-            assertThat(rule.matchesMethod("GET")).isTrue();
-            assertThat(rule.permissionCodes()).containsExactly("ADMIN_READ");
-        }
-    }
-
-    @Nested
-    @DisplayName("캐시 규칙")
-    class UrlRuleTest {
-
-        @Test
-        @DisplayName("URL·메서드와 허용 권한 집합을 함께 담는다")
-        void carriesPermissions() {
-            UrlRule rule = new UrlRule("/api/admin/**", HttpMethodPattern.of("GET"),
-                    Set.of("ADMIN_READ", "ADMIN_ALL"));
-
-            assertThat(rule.urlPattern()).isEqualTo("/api/admin/**");
-            assertThat(rule.httpMethod().value()).isEqualTo("GET");
-            assertThat(rule.permissionCodes()).containsExactlyInAnyOrder("ADMIN_READ", "ADMIN_ALL");
-        }
-
-        @Test
-        @DisplayName("같은 내용의 규칙은 같은 값으로 본다")
-        void valueEquality() {
-            // 규칙 캐시를 갱신할 때 바뀐 것만 추리는 근거다.
-            UrlRule one = new UrlRule("/api/admin/**", HttpMethodPattern.of("GET"), Set.of("ADMIN_READ"));
-            UrlRule other = new UrlRule("/api/admin/**", HttpMethodPattern.of("GET"), Set.of("ADMIN_READ"));
-
-            assertThat(one).isEqualTo(other);
-        }
-
-        @Test
-        @DisplayName("만든 뒤에는 권한 집합을 고칠 수 없다")
-        void permissionsAreImmutable() {
-            // 이 규칙은 인가 판정 캐시에 그대로 들어간다. 나중에 누가 한 건 넣으면 그 순간부터
-            // 요청마다 다른 판정이 나오고, 원인을 찾기 어렵다.
-            UrlRule rule = new UrlRule("/api/admin/**", HttpMethodPattern.of("GET"), Set.of("ADMIN_READ"));
-
-            assertThatThrownBy(() -> rule.permissionCodes().add("SNEAKY"))
-                    .isInstanceOf(UnsupportedOperationException.class);
-        }
-
-        @Test
-        @DisplayName("보유 권한 중 하나라도 맞으면 통과한다")
-        void allowsAnyIsOr() {
-            UrlRule rule = new UrlRule("/api/admin/**", HttpMethodPattern.of("GET"),
-                    Set.of("ADMIN_READ", "ADMIN_ALL"));
-
-            assertThat(rule.allowsAny(Set.of("ADMIN_ALL"))).isTrue();
-            assertThat(rule.allowsAny(Set.of("OTHER"))).isFalse();
-            assertThat(rule.allowsAny(Set.of())).isFalse();
-        }
-
-        @Test
-        @DisplayName("권한 매핑이 없는 규칙은 아무도 통과시키지 않는다")
-        void emptyRuleAllowsNobody() {
-            UrlRule rule = new UrlRule("/api/admin/**", HttpMethodPattern.ALL, Set.of());
-
-            assertThat(rule.allowsAny(Set.of("ADMIN_ALL"))).isFalse();
-        }
-    }
-
-    @Nested
-    @DisplayName("HTTP 메서드 패턴")
-    class HttpMethodPatternTest {
-
-        @Test
-        @DisplayName("ALL 은 어떤 메서드와도 맞는다")
-        void allMatchesEverything() {
-            assertThat(HttpMethodPattern.ALL.matches("GET")).isTrue();
-            assertThat(HttpMethodPattern.ALL.matches("DELETE")).isTrue();
-            assertThat(HttpMethodPattern.ALL.matches(null)).isTrue();
-        }
-
-        @Test
-        @DisplayName("대소문자를 가리지 않는다")
-        void caseInsensitive() {
-            assertThat(HttpMethodPattern.of("get").matches("GET")).isTrue();
-            assertThat(HttpMethodPattern.of("GET").matches("get")).isTrue();
-            assertThat(HttpMethodPattern.of("GET").matches("POST")).isFalse();
-        }
-
-        @Test
-        @DisplayName("빈 값은 ALL 로 정규화된다")
-        void blankIsAll() {
-            assertThat(HttpMethodPattern.of(null)).isEqualTo(HttpMethodPattern.ALL);
-            assertThat(HttpMethodPattern.of("  ")).isEqualTo(HttpMethodPattern.ALL);
         }
     }
 }

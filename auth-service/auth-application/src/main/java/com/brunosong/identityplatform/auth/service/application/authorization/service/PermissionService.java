@@ -15,13 +15,11 @@ import com.brunosong.identityplatform.auth.service.application.authorization.rea
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.PageResult;
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.PermissionView;
 import com.brunosong.identityplatform.auth.service.domain.authorization.Permission;
-import com.brunosong.identityplatform.auth.service.domain.authorization.UrlAccess;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -87,10 +85,6 @@ public class PermissionService implements CreatePermissionUseCase, RenamePermiss
 
     @Override
     public List<String> categories(Realm realm) {
-        // 페이지 호출 URL 은 권한 그룹과 별개로 다루므로 그 분류를 맨 앞에 붙인다.
-        List<String> categories = new ArrayList<>();
-        categories.add(UrlAccess.PAGE_CATEGORY);
-        categories.addAll(permissionSearchQuery.listActiveCategories(realm));
-        return List.copyOf(categories);
+        return permissionSearchQuery.listActiveCategories(realm);
     }
 }

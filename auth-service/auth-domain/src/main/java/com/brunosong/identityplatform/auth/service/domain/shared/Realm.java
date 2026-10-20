@@ -11,7 +11,7 @@ import java.util.Set;
  *   <li>{@link #PORTAL} — 포털 영역. 고객이 산다. 식별자는 채번한 UUID 다.</li>
  * </ul>
  *
- * 역할/권한/URL접근규칙/주체-역할/리비전, 그리고 자격증명과 신원까지 모두 realm 으로 스코프된다.
+ * 역할/권한/주체-역할/리비전, 그리고 자격증명과 신원까지 모두 realm 으로 스코프된다.
  *
  * <h2>파티션 키는 이것 하나다</h2>
  * 전에는 {@code SubjectType}(EMPLOYEE/CUSTOMER)이 따로 있었다. identity 쪽 테이블은 그것으로,
@@ -43,12 +43,6 @@ import java.util.Set;
  * 하나다. Keycloak 의 realm 설정 화면에 있는 것들과 같은 성격이고, 그래서 "고객 가입 API" 와
  * "직원 등록 API" 를 따로 두는 대신 <b>가입 경로는 하나로 두고 realm 이 그것을 여는지 닫는지를
  * 정한다.</b>
- *
- * <p><b>규칙 없는 URL 을 어떻게 할지는 realm 마다 다르지 않다.</b> 두 realm 모두
- * fail-closed(화이트리스트)다 — 등록된 규칙만 통과하고, 규칙 없는 보호 경로는 거부한다. 전에는
- * 포털이 fail-open 이었는데, 그러면 규칙을 등록하지 않은 고객 API 가 조용히 열린 채로 남는다.
- * <b>잊었을 때의 결과가 "막힌다" 여야지 "열린다" 여서는 안 된다.</b> 값이 갈리지 않으므로 그 정책은
- * 필드로 남기지 않았다 — {@code AccessControlService} 가 한 가지 규칙만 시행한다.
  */
 public enum Realm {
 

@@ -20,8 +20,4 @@ public class AuthorizationNotFoundException extends RuntimeException {
     public static AuthorizationNotFoundException permission(Long permissionId) {
         return new AuthorizationNotFoundException("권한을 찾을 수 없습니다: " + permissionId);
     }
-
-    public static AuthorizationNotFoundException urlAccess(Long urlAccessId) {
-        return new AuthorizationNotFoundException("URL 접근 규칙을 찾을 수 없습니다: " + urlAccessId);
-    }
 }

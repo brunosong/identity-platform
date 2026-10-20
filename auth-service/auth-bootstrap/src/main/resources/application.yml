@@ -27,11 +27,6 @@ server:
 authorization:
   # RBAC 편집·캐시 리로드 같은 운영 API 를 부르는 데 필요한 권한 코드.
   manage-permission: AUTHZ_MANAGE
-  access-control:
-    # reload 는 그 호출을 받은 인스턴스만 갱신한다. TTL 이 나머지 인스턴스의 지연 창을 유한하게 만든다.
-    cache-ttl-seconds: 60
-    # 어떤 경로가 보호 대상인지 — ADMIN realm 은 여기 걸린 경로를 화이트리스트로 막는다.
-    protected-path-prefixes: /page/,/api/
 
 token:
   # 토큰의 iss 가 되는 기준 주소. realm 이 뒤에 붙는다 — .../realms/portal

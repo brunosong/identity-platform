@@ -1,12 +1,8 @@
 package com.brunosong.identityplatform.auth.service.dataaccess.authorization.adapter;
 
-import com.brunosong.identityplatform.auth.service.application.authorization.exception.AuthorizationNotFoundException;
 import com.brunosong.identityplatform.auth.service.dataaccess.authorization.entity.AuthzPermissionEntity;
 import com.brunosong.identityplatform.auth.service.dataaccess.authorization.entity.AuthzRoleEntity;
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.RoleView;
-import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.UrlAccessView;
-import com.brunosong.identityplatform.auth.service.domain.authorization.UrlAccess;
-import com.brunosong.identityplatform.auth.service.domain.authorization.UrlRule;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 인가 저장소(주체-역할 / URL 접근 규칙) 영속 경로 테스트.
+ * 인가 저장소(주체-역할) 영속 경로 테스트.
  *
  * <p>보는 지점은 realm 스코프와 조인이다. 한 저장소를 admin(EMPLOYEE)·portal(CUSTOMER)이 공유하므로
  * realm 이 새면 다른 호스트의 권한이 그대로 흘러간다. 권한 코드는 주체→역할→권한 2단 조인에
@@ -37,8 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({SubjectRoleRepositoryAdapter.class, SubjectRoleQueryAdapter.class,
-        UrlAccessRepositoryAdapter.class, UrlAccessQueryAdapter.class})
+@Import({SubjectRoleRepositoryAdapter.class, SubjectRoleQueryAdapter.class})
 @Testcontainers(disabledWithoutDocker = true)
 class AuthorizationStorePersistenceIntegrationTest {
 
@@ -57,12 +52,6 @@ class AuthorizationStorePersistenceIntegrationTest {
 
     @Autowired
     private SubjectRoleQueryAdapter subjectRoleQuery;
-
-    @Autowired
-    private UrlAccessRepositoryAdapter urlAccessRepository;
-
-    @Autowired
-    private UrlAccessQueryAdapter urlAccessQuery;
 
     @Autowired
     private EntityManager em;
@@ -208,158 +197,6 @@ class AuthorizationStorePersistenceIntegrationTest {
             flushClear();
 
             assertThat(subjectRoleQuery.assignedRoles(Realm.ADMIN, "EMP-5")).isEmpty();
-        }
-    }
-
-    @Nested
-    @DisplayName("URL 접근 규칙")
-    class UrlAccessRules {
-
-        @Test
-        @DisplayName("규칙을 저장하고 realm 활성 목록에서 정렬 순서대로 읽는다")
-        void activeRulesSortedWithinRealm() {
-            saveRule(Realm.ADMIN, "/api/admin/**", "ALL", 2, true);
-            saveRule(Realm.ADMIN, "/api/admin/resumes/**", "GET", 1, true);
-            saveRule(Realm.ADMIN, "/api/admin/legacy/**", "ALL", 3, false);
-            saveRule(Realm.PORTAL, "/api/resumes/**", "ALL", 1, true);
-            flushClear();
-
-            assertThat(urlAccessQuery.listActive(Realm.ADMIN))
-                    .extracting(UrlAccessView::urlPattern)
-                    .containsExactly("/api/admin/resumes/**", "/api/admin/**");
-            assertThat(urlAccessQuery.listActive(Realm.PORTAL))
-                    .extracting(UrlAccessView::urlPattern)
-                    .containsExactly("/api/resumes/**");
-        }
-
-        @Test
-        @DisplayName("기본 필드 수정은 권한 매핑을 보존한다")
-        void saveBasicsKeepsPermissionMapping() {
-            AuthzPermissionEntity perm = permission(Realm.ADMIN, "ADMIN_READ", true);
-            UrlAccess rule = saveRule(Realm.ADMIN, "/api/admin/keep/**", "ALL", 1, true);
-            urlAccessRepository.addPermission(rule.getUrlAccessId(), perm.getPermissionId());
-            flushClear();
-
-            UrlAccess reloaded = urlAccessRepository.findById(rule.getUrlAccessId()).orElseThrow();
-            reloaded.describeAs("설명만 바꾼다", reloaded.getSortOrder());
-            urlAccessRepository.saveBasics(reloaded);
-            flushClear();
-
-            UrlAccess after = urlAccessRepository.findById(rule.getUrlAccessId()).orElseThrow();
-            assertThat(after.getDescription()).isEqualTo("설명만 바꾼다");
-            assertThat(after.getPermissionCodes()).containsExactly("ADMIN_READ");
-        }
-
-        @Test
-        @DisplayName("권한 매핑을 붙이고 뗀다")
-        void addAndRemovePermission() {
-            AuthzPermissionEntity read = permission(Realm.ADMIN, "MAP_READ", true);
-            AuthzPermissionEntity write = permission(Realm.ADMIN, "MAP_WRITE", true);
-            UrlAccess rule = saveRule(Realm.ADMIN, "/api/admin/map/**", "ALL", 1, true);
-
-            urlAccessRepository.addPermission(rule.getUrlAccessId(), read.getPermissionId());
-            urlAccessRepository.addPermission(rule.getUrlAccessId(), write.getPermissionId());
-            flushClear();
-            assertThat(urlAccessRepository.findById(rule.getUrlAccessId()).orElseThrow().getPermissionCodes())
-                    .containsExactly("MAP_READ", "MAP_WRITE");
-
-            urlAccessRepository.removePermission(rule.getUrlAccessId(), read.getPermissionId());
-            flushClear();
-            assertThat(urlAccessRepository.findById(rule.getUrlAccessId()).orElseThrow().getPermissionCodes())
-                    .containsExactly("MAP_WRITE");
-        }
-
-        @Test
-        @DisplayName("없는 규칙·권한에 매핑하면 거부한다")
-        void mappingMissingRowsRejected() {
-            UrlAccess rule = saveRule(Realm.ADMIN, "/api/admin/reject/**", "ALL", 1, true);
-            flushClear();
-
-            assertThatThrownBy(() -> urlAccessRepository.addPermission(999_999L, 1L))
-                    .isInstanceOf(AuthorizationNotFoundException.class);
-            assertThatThrownBy(() -> urlAccessRepository.addPermission(rule.getUrlAccessId(), 999_999L))
-                    .isInstanceOf(AuthorizationNotFoundException.class);
-        }
-
-        @Test
-        @DisplayName("인가 캐시용 규칙은 패턴+메서드로 권한 코드를 모아 준다")
-        void activeRulesGroupPermissionCodes() {
-            AuthzPermissionEntity read = permission(Realm.ADMIN, "CACHE_READ", true);
-            AuthzPermissionEntity write = permission(Realm.ADMIN, "CACHE_WRITE", true);
-            UrlAccess both = saveRule(Realm.ADMIN, "/api/admin/cache/**", "ALL", 1, true);
-            urlAccessRepository.addPermission(both.getUrlAccessId(), read.getPermissionId());
-            urlAccessRepository.addPermission(both.getUrlAccessId(), write.getPermissionId());
-            // 매핑 없는 규칙은 조인이 걸러 캐시 규칙에 나오지 않는다.
-            saveRule(Realm.ADMIN, "/api/admin/unmapped/**", "ALL", 2, true);
-            flushClear();
-
-            List<UrlRule> rules = urlAccessQuery.activeRules(Realm.ADMIN);
-
-            assertThat(rules).singleElement().satisfies(r -> {
-                assertThat(r.urlPattern()).isEqualTo("/api/admin/cache/**");
-                assertThat(r.httpMethod().value()).isEqualTo("ALL");
-                assertThat(r.permissionCodes()).containsExactlyInAnyOrder("CACHE_READ", "CACHE_WRITE");
-            });
-        }
-
-        @Test
-        @DisplayName("비활성 규칙은 인가 캐시에서 빠진다")
-        void inactiveRuleExcludedFromCache() {
-            AuthzPermissionEntity perm = permission(Realm.PORTAL, "OFF_PERM", true);
-            UrlAccess off = saveRule(Realm.PORTAL, "/api/off/**", "ALL", 1, false);
-            urlAccessRepository.addPermission(off.getUrlAccessId(), perm.getPermissionId());
-            flushClear();
-
-            assertThat(urlAccessQuery.activeRules(Realm.PORTAL)).isEmpty();
-        }
-
-        @Test
-        @DisplayName("권한 기준 역방향 조회는 활성 규칙만 준다")
-        void findByPermissionIdSkipsInactive() {
-            AuthzPermissionEntity perm = permission(Realm.ADMIN, "REV_PERM", true);
-            UrlAccess live = saveRule(Realm.ADMIN, "/api/admin/rev-live/**", "ALL", 1, true);
-            UrlAccess off = saveRule(Realm.ADMIN, "/api/admin/rev-off/**", "ALL", 2, false);
-            urlAccessRepository.addPermission(live.getUrlAccessId(), perm.getPermissionId());
-            urlAccessRepository.addPermission(off.getUrlAccessId(), perm.getPermissionId());
-            flushClear();
-
-            assertThat(urlAccessRepository.findByPermissionId(perm.getPermissionId()))
-                    .extracting(UrlAccess::getUrlPattern)
-                    .containsExactly("/api/admin/rev-live/**");
-        }
-
-        @Test
-        @DisplayName("패턴+메서드 조회는 realm 안에서만 찾는다")
-        void findByPatternScopedToRealm() {
-            saveRule(Realm.ADMIN, "/api/shared/**", "GET", 1, true);
-            flushClear();
-
-            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.ADMIN, "/api/shared/**", "GET"))
-                    .hasSize(1);
-            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.PORTAL, "/api/shared/**", "GET"))
-                    .isEmpty();
-            assertThat(urlAccessRepository.findByPatternAndMethod(Realm.ADMIN, "/api/shared/**", "POST"))
-                    .isEmpty();
-        }
-
-        @Test
-        @DisplayName("규칙을 지우면 활성 목록에서 사라진다")
-        void deleteRule() {
-            UrlAccess rule = saveRule(Realm.PORTAL, "/api/delete-me/**", "ALL", 1, true);
-            flushClear();
-
-            urlAccessRepository.deleteById(rule.getUrlAccessId());
-            flushClear();
-
-            assertThat(urlAccessRepository.findById(rule.getUrlAccessId())).isEmpty();
-        }
-
-        private UrlAccess saveRule(Realm realm, String pattern, String method, int sortOrder, boolean active) {
-            UrlAccess rule = UrlAccess.create(realm, pattern, method, null, sortOrder);
-            if (!active) {
-                rule.deactivate();
-            }
-            return urlAccessRepository.saveBasics(rule);
         }
     }
 
