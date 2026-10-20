@@ -4,7 +4,7 @@
 
 <!--
   운영 화면 맨 위의 메뉴. 화면마다 붙인다.
-  active 는 지금 화면의 이름이다(clients, roles, permissions, employees).
+  active 는 지금 화면의 이름이다(clients, roles, permissions, subjects, employees).
 -->
 <div th:fragment="menu(active)">
     <style>
@@ -18,6 +18,7 @@
         <a th:href="@{/page/oauth-clients}" th:classappend="${active == 'clients'} ? 'on' : ''">등록된 앱</a>
         <a th:href="@{/page/roles}" th:classappend="${active == 'roles'} ? 'on' : ''">역할</a>
         <a th:href="@{/page/permissions}" th:classappend="${active == 'permissions'} ? 'on' : ''">권한</a>
+        <a th:href="@{/page/subjects}" th:classappend="${active == 'subjects'} ? 'on' : ''">사람의 역할</a>
         <a th:href="@{/page/employees/new}" th:classappend="${active == 'employees'} ? 'on' : ''">직원 등록</a>
         <form class="logout" method="post" th:action="@{/page/logout}">
             <button type="submit">로그아웃</button>

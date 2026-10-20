@@ -30,10 +30,10 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 운영 화면에서 역할의 권한을 고치면 그 역할을 가진 사람의 다음 토큰에 그대로 실리는지 본다.
+ * 운영 화면에서 역할의 권한이나 사람의 역할을 고치면 그 사람의 다음 토큰에 그대로 실리는지 본다.
  *
- * <p>화면이 저장만 하고 끝나는지가 아니라, 고친 것이 토큰의 {@code resource_access} 까지 가는지가 이 화면의
- * 쓸모라 끝까지 밟는다.
+ * <p>화면이 저장만 하고 끝나는지가 아니라, 고친 것이 토큰의 {@code realm_access}, {@code resource_access} 까지
+ * 가는지가 이 화면들의 쓸모라 끝까지 밟는다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("local")
@@ -106,6 +106,47 @@ class RoleConsoleIntegrationTest {
         Map<String, Object> claims = payloadOf(codeFlow.portalWithPassword(email, "pw12345678").accessToken());
         assertThat(claims.get("resource_access")).isEqualTo(Map.of(
                 "customer-service", Map.of("roles", List.of("PROFILE_READ"))));
+    }
+
+    @Test
+    @DisplayName("이메일로 사람을 찾으면 그 사람과 realm 의 역할이 나온다. 없으면 없다고 한다")
+    void findsSubjectByEmail() {
+        String email = "console-find@example.com";
+        registerCustomer(email);
+
+        ResponseEntity<String> found = page("/page/subjects?realm=PORTAL&login=" + email);
+        assertThat(found.getStatusCode().value()).isEqualTo(200);
+        assertThat(found.getBody()).contains(email, "CUSTOMER");
+
+        ResponseEntity<String> missing = page("/page/subjects?realm=PORTAL&login=nobody@example.com");
+        assertThat(missing.getBody()).contains("인 사람이 없다");
+    }
+
+    @Test
+    @DisplayName("화면에서 역할을 모두 떼면 다음 토큰에는 역할도 권한도 없다")
+    void removedRolesLeaveToken() {
+        String email = "console-subject@example.com";
+        registerCustomer(email);
+        String subjectId = (String) payloadOf(codeFlow.portalWithPassword(email, "pw12345678").accessToken()).get("sub");
+
+        ResponseEntity<Void> saved = http.post().uri("/page/subjects/roles")
+                .header(HttpHeaders.COOKIE, consoleCookie)
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body("realm=PORTAL&subjectId=" + subjectId + "&login=" + email)
+                .retrieve().toBodilessEntity();
+
+        assertThat(saved.getStatusCode().value()).isEqualTo(302);
+        assertThat(saved.getHeaders().getLocation().getPath()).isEqualTo("/page/subjects");
+
+        Map<String, Object> claims = payloadOf(codeFlow.portalWithPassword(email, "pw12345678").accessToken());
+        assertThat(claims.get("realm_access")).isEqualTo(Map.of("roles", List.of()));
+        assertThat(claims.get("resource_access")).isEqualTo(Map.of());
+    }
+
+    private ResponseEntity<String> page(String path) {
+        return http.get().uri(path)
+                .header(HttpHeaders.COOKIE, consoleCookie)
+                .retrieve().toEntity(String.class);
     }
 
     private Long customerRoleId() {
