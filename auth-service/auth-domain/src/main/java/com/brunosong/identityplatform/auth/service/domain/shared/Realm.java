@@ -11,7 +11,7 @@ import java.util.Set;
  *   <li>{@link #PORTAL} — 포털 영역. 고객이 산다. 식별자는 채번한 UUID 다.</li>
  * </ul>
  *
- * 역할/권한/주체-역할/리비전, 그리고 자격증명과 신원까지 모두 realm 으로 스코프된다.
+ * 역할/권한/주체-역할, 그리고 자격증명과 신원까지 모두 realm 으로 스코프된다.
  *
  * <h2>파티션 키는 이것 하나다</h2>
  * 전에는 {@code SubjectType}(EMPLOYEE/CUSTOMER)이 따로 있었다. identity 쪽 테이블은 그것으로,
