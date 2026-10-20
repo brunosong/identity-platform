@@ -109,6 +109,32 @@ class RoleConsoleIntegrationTest {
     }
 
     @Test
+    @DisplayName("화면에서 서비스를 골라 만든 권한을 역할에 묶으면 그 서비스 칸에 실린다")
+    void createdPermissionReachesToken() {
+        assertThat(page("/page/permissions?realm=PORTAL").getBody()).contains("order-service", "customer-service");
+
+        ResponseEntity<Void> created = http.post().uri("/page/permissions")
+                .header(HttpHeaders.COOKIE, consoleCookie)
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body("realm=PORTAL&serviceId=order-service&permissionCode=ORDER_CANCEL"
+                        + "&permissionName=Cancel&category=ORDER")
+                .retrieve().toBodilessEntity();
+        assertThat(created.getStatusCode().value()).isEqualTo(302);
+
+        http.post().uri("/page/roles/" + customerRoleId() + "/permissions")
+                .header(HttpHeaders.COOKIE, consoleCookie)
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body("permissionIds=" + portalPermissionId("ORDER_CANCEL"))
+                .retrieve().toBodilessEntity();
+
+        String email = "console-permission@example.com";
+        registerCustomer(email);
+        Map<String, Object> claims = payloadOf(codeFlow.portalWithPassword(email, "pw12345678").accessToken());
+        assertThat(claims.get("resource_access")).isEqualTo(Map.of(
+                "order-service", Map.of("roles", List.of("ORDER_CANCEL"))));
+    }
+
+    @Test
     @DisplayName("이메일로 사람을 찾으면 그 사람과 realm 의 역할이 나온다. 없으면 없다고 한다")
     void findsSubjectByEmail() {
         String email = "console-find@example.com";

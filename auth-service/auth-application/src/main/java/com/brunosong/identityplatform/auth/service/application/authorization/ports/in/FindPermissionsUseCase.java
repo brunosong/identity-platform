@@ -22,4 +22,7 @@ public interface FindPermissionsUseCase {
 
     /** 화면 필터용 분류 목록. 페이지 호출 URL 분류가 맨 앞에 붙는다. */
     List<String> categories(Realm realm);
+
+    /** 그 realm 에 등록된 서비스. 권한을 만들 때 고르는 칸이다. */
+    List<String> services(Realm realm);
 }

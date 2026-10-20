@@ -69,7 +69,7 @@ public class PermissionAdminApiController {
     @ResponseStatus(HttpStatus.CREATED)
     public PermissionView create(@RequestParam Realm realm,
                                  @Valid @RequestBody CreatePermissionRequest body) {
-        return createPermission.create(new CreatePermissionCommand(realm, body.permissionCode(),
+        return createPermission.create(new CreatePermissionCommand(realm, body.serviceId(), body.permissionCode(),
                 body.permissionName(), body.category(), body.description()));
     }
 
@@ -92,8 +92,8 @@ public class PermissionAdminApiController {
         return findPermissions.categories(realm);
     }
 
-    public record CreatePermissionRequest(@NotBlank String permissionCode, @NotBlank String permissionName,
-                                          String category, String description) {
+    public record CreatePermissionRequest(String serviceId, @NotBlank String permissionCode,
+                                          @NotBlank String permissionName, String category, String description) {
     }
 
     public record RenamePermissionRequest(@NotBlank String permissionName, String category, String description) {

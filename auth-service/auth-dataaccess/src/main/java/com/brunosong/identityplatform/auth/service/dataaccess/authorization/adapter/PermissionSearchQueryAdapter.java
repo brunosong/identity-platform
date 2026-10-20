@@ -58,4 +58,10 @@ public class PermissionSearchQueryAdapter implements PermissionSearchQuery {
     public List<String> listActiveCategories(Realm realm) {
         return permissionRepository.findActiveCategories(realm, ACTIVE);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> listActiveServices(Realm realm) {
+        return permissionRepository.findActiveServiceIds(realm.name());
+    }
 }

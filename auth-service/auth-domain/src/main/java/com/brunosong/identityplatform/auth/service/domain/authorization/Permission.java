@@ -85,7 +85,7 @@ public class Permission {
         this.active = true;
     }
 
-    /** 비활성화 — 행은 남기고 인가 판정에서만 제외한다(발급된 토큰은 리비전 bump 로 무효화). */
+    /** 비활성화 — 행은 남기고 인가 판정에서만 제외한다(이미 나간 토큰에는 access 수명 동안 남는다). */
     public void deactivate() {
         this.active = false;
     }

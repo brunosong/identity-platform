@@ -59,4 +59,9 @@ public interface AuthzPermissionJpaRepository extends JpaRepository<AuthzPermiss
             + "WHERE p.realm = :realm AND p.active = :active AND p.category IS NOT NULL "
             + "ORDER BY p.category ASC")
     List<String> findActiveCategories(@Param("realm") Realm realm, @Param("active") boolean active);
+
+    /** authz_service 는 엔티티가 없다. 이름만 읽으면 되어 네이티브로 둔다. */
+    @Query(value = "SELECT service_id FROM authz_service WHERE realm = :realm AND use_yn = 'Y' ORDER BY service_id",
+            nativeQuery = true)
+    List<String> findActiveServiceIds(@Param("realm") String realm);
 }

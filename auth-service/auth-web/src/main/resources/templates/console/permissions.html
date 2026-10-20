@@ -7,13 +7,20 @@
         body { font: 14px/1.6 system-ui, sans-serif; color: #1b1b1b; max-width: 860px; margin: 40px auto; padding: 0 20px; }
         h1 { font-size: 20px; margin-bottom: 4px; }
         p.lead { color: #555; margin-top: 0; }
-        nav.realms { margin-bottom: 16px; }
         nav.realms a { margin-right: 12px; }
         nav.realms a.on { font-weight: 700; color: #1b1b1b; text-decoration: none; }
+        form { border: 1px solid #ddd; padding: 16px 20px; margin: 24px 0; }
+        label { display: block; margin-top: 12px; font-weight: 600; }
+        label span { display: block; font-weight: 400; color: #666; font-size: 13px; }
+        input[type=text], select { width: 100%; padding: 6px 8px; border: 1px solid #bbb; font: inherit; box-sizing: border-box; }
+        button { margin-top: 16px; padding: 7px 18px; font: inherit; border: 1px solid #333; background: #333; color: #fff; cursor: pointer; }
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
         th { background: #fafafa; font-size: 13px; }
         td.code { font-family: ui-monospace, monospace; font-size: 13px; }
+        .off { color: #999; }
+        .notice { padding: 10px 14px; border-left: 3px solid #333; background: #f6f6f6; }
+        .notice.bad { border-color: #b00020; }
         .empty { color: #777; padding: 20px 0; }
     </style>
 </head>
@@ -29,19 +36,63 @@
        th:classappend="${r == realm} ? 'on' : ''"></a>
 </nav>
 
+<div class="notice" th:if="${message}" th:text="${message}"></div>
+<div class="notice bad" th:if="${error}" th:text="${error}"></div>
+
+<form method="post" th:action="@{/page/permissions}">
+    <input type="hidden" name="realm" th:value="${realm}">
+
+    <label>
+        서비스
+        <span>이 이름이 토큰의 resource_access 아래 칸이 된다. 서비스가 없으면 토큰에 실리지 않는다.</span>
+        <select name="serviceId">
+            <option th:each="service : ${services}" th:value="${service}" th:text="${service}"></option>
+            <option value="">서비스 없음 (토큰에 실리지 않음)</option>
+        </select>
+    </label>
+
+    <label>
+        코드
+        <span>서비스 안에서 하나뿐이어야 한다. 만든 뒤에는 바꿀 수 없다. 서비스가 이 코드로 판정한다.</span>
+        <input type="text" name="permissionCode" required maxlength="100" autocomplete="off">
+    </label>
+
+    <label>
+        이름
+        <span>사람이 알아보는 이름.</span>
+        <input type="text" name="permissionName" required maxlength="200" autocomplete="off">
+    </label>
+
+    <label>
+        분류
+        <span>목록을 묶어 보는 이름. 예: ORDER, CUSTOMER</span>
+        <input type="text" name="category" required maxlength="50" autocomplete="off">
+    </label>
+
+    <label>
+        설명
+        <input type="text" name="description" maxlength="500" autocomplete="off">
+    </label>
+
+    <button type="submit">만들기</button>
+</form>
+
 <table th:if="${!permissions.isEmpty()}">
     <thead>
     <tr>
         <th style="width: 8%">ID</th>
-        <th style="width: 24%">코드</th>
-        <th style="width: 24%">이름</th>
-        <th style="width: 14%">분류</th>
+        <th style="width: 18%">서비스</th>
+        <th style="width: 20%">코드</th>
+        <th style="width: 20%">이름</th>
+        <th style="width: 12%">분류</th>
         <th>설명</th>
     </tr>
     </thead>
     <tbody>
     <tr th:each="permission : ${permissions}">
         <td th:text="${permission.permissionId}"></td>
+        <td class="code" th:if="${permission.serviceId != null}" th:text="${permission.serviceId}"></td>
+        <td class="off" th:if="${permission.serviceId == null}">없음</td>
         <td class="code" th:text="${permission.permissionCode}"></td>
         <td th:text="${permission.permissionName}"></td>
         <td th:text="${permission.category}"></td>

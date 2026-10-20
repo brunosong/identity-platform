@@ -26,4 +26,7 @@ public interface PermissionSearchQuery {
 
     /** 활성 권한의 분류 목록(중복 제거, 정렬) — 검색 필터의 선택지다. */
     List<String> listActiveCategories(Realm realm);
+
+    /** 그 realm 에 등록된 활성 서비스의 이름(정렬). 권한이 속할 서비스의 선택지다. */
+    List<String> listActiveServices(Realm realm);
 }

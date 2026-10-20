@@ -18,7 +18,7 @@
  * <h2>경로가 채널을 말한다 — {@code /api/admin/**}</h2>
  * <pre>
  * /api/admin/realms/{realm}/users   계정 등록 (경로의 realm 은 대상)
- * /api/admin/rbac/**                역할·권한·URL규칙·리비전·캐시 리로드
+ * /api/admin/rbac/**                역할·권한·역할-권한 표·사람의 역할
  * </pre>
  *
  * <b>게이트웨이는 경로로 라우팅한다.</b> 그래서 채널이 접두어 하나로 모여 있어야

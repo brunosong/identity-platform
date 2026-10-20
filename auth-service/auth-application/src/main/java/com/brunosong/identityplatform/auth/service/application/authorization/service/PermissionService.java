@@ -44,7 +44,7 @@ public class PermissionService implements CreatePermissionUseCase, RenamePermiss
     @Override
     @Transactional
     public PermissionView create(CreatePermissionCommand command) {
-        Permission permission = Permission.create(command.realm(), command.permissionCode(),
+        Permission permission = Permission.create(command.realm(), command.serviceId(), command.permissionCode(),
                 command.permissionName(), command.category(), command.description());
         if (permissionRepository.exists(permission.getRealm(), permission.getServiceId(), permission.getPermissionCode())) {
             throw new PermissionAlreadyExistsException(permission.getRealm(), permission.getPermissionCode());
@@ -86,5 +86,10 @@ public class PermissionService implements CreatePermissionUseCase, RenamePermiss
     @Override
     public List<String> categories(Realm realm) {
         return permissionSearchQuery.listActiveCategories(realm);
+    }
+
+    @Override
+    public List<String> services(Realm realm) {
+        return permissionSearchQuery.listActiveServices(realm);
     }
 }
