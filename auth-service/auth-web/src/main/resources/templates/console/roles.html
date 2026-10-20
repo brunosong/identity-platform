@@ -76,7 +76,7 @@
     <tbody>
     <tr th:each="role : ${roles}">
         <td th:text="${role.roleId}"></td>
-        <td class="code" th:text="${role.roleCode}"></td>
+        <td class="code"><a th:href="@{/page/roles/{id}(id=${role.roleId})}" th:text="${role.roleCode}"></a></td>
         <td th:text="${role.roleName}"></td>
         <td th:text="${role.active} ? '사용' : '중지'" th:classappend="${role.active} ? '' : 'off'"></td>
         <td th:text="${role.permissionIds.size()}"></td>

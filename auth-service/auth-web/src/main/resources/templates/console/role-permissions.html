@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>역할의 권한</title>
+    <style>
+        body { font: 14px/1.6 system-ui, sans-serif; color: #1b1b1b; max-width: 860px; margin: 40px auto; padding: 0 20px; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        h2 { font-size: 15px; margin: 28px 0 4px; font-family: ui-monospace, monospace; }
+        h2 span { font-family: system-ui, sans-serif; font-weight: 400; color: #666; font-size: 13px; margin-left: 8px; }
+        p.lead { color: #555; margin-top: 0; }
+        button { margin-top: 24px; padding: 7px 18px; font: inherit; border: 1px solid #333; background: #333; color: #fff; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+        th { background: #fafafa; font-size: 13px; }
+        td.code { font-family: ui-monospace, monospace; font-size: 13px; }
+        .notice { padding: 10px 14px; border-left: 3px solid #333; background: #f6f6f6; }
+        .empty { color: #777; padding: 20px 0; }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{console/fragments :: menu('roles')}"></div>
+
+<p><a th:href="@{/page/roles(realm=${role.realm})}" th:text="'< ' + ${role.realm} + ' 역할 목록'"></a></p>
+
+<h1 th:text="${role.roleName} + ' (' + ${role.roleCode} + ')'"></h1>
+<p class="lead">
+    이 역할을 가진 사람의 토큰에 체크한 권한이 실린다. 서비스 이름이 토큰의
+    resource_access 아래 칸 이름이 된다. 이미 나간 토큰은 바뀌지 않고, 다음 발급이나 갱신부터 반영된다.
+</p>
+
+<div class="notice" th:if="${message}" th:text="${message}"></div>
+
+<form method="post" th:action="@{/page/roles/{id}/permissions(id=${role.roleId})}"
+      th:if="${!permissionsByService.isEmpty()}">
+
+    <th:block th:each="entry : ${permissionsByService}">
+        <h2 th:if="${entry.key != ''}" th:text="${entry.key}"></h2>
+        <h2 th:if="${entry.key == ''}">서비스 없음<span>토큰에 실리지 않는다</span></h2>
+
+        <table>
+            <thead>
+            <tr>
+                <th style="width: 6%"></th>
+                <th style="width: 30%">코드</th>
+                <th style="width: 34%">이름</th>
+                <th>분류</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="permission : ${entry.value}">
+                <td>
+                    <input type="checkbox" name="permissionIds"
+                           th:id="'p' + ${permission.permissionId}"
+                           th:value="${permission.permissionId}"
+                           th:checked="${permission.assigned}">
+                </td>
+                <td class="code"><label th:for="'p' + ${permission.permissionId}" th:text="${permission.permissionCode}"></label></td>
+                <td th:text="${permission.permissionName}"></td>
+                <td th:text="${permission.category}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </th:block>
+
+    <button type="submit">저장</button>
+</form>
+
+<p class="empty" th:if="${permissionsByService.isEmpty()}" th:text="${role.realm} + ' 에는 아직 권한이 없다.'"></p>
+
+</body>
+</html>

@@ -15,6 +15,7 @@ final class PermissionViewMapper {
         return new PermissionView(
                 entity.getPermissionId(),
                 entity.getRealm(),
+                entity.getServiceId(),
                 entity.getPermissionCode(),
                 entity.getPermissionName(),
                 entity.getCategory(),

@@ -1,9 +1,13 @@
 package com.brunosong.identityplatform.auth.service.web.admin.console;
 
+import com.brunosong.identityplatform.auth.service.application.authorization.exception.AuthorizationNotFoundException;
 import com.brunosong.identityplatform.auth.service.application.authorization.exception.RoleAlreadyExistsException;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.CreateRoleUseCase;
+import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.FindRolePermissionsUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.FindRolesUseCase;
+import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.ReplaceRolePermissionsUseCase;
 import com.brunosong.identityplatform.auth.service.application.authorization.ports.in.command.CreateRoleCommand;
+import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.RolePermissionView;
 import com.brunosong.identityplatform.auth.service.application.authorization.readmodel.RoleView;
 import com.brunosong.identityplatform.auth.service.domain.shared.Realm;
 import lombok.RequiredArgsConstructor;
@@ -11,10 +15,17 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * 역할을 보고 새로 만드는 운영 화면.
@@ -33,6 +44,8 @@ public class RoleConsoleController {
 
     private final FindRolesUseCase findRoles;
     private final CreateRoleUseCase createRole;
+    private final FindRolePermissionsUseCase findRolePermissions;
+    private final ReplaceRolePermissionsUseCase replaceRolePermissions;
 
     @GetMapping
     public String list(@RequestParam(defaultValue = "ADMIN") Realm realm, Model model) {
@@ -57,5 +70,46 @@ public class RoleConsoleController {
         }
         attributes.addAttribute("realm", realm);
         return "redirect:/page/roles";
+    }
+
+    /**
+     * 역할 하나에 묶인 권한을 고치는 화면. 그 realm 의 권한을 서비스별로 묶어 보여 준다. 서비스가 곧
+     * 토큰의 {@code resource_access} 칸이라, 여기서 고친 것이 토큰의 어느 칸으로 가는지 보이게 하려는 것이다.
+     */
+    @GetMapping("/{roleId}")
+    public String detail(@PathVariable Long roleId, Model model) {
+        RoleView role = findRoles.byId(roleId).orElseThrow(() -> AuthorizationNotFoundException.role(roleId));
+        List<RolePermissionView> permissions = findRolePermissions.forRole(roleId).permissions();
+
+        model.addAttribute("role", role);
+        model.addAttribute("permissionsByService", groupByService(permissions));
+        return "console/role-permissions";
+    }
+
+    /** 체크된 것으로 통째로 바꾼다. 하나도 체크하지 않으면 칸이 오지 않으니 빈 목록으로 받는다. */
+    @PostMapping("/{roleId}/permissions")
+    public String replacePermissions(@PathVariable Long roleId,
+                                     @RequestParam(required = false) List<Long> permissionIds,
+                                     RedirectAttributes attributes) {
+        replaceRolePermissions.replace(roleId, permissionIds == null ? List.of() : permissionIds);
+        attributes.addFlashAttribute("message", "권한을 저장했다. 다음 토큰 발급부터 실린다.");
+        return "redirect:/page/roles/" + roleId;
+    }
+
+    /** 서비스 이름 순. 서비스가 없는 권한은 토큰에 실리지 않으니 따로 맨 뒤에 둔다(키는 빈 문자열). */
+    private static Map<String, List<RolePermissionView>> groupByService(List<RolePermissionView> permissions) {
+        List<RolePermissionView> withService = permissions.stream()
+                .filter(permission -> permission.serviceId() != null)
+                .toList();
+        List<RolePermissionView> withoutService = permissions.stream()
+                .filter(permission -> permission.serviceId() == null)
+                .toList();
+
+        Map<String, List<RolePermissionView>> grouped = new LinkedHashMap<>(
+                new TreeMap<>(withService.stream().collect(Collectors.groupingBy(RolePermissionView::serviceId))));
+        if (!withoutService.isEmpty()) {
+            grouped.put("", withoutService);
+        }
+        return grouped;
     }
 }
