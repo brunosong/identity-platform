@@ -73,7 +73,7 @@ Admin REST API 와 같은 자리). 직원(ADMIN)이나 고객(PORTAL) 토큰은 
 | GET | `/permissions/page` | `realm`, `keyword`, `page`, `size` | | 200 쪽 |
 | GET | `/permissions/categories` | `realm` | | 200 |
 | GET | `/permissions/{permissionId}` | | | 200, 없으면 404 |
-| POST | `/permissions` | `realm` | `permissionCode`, `permissionName`, `category`, `description` | 201, 같은 코드면 409 |
+| POST | `/permissions` | `realm` | `serviceId`, `permissionCode`, `permissionName`, `category`, `description` | 201, 같은 코드면 409 |
 | PUT | `/permissions/{permissionId}` | | `permissionName`, `category`, `description` | 200 |
 | DELETE | `/permissions/{permissionId}` | | | 204 |
 
@@ -111,7 +111,7 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 | POST | `/page/roles/{roleId}/permissions` | 체크한 권한으로 통째로 바꾼다 |
 | GET | `/page/subjects` | 이메일이나 로그인 아이디로 사람을 찾아(`?realm=&login=`) 역할을 보여 준다 |
 | POST | `/page/subjects/roles` | 그 사람의 역할을 체크한 것으로 통째로 바꾼다 |
-| GET | `/page/permissions` | 권한 목록(`?realm=`). 보기만 한다 |
+| GET, POST | `/page/permissions` | 권한 목록(`?realm=`)과 추가. 서비스는 그 realm 의 것 중에서 고른다 |
 | GET | `/page/employees/new` | 직원 등록 화면. 직원 realm 의 역할을 함께 고른다 |
 | POST | `/page/employees` | 직원 계정을 만들고 역할을 준다 |
 | GET | `/page/login/callback` | 로그인이 돌아오는 자리 |
