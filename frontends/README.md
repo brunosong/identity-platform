@@ -271,7 +271,6 @@ auth 운영 화면에 있다. 직원 토큰으로 관리 API 를 불러도 401 �
 
 ## 아직 없는 것
 
-- **게이트웨이** — 두 앱 모두 auth-service 를 직접 부른다. URL 단위 인가
-  (`authz_url_access`, `CheckAccessUseCase`)를 시행할 주체가 아직 없다.
+- **게이트웨이** — 두 앱 모두 auth-service 를 직접 부른다.
 - **직원 앱에서 다른 서비스 부르기** — 고객 포털은 customer-service 를 부르지만(그래서 토큰을
   들고 다른 서비스로 가는 흐름이 보인다) 직원 앱이 상대하는 서비스는 auth 뿐이다.

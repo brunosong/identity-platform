@@ -42,7 +42,7 @@
 때마다 다시 읽어서 refresh 하면 바뀐 값이 실린다.
 
 이 저장소는 4번에서 왔다. auth 의 `authz_url_access` 와 `CheckAccessUseCase` 가 요청마다 묻는
-방식이었다. 지금은 auth 콘솔 자신(MASTER)을 지키는 데만 쓴다.
+방식이었다. 부르는 곳이 없어져 2026-10-20 에 지웠다.
 
 ## url-access 는 서비스 코드에 있다
 
@@ -129,7 +129,6 @@ order-service  CUSTOMER -> [ORDER_READ, ORDER_WRITE]   자기 service_id 몫만 
 - **1번 API 의 인증.** 서비스가 부르는 API 라 서비스 자신의 인증(client credentials)이 필요하다.
   처음부터 만들지, 로컬에서는 열어 두고 시작할지
 - **갱신 방식.** 주기적으로 다시 받기로 시작하고, 즉시 반영이 필요해지면 이벤트로 바꾼다
-- **`authz_url_access` 의 앞날.** auth 콘솔 자신의 URL 이라 위 표의 문제가 없다. 남겨도 된다
 - **데이터 단위 공유.** "이 주문을 가족과 공유" 같은 요구가 생기면 역할로는 안 된다. 그때 4번의
   관계 기반(OpenFGA)을 본다
 

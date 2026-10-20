@@ -76,8 +76,6 @@ Admin REST API 와 같은 자리). 직원(ADMIN)이나 고객(PORTAL) 토큰은 
 | POST | `/permissions` | `realm` | `permissionCode`, `permissionName`, `category`, `description` | 201, 같은 코드면 409 |
 | PUT | `/permissions/{permissionId}` | | `permissionName`, `category`, `description` | 200 |
 | DELETE | `/permissions/{permissionId}` | | | 204 |
-| GET | `/permissions/{permissionId}/url-access` | | | 200 |
-| PUT | `/permissions/{permissionId}/url-access` | `realm` | `urls` (통째로 교체) | 204 |
 
 **역할과 권한 표** `/api/admin/rbac/matrix`
 
@@ -94,24 +92,10 @@ Admin REST API 와 같은 자리). 직원(ADMIN)이나 고객(PORTAL) 토큰은 
 | POST | `/subjects/roles` | `realm` | `subjectIds` (여럿을 한 번에 조회) | 200 |
 | PUT | `/subjects/{subjectId}/roles` | `realm` | `roleIds` (통째로 교체) | 204 |
 
-**URL 규칙** `/api/admin/rbac/url-access` (부르는 곳이 없는 판정 엔진의 표, [권한 관리](권한-관리.md))
-
-| 메서드 | 경로 | 질의 | 본문 | 응답 |
-|---|---|---|---|---|
-| GET | `/url-access` | `realm`, `keyword`, `category`, `page`, `size` | | 200 쪽 |
-| GET | `/registered-urls` | `realm` | | 200 전체 |
-| GET | `/url-access/{urlAccessId}` | | | 200, 없으면 404 |
-| POST | `/url-access` | `realm` | `urlPattern`, `httpMethod`, `description`, `sortOrder` | 201 |
-| PUT | `/url-access/{urlAccessId}` | | `description`, `sortOrder` | 200 |
-| DELETE | `/url-access/{urlAccessId}` | `realm` | | 204 |
-| POST | `/reload-url-rules` | `realm` | | 204 |
-
 **그 밖**
 
 | 메서드 | 경로 | 질의 | 본문 | 응답 |
 |---|---|---|---|---|
-| GET | `/api/admin/rbac/revision` | `realm` | | 200 |
-| POST | `/api/admin/rbac/revision/bump` | `realm` | | 200 |
 | POST | `/api/admin/realms/admin/users` | | `employeeId`, `name`, `email`, `mobile`, `roleIds` 등 | 201. 대상 realm 은 지금 admin 뿐 |
 
 ## 운영 화면
@@ -151,10 +135,8 @@ local 프로파일에서만 뜬다. 로그인과 쿠키는 [운영 화면 로그
 | 어디 | 무엇이 | 이렇게 하면 맞다 |
 |---|---|---|
 | `POST /matrix/toggle` | 동사다. 같은 요청을 두 번 보내면 결과가 뒤집힌다 | `PUT`, `DELETE /roles/{roleId}/permissions/{permissionId}` |
-| `POST /revision/bump`, `POST /reload-url-rules` | 동사 경로(RPC) | 관리 동작이라 남겨도 된다. 남길 거면 이름을 `/actions/...` 처럼 한곳에 모은다 |
-| `GET /permissions/page`, `GET /registered-urls` | 같은 집합을 두 경로로 준다 | `GET /permissions?page=&size=` 하나로. 쪽 질의가 없으면 전체 |
+| `GET /permissions/page` | `GET /permissions` 와 같은 집합을 두 경로로 준다 | `GET /permissions?page=&size=` 하나로. 쪽 질의가 없으면 전체 |
 | realm 표기 | 경로는 `/realms/admin`, 질의는 `?realm=ADMIN`. 대소문자가 다르다 | 한쪽으로 맞춘다. 질의도 소문자를 받게 하는 쪽이 쉽다 |
-| realm 을 받는 자리 | `DELETE /url-access/{id}` 는 `realm` 을 받고 `DELETE /roles/{id}` 는 안 받는다 | id 로 찾는 자원은 realm 을 받지 않게 맞춘다 |
 | `POST /subjects/roles` | 조회인데 POST 다 | id 목록이 길 수 있어 흔히 쓰는 예외다. 남긴다면 이유를 컨트롤러에 적는다 |
 | 버전 | 경로에 버전이 없다 | 밖에 공개할 API 가 생기면 그때 `/v1` 을 붙인다. 지금은 우리 앱만 부른다 |
 
